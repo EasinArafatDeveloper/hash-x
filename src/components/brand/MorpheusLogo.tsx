@@ -6,35 +6,26 @@ interface MorpheusLogoProps {
   variant?: 'full' | 'compact' | 'icon-only';
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
-  showBadge?: boolean;
 }
 
 export function MorpheusLogo({
   variant = 'full',
   size = 'md',
   className = '',
-  showBadge = true,
 }: MorpheusLogoProps) {
   // Size mappings
   const iconSizes = {
     sm: 'w-7 h-7',
     md: 'w-8 h-8',
-    lg: 'w-10 h-10',
-    xl: 'w-12 h-12',
+    lg: 'w-9 h-9',
+    xl: 'w-11 h-11',
   };
 
   const textSizes = {
     sm: 'text-sm',
     md: 'text-base',
-    lg: 'text-xl',
-    xl: 'text-2xl',
-  };
-
-  const badgeSizes = {
-    sm: 'text-[9px] px-1.5 py-0.5',
-    md: 'text-[10px] px-1.5 py-0.5',
-    lg: 'text-[11px] px-2 py-0.5',
-    xl: 'text-xs px-2.5 py-1',
+    lg: 'text-lg',
+    xl: 'text-xl',
   };
 
   return (
@@ -98,33 +89,13 @@ export function MorpheusLogo({
         </svg>
       </div>
 
-      {/* Typography & Brand Name */}
+      {/* Pure Typography & Clean Brand Name ONLY */}
       {variant !== 'icon-only' && (
-        <div className="flex items-center gap-2">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`font-black tracking-wider uppercase font-sans ${textSizes[size]} bg-gradient-to-r from-gray-950 via-slate-800 to-gray-700 dark:from-white dark:via-gray-100 dark:to-gray-300 bg-clip-text text-transparent`}
-              >
-                MORPHEUS
-              </span>
-
-              {showBadge && (
-                <span
-                  className={`rounded-full font-bold uppercase tracking-widest bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 ${badgeSizes[size]}`}
-                >
-                  DATA OS
-                </span>
-              )}
-            </div>
-
-            {size === 'lg' || size === 'xl' ? (
-              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 tracking-widest uppercase">
-                Enterprise Intelligence
-              </span>
-            ) : null}
-          </div>
-        </div>
+        <span
+          className={`font-black tracking-wider uppercase font-sans ${textSizes[size]} bg-gradient-to-r from-gray-950 via-slate-800 to-gray-700 dark:from-white dark:via-gray-100 dark:to-gray-300 bg-clip-text text-transparent`}
+        >
+          MORPHEUS
+        </span>
       )}
     </div>
   );

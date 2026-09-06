@@ -332,10 +332,7 @@ export function UploadProgress({
 
             <div className="flex items-center gap-2 text-xs font-bold text-slate-300 tracking-wide">
               <Terminal className="w-3.5 h-3.5 text-brand-400" />
-              <span>MORPHEUS INGESTION TELEMETRY CONSOLE</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                v2.5.0
-              </span>
+              <span>MORPHEUS</span>
             </div>
           </div>
 

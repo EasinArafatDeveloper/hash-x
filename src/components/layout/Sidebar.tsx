@@ -79,7 +79,6 @@ export function Sidebar({
           <MorpheusLogo
             variant={collapsed ? 'icon-only' : 'full'}
             size="md"
-            showBadge={!collapsed}
           />
         </Link>
 
