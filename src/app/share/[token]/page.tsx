@@ -74,6 +74,33 @@ const STATUS_BADGES: Record<string, { bg: string; dot: string }> = {
   },
 };
 
+function getSafeDisplayName(name?: string, phone?: string): string {
+  const rawName = (name || '').trim();
+  const rawPhone = (phone || '').trim();
+  const isPhoneMasked = rawPhone.includes('*');
+
+  if (!rawName) {
+    return rawPhone ? `User (${rawPhone})` : 'Verified Contact';
+  }
+
+  if (isPhoneMasked) {
+    if (rawName.startsWith('User (') && rawName.endsWith(')')) {
+      const inner = rawName.slice(6, -1).trim();
+      return `User (${inner.includes('*') ? inner : rawPhone || '***'})`;
+    }
+    // Replace unmasked phone sequences (8801XXXXXXXXX or 01XXXXXXXXX) with masked phone
+    return rawName.replace(/\b(\+?88)?01\d{8,9}\b/g, (match) => {
+      if (match.length <= 6) return '***';
+      const isPlus = match.startsWith('+');
+      const pLen = isPlus ? 5 : 4;
+      const sLen = 3;
+      return match.slice(0, pLen) + '******' + match.slice(-sLen);
+    });
+  }
+
+  return rawName;
+}
+
 export default function SecureSharePage({ params }: { params: { token: string } }) {
   const { token } = params;
 
@@ -691,6 +718,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredRecords.map((record, index) => {
                 const badge = STATUS_BADGES[record.status || 'Active'] || STATUS_BADGES.Active;
+                const safeName = getSafeDisplayName(record.name, record.phone);
 
                 return (
                   <motion.div
@@ -725,14 +753,14 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                           />
                         ) : (
                           <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-500 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-sm shadow-brand-600/20">
-                            {record.name ? record.name.slice(0, 2).toUpperCase() : 'U'}
+                            {safeName && !safeName.startsWith('User (') ? safeName.slice(0, 2).toUpperCase() : 'UC'}
                           </div>
                         )}
 
                         {/* Name & Email */}
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-gray-900 text-sm truncate group-hover:text-brand-600 transition-colors">
-                            {record.name || 'Unnamed Contact'}
+                            {safeName}
                           </h4>
                           {record.email ? (
                             <p className="text-[11px] text-gray-500 truncate flex items-center gap-1 mt-0.5">
@@ -813,6 +841,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredRecords.map((record, index) => {
+                      const safeName = getSafeDisplayName(record.name, record.phone);
                       return (
                         <tr
                           key={index}
@@ -834,12 +863,12 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                                 />
                               ) : (
                                 <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-700 font-bold flex items-center justify-center text-xs shrink-0 border border-brand-200">
-                                  {record.name?.[0] || 'U'}
+                                  {safeName && !safeName.startsWith('User (') ? safeName[0] : 'U'}
                                 </div>
                               )}
                               <div>
                                 <div className="font-bold text-gray-900 text-xs">
-                                  {record.name || 'Unnamed Contact'}
+                                  {safeName}
                                 </div>
                                 {record.email && (
                                   <div className="text-[11px] text-gray-500 flex items-center gap-1">

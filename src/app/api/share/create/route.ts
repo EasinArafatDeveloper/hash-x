@@ -25,21 +25,51 @@ function maskPhoneNumber(phone: string): string {
     return trimmed.slice(0, 2) + '***' + trimmed.slice(-1);
   }
 
-  // Handle standard 10-15 digit phone numbers (e.g. 01712345678 -> 0171****678)
+  // Handle standard 10-15 digit phone numbers (e.g. 8801737372320 -> 8801******320)
   const isPlus = trimmed.startsWith('+');
-  const prefixLength = isPlus ? 5 : 4; // e.g. +8801 or 0171
-  const suffixLength = 3; // e.g. 678
+  const prefixLength = isPlus ? 5 : 4; // e.g. +8801 or 8801 or 0171
+  const suffixLength = 3; // e.g. 320
 
   if (trimmed.length > prefixLength + suffixLength) {
     const maskLength = trimmed.length - prefixLength - suffixLength;
     return (
       trimmed.slice(0, prefixLength) +
-      '*'.repeat(Math.max(3, maskLength)) +
+      '*'.repeat(Math.max(4, maskLength)) +
       trimmed.slice(-suffixLength)
     );
   }
 
   return trimmed.slice(0, 2) + '***' + trimmed.slice(-2);
+}
+
+function sanitizeNameWithMasking(name: string, rawPhone: string): string {
+  if (!name || !name.trim()) {
+    return rawPhone ? `User (${maskPhoneNumber(rawPhone)})` : 'Verified Contact';
+  }
+
+  let result = name.trim();
+
+  // 1. If name is exactly "User (PHONE)", mask the inner phone
+  if (result.startsWith('User (') && result.endsWith(')')) {
+    const inner = result.slice(6, -1).trim();
+    return `User (${maskPhoneNumber(inner || rawPhone)})`;
+  }
+
+  // 2. If name contains the rawPhone string, replace it with masked phone
+  if (rawPhone && rawPhone.trim().length >= 7 && result.includes(rawPhone.trim())) {
+    result = result.split(rawPhone.trim()).join(maskPhoneNumber(rawPhone));
+  }
+
+  // 3. If name contains any phone-like sequence of digits (e.g. 8801XXXXXXXXX or 01XXXXXXXXX)
+  result = result.replace(/\b(\+?88)?01\d{8,9}\b/g, (match) => maskPhoneNumber(match));
+
+  // 4. If name itself is purely digits/symbols
+  const cleanDigits = result.replace(/[\s\+\-\(\)]/g, '');
+  if (cleanDigits.length >= 7 && /^\d+$/.test(cleanDigits)) {
+    return maskPhoneNumber(result);
+  }
+
+  return result;
 }
 
 export async function POST(request: NextRequest) {
@@ -236,8 +266,13 @@ export async function POST(request: NextRequest) {
     const recordsSnapshot = matchingRecords.map((r: any) => {
       const rawPhone = r.phone || '';
       const finalPhone = shouldMask ? maskPhoneNumber(rawPhone) : rawPhone;
+      const rawName = r.name || '';
+      const finalName = shouldMask
+        ? sanitizeNameWithMasking(rawName, rawPhone)
+        : rawName || 'Unnamed';
+
       return {
-        name: r.name || 'Unnamed',
+        name: finalName,
         phone: finalPhone,
         email: r.email || '',
         age: r.age || 0,

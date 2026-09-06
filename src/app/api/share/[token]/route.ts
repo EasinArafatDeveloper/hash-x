@@ -5,6 +5,58 @@ import ShareLinkModel from '@/lib/models/ShareLink';
 
 export const dynamic = 'force-dynamic';
 
+function maskPhoneNumber(phone: string): string {
+  if (!phone) return '';
+  const trimmed = String(phone).trim();
+  if (trimmed.length <= 4) return '***';
+  if (trimmed.length <= 6) return trimmed.slice(0, 2) + '***' + trimmed.slice(-1);
+  const isPlus = trimmed.startsWith('+');
+  const prefixLength = isPlus ? 5 : 4;
+  const suffixLength = 3;
+  if (trimmed.length > prefixLength + suffixLength) {
+    const maskLength = trimmed.length - prefixLength - suffixLength;
+    return (
+      trimmed.slice(0, prefixLength) +
+      '*'.repeat(Math.max(4, maskLength)) +
+      trimmed.slice(-suffixLength)
+    );
+  }
+  return trimmed.slice(0, 2) + '***' + trimmed.slice(-2);
+}
+
+function sanitizeSnapshotRecords(records: any[], isMasked: boolean) {
+  if (!Array.isArray(records)) return [];
+  return records.map((r) => {
+    let phone = r.phone || '';
+    let name = r.name || '';
+    const isPhoneMasked = isMasked || phone.includes('*');
+
+    if (isPhoneMasked) {
+      if (!phone.includes('*')) {
+        phone = maskPhoneNumber(phone);
+      }
+      if (!name || !name.trim()) {
+        name = `User (${phone})`;
+      } else if (name.startsWith('User (') && name.endsWith(')')) {
+        const inner = name.slice(6, -1);
+        name = `User (${inner.includes('*') ? inner : maskPhoneNumber(inner)})`;
+      } else {
+        name = name.replace(/\b(\+?88)?01\d{8,9}\b/g, (match: string) => maskPhoneNumber(match));
+        const cleanDigits = name.replace(/[\s\+\-\(\)]/g, '');
+        if (cleanDigits.length >= 7 && /^\d+$/.test(cleanDigits)) {
+          name = maskPhoneNumber(name);
+        }
+      }
+    }
+
+    return {
+      ...r,
+      name,
+      phone,
+    };
+  });
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { token: string } }
@@ -113,7 +165,10 @@ export async function GET(
       success: true,
       title: shareLink.title,
       recordCount: shareLink.recordCount,
-      records: shareLink.recordsSnapshot,
+      records: sanitizeSnapshotRecords(
+        shareLink.recordsSnapshot,
+        Boolean(shareLink.maskPhoneNumbers)
+      ),
       viewCount: shareLink.viewCount,
       maxViews: shareLink.maxViews,
       isOneTime: shareLink.maxViews === 1,
@@ -260,7 +315,10 @@ export async function POST(
       success: true,
       title: shareLink.title,
       recordCount: shareLink.recordCount,
-      records: shareLink.recordsSnapshot,
+      records: sanitizeSnapshotRecords(
+        shareLink.recordsSnapshot,
+        Boolean(shareLink.maskPhoneNumbers)
+      ),
       viewCount: shareLink.viewCount,
       maxViews: shareLink.maxViews,
       isOneTime: shareLink.maxViews === 1,
