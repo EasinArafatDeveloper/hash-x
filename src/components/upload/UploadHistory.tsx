@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { IDatasetSummary } from '@/types';
 import { DatasetAuditModal } from './DatasetAuditModal';
+import { DatasetDeleteModal } from './DatasetDeleteModal';
 
 interface UploadHistoryProps {
   refreshKey?: number;
@@ -31,7 +32,6 @@ interface UploadHistoryProps {
 export function UploadHistory({ refreshKey = 0, onDatasetDeleted }: UploadHistoryProps) {
   const [datasets, setDatasets] = useState<IDatasetSummary[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [datasetToDelete, setDatasetToDelete] = useState<IDatasetSummary | null>(null);
   const [selectedAuditDataset, setSelectedAuditDataset] = useState<IDatasetSummary | null>(null);
 
@@ -54,33 +54,7 @@ export function UploadHistory({ refreshKey = 0, onDatasetDeleted }: UploadHistor
     fetchDatasets();
   }, [fetchDatasets, refreshKey]);
 
-  const handleDelete = async () => {
-    if (!datasetToDelete?._id) return;
 
-    setIsDeleting(true);
-    try {
-      const res = await fetch(`/api/data/datasets?id=${datasetToDelete._id}`, {
-        method: 'DELETE',
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        toast.success(
-          data.message || `Deleted "${datasetToDelete.filename}" and its records successfully.`
-        );
-        setDatasetToDelete(null);
-        await fetchDatasets();
-        if (onDatasetDeleted) onDatasetDeleted();
-      } else {
-        throw new Error(data.error || 'Failed to delete dataset');
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Deletion failed. Please try again.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   const getFileIcon = (filename: string) => {
     const isExcel = filename.endsWith('.xlsx') || filename.endsWith('.xls');
@@ -248,94 +222,20 @@ export function UploadHistory({ refreshKey = 0, onDatasetDeleted }: UploadHistor
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Live Dataset Purge & Delete Telemetry Modal */}
       <AnimatePresence>
         {datasetToDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => !isDeleting && setDatasetToDelete(null)}
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
-            />
-
-            {/* Modal Box */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="relative z-10 w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 p-6 shadow-2xl space-y-5"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-gray-900 dark:text-white leading-tight">
-                    Delete File & Remove Data?
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    This action will permanently delete the uploaded file and all records that came with it.
-                  </p>
-                </div>
-              </div>
-
-              {/* Target File summary card */}
-              <div className="p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/60 space-y-1.5 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-gray-900 dark:text-gray-100 truncate">
-                    {datasetToDelete.filename}
-                  </span>
-                  <span className="font-bold text-rose-600 dark:text-rose-400">
-                    {(datasetToDelete.totalRecords || 0).toLocaleString()} records
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-500">
-                  Size: {datasetToDelete.fileSize || 'Unknown'} &bull; Uploaded:{' '}
-                  {datasetToDelete.uploadedAt
-                    ? new Date(datasetToDelete.uploadedAt).toLocaleDateString()
-                    : 'Recently'}
-                </p>
-              </div>
-
-              <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
-                ⚠️ Warning: Deleting this file will remove all its records from the database and recalculate system metrics immediately.
-              </p>
-
-              {/* Modal Buttons */}
-              <div className="flex items-center justify-end space-x-3 pt-2">
-                <button
-                  type="button"
-                  disabled={isDeleting}
-                  onClick={() => setDatasetToDelete(null)}
-                  className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={isDeleting}
-                  onClick={handleDelete}
-                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/30 flex items-center gap-2 transition-all disabled:opacity-70 cursor-pointer"
-                >
-                  {isDeleting ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Deleting File & Data...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Yes, Delete File & Data</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          </div>
+          <DatasetDeleteModal
+            dataset={datasetToDelete}
+            onClose={() => setDatasetToDelete(null)}
+            onDeleted={async () => {
+              setDatasetToDelete(null);
+              await fetchDatasets();
+              if (onDatasetDeleted) onDatasetDeleted();
+            }}
+          />
         )}
+
         {/* Dataset Match & Audit Details Modal */}
         {selectedAuditDataset && (
           <DatasetAuditModal
