@@ -267,7 +267,7 @@ export function ShareLinkModal({
                         }}
                         className={`p-3 rounded-2xl border text-left transition-all ${
                           isOneTime
-                            ? 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 ring-2 ring-rose-500/20'
+                            ? 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 ring-2 ring-rose-500/20 shadow-xs'
                             : 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:bg-gray-100'
                         }`}
                       >
@@ -278,7 +278,7 @@ export function ShareLinkModal({
                           {isOneTime && <Check className="w-3.5 h-3.5 text-rose-600" />}
                         </div>
                         <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                          Self-destructs immediately after recipient opens it once.
+                          Self-destructs immediately after opening once.
                         </p>
                       </button>
 
@@ -286,39 +286,77 @@ export function ShareLinkModal({
                         type="button"
                         onClick={() => {
                           setIsOneTime(false);
-                          setMaxViews(3);
+                          if (maxViews <= 1) setMaxViews(2);
                         }}
                         className={`p-3 rounded-2xl border text-left transition-all ${
                           !isOneTime
-                            ? 'bg-brand-50/80 dark:bg-brand-950/40 border-brand-300 dark:border-brand-800 ring-2 ring-brand-500/20'
+                            ? 'bg-brand-50/80 dark:bg-brand-950/40 border-brand-300 dark:border-brand-800 ring-2 ring-brand-500/20 shadow-xs'
                             : 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:bg-gray-100'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-brand-600 dark:text-brand-400 text-xs">
-                            Multi-View Limit
+                          <span className="font-bold text-brand-600 dark:text-brand-400 text-xs flex items-center gap-1">
+                            👥 Multi-View Limit
                           </span>
                           {!isOneTime && <Check className="w-3.5 h-3.5 text-brand-600" />}
                         </div>
                         <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                          Set a custom maximum view count before burning.
+                          Expires after exact number of views (e.g. 2, 3...).
                         </p>
                       </button>
                     </div>
 
                     {!isOneTime && (
-                      <div className="pt-2 flex items-center gap-3">
-                        <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400">
-                          Maximum Views:
-                        </span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="50"
-                          value={maxViews}
-                          onChange={(e) => setMaxViews(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                          className="w-20 px-3 py-1.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-bold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                        />
+                      <div className="p-3 rounded-2xl bg-brand-50/50 dark:bg-brand-950/30 border border-brand-200/70 dark:border-brand-900/60 space-y-2 animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200">
+                            Select Allowed View Count:
+                          </span>
+                          <span className="font-mono text-xs font-black text-brand-600 dark:text-brand-400 bg-brand-100 dark:bg-brand-900/60 px-2 py-0.5 rounded-md">
+                            {maxViews} {maxViews === 1 ? 'View' : 'Views'}
+                          </span>
+                        </div>
+
+                        {/* Quick Preset Buttons */}
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {[2, 3, 5, 10].map((count) => (
+                            <button
+                              key={count}
+                              type="button"
+                              onClick={() => setMaxViews(count)}
+                              className={`py-1.5 rounded-xl font-mono text-xs font-bold border transition-all ${
+                                maxViews === count
+                                  ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
+                                  : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              {count}x
+                            </button>
+                          ))}
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              value={maxViews}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                setMaxViews(isNaN(val) || val < 1 ? 1 : Math.min(val, 100));
+                              }}
+                              title="Custom view count"
+                              placeholder="Custom"
+                              className={`w-full py-1.5 px-2 text-center rounded-xl font-mono text-xs font-bold border focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white dark:bg-slate-800 ${
+                                ![2, 3, 5, 10].includes(maxViews)
+                                  ? 'border-brand-500 text-brand-600 dark:text-brand-400 bg-brand-50/40'
+                                  : 'border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300'
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        <p className="text-[10px] text-brand-700 dark:text-brand-300 font-medium">
+                          ⚡ <strong>Exact Protection:</strong> Link will be accessible exactly <strong>{maxViews} times</strong>. On the <strong>{maxViews + 1}th</strong> attempt, it will immediately self-destruct and become inaccessible.
+                        </p>
                       </div>
                     )}
                   </div>

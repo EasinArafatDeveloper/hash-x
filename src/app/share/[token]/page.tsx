@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Lock,
   Flame,
@@ -47,6 +47,8 @@ interface ShareData {
   records: SharedRecord[];
   isBurned: boolean;
   isOneTime: boolean;
+  viewCount?: number;
+  maxViews?: number;
   expiresAt: string;
   createdBy: string;
   sessionWatermark: string;
@@ -101,8 +103,13 @@ export default function SecureSharePage({ params }: { params: { token: string } 
   const [isDevToolsDetected, setIsDevToolsDetected] = useState(false);
   const [isScreenshotAttempted, setIsScreenshotAttempted] = useState(false);
 
+  const hasFetchedRef = useRef(false);
+
   // 1. Initial Link Load
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+
     async function loadShareLink() {
       setIsLoading(true);
       setErrorInfo(null);
@@ -578,11 +585,15 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                 <h1 className="text-base font-extrabold text-gray-900 tracking-tight">
                   {shareData.title}
                 </h1>
-                {shareData.isOneTime && (
+                {shareData.isOneTime || (shareData.maxViews && shareData.maxViews === 1) ? (
                   <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black uppercase flex items-center gap-1 shadow-xs">
                     <Flame className="w-3 h-3 text-rose-600" /> One-Time View
                   </span>
-                )}
+                ) : shareData.maxViews && shareData.maxViews > 1 ? (
+                  <span className="px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 text-[10px] font-extrabold uppercase flex items-center gap-1 shadow-xs">
+                    <Users className="w-3 h-3 text-brand-600" /> View {shareData.viewCount || 1} of {shareData.maxViews}
+                  </span>
+                ) : null}
               </div>
               <p className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
                 <span>Shared by: <strong className="text-gray-700 font-semibold">{shareData.createdBy}</strong></span>
@@ -614,8 +625,10 @@ export default function SecureSharePage({ params }: { params: { token: string } 
           <div className="flex items-center gap-2.5">
             <Sparkles className="w-4 h-4 text-brand-600 shrink-0" />
             <span className="text-xs font-semibold text-gray-800">
-              {shareData.isOneTime
-                ? '🔥 Snapshot will self-destruct once page is closed/reloaded.'
+              {shareData.isOneTime || (shareData.maxViews && shareData.maxViews === 1)
+                ? '🔥 Single-Use: Snapshot will self-destruct once page is closed/reloaded.'
+                : shareData.maxViews && shareData.maxViews > 1
+                ? `👥 Active View ${shareData.viewCount || 1}/${shareData.maxViews} (${Math.max(0, (shareData.maxViews || 0) - (shareData.viewCount || 0))} view${(shareData.maxViews || 0) - (shareData.viewCount || 0) === 1 ? '' : 's'} remaining before burning)`
                 : `Showing ${filteredRecords.length} of ${shareData.recordCount} contacts`}
             </span>
           </div>

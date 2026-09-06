@@ -51,9 +51,18 @@ export async function GET(
 
     // 2. Check if link was already burned / single-use exhausted
     if (shareLink.isBurned || shareLink.viewCount >= shareLink.maxViews) {
+      if (!shareLink.isBurned) {
+        shareLink.isBurned = true;
+        await shareLink.save();
+      }
+      const burnMsg =
+        shareLink.maxViews === 1
+          ? 'This single-use secure link has already been opened and burned.'
+          : `This secure link has reached its maximum view limit (${shareLink.maxViews}/${shareLink.maxViews}) and has been permanently burned.`;
+
       return NextResponse.json(
         {
-          error: 'This single-use secure link has already been opened and burned.',
+          error: burnMsg,
           statusType: 'BURNED',
           isBurned: true,
           viewCount: shareLink.viewCount,
@@ -157,11 +166,22 @@ export async function POST(
 
     // Burn check
     if (shareLink.isBurned || shareLink.viewCount >= shareLink.maxViews) {
+      if (!shareLink.isBurned) {
+        shareLink.isBurned = true;
+        await shareLink.save();
+      }
+      const burnMsg =
+        shareLink.maxViews === 1
+          ? 'This single-use secure link has already been opened and burned.'
+          : `This secure link has reached its maximum view limit (${shareLink.maxViews}/${shareLink.maxViews}) and has been permanently burned.`;
+
       return NextResponse.json(
         {
-          error: 'This single-use secure link has already been opened and burned.',
+          error: burnMsg,
           statusType: 'BURNED',
           isBurned: true,
+          viewCount: shareLink.viewCount,
+          maxViews: shareLink.maxViews,
         },
         { status: 410 }
       );
