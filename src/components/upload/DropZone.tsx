@@ -16,6 +16,10 @@ import {
   ListFilter,
   Layers,
   Phone,
+  Clipboard,
+  FileText,
+  Trash2,
+  Code,
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -58,6 +62,96 @@ interface FileAnalysis {
   statusColumnName?: string;
   statusOptions: StatusOption[];
   totalRows: number;
+}
+
+export function parsePastedTextToRows(rawText: string): { rows: any[]; error?: string } {
+  const trimmed = rawText.trim();
+  if (!trimmed) return { rows: [] };
+
+  // 1. Check if user pasted JSON format
+  if (
+    (trimmed.startsWith('[') && trimmed.endsWith(']')) ||
+    (trimmed.startsWith('{') && trimmed.endsWith('}'))
+  ) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      const rows = Array.isArray(parsed) ? parsed : [parsed];
+      if (rows.length > 0) return { rows };
+    } catch {}
+  }
+
+  // 2. Try PapaParse with auto-delimiter detection (handles \t from Excel/Sheets, commas, semicolons, pipes)
+  const parseResult = Papa.parse(trimmed, {
+    header: true,
+    skipEmptyLines: 'greedy',
+    dynamicTyping: false,
+  });
+
+  if (parseResult.data && parseResult.data.length > 0) {
+    const sample = parseResult.data[0] as any;
+    const keys = Object.keys(sample || {}).filter((k) => k && k.trim().length > 0);
+
+    // If PapaParse found valid headers and multiple columns
+    if (keys.length > 1 || (keys.length === 1 && !keys[0].match(/^\d{7,15}$/))) {
+      return { rows: parseResult.data };
+    }
+  }
+
+  // 3. Fallback: Parse without headers (e.g. raw list of phone numbers or raw lines without header row)
+  const rawParse = Papa.parse(trimmed, {
+    header: false,
+    skipEmptyLines: 'greedy',
+  });
+
+  const rawData = (rawParse.data || []) as string[][];
+  if (rawData.length === 0) return { rows: [] };
+
+  // Single column (e.g. pure list of phone numbers or names)
+  if (rawData[0].length === 1) {
+    const firstVal = String(rawData[0][0] || '').trim().toLowerCase();
+    const isHeader = ['phone', 'mobile', 'number', 'contact', 'name', 'email'].includes(firstVal);
+    const startIdx = isHeader ? 1 : 0;
+    const headerName = isHeader ? rawData[0][0].trim() : 'Phone';
+
+    const rows = rawData
+      .slice(startIdx)
+      .map((cols) => ({
+        [headerName]: cols[0]?.trim() || '',
+      }))
+      .filter((r) => r[headerName] !== '');
+
+    return { rows };
+  }
+
+  // Multi-column without header row
+  const firstLine = rawData[0];
+  const isLikelyHeader = firstLine.every(
+    (cell) => isNaN(Number(cell.trim())) && cell.trim().length > 0
+  );
+
+  if (isLikelyHeader) {
+    const headers = firstLine.map((h, i) => h.trim() || `Column_${i + 1}`);
+    const rows = rawData.slice(1).map((cols) => {
+      const obj: Record<string, any> = {};
+      headers.forEach((h, i) => {
+        obj[h] = cols[i]?.trim() || '';
+      });
+      return obj;
+    });
+    return { rows };
+  } else {
+    const rows = rawData.map((cols) => {
+      const obj: Record<string, any> = {};
+      cols.forEach((val, i) => {
+        const cleanVal = String(val || '').replace(/[\s\+\-\(\)]/g, '');
+        const colTitle =
+          cleanVal.length >= 10 && /^\d+$/.test(cleanVal) ? 'Phone' : `Column_${i + 1}`;
+        obj[colTitle] = val?.trim() || '';
+      });
+      return obj;
+    });
+    return { rows };
+  }
 }
 
 function analyzeDatasetFile(rows: any[]): FileAnalysis {
@@ -150,7 +244,11 @@ function analyzeDatasetFile(rows: any[]): FileAnalysis {
       )
     );
 
-    if (isNamedStatus || (rawKeys.length === 2 && uniqueCount >= 1 && uniqueCount <= 8) || (isBinaryValues && uniqueCount <= 8)) {
+    if (
+      isNamedStatus ||
+      (rawKeys.length === 2 && uniqueCount >= 1 && uniqueCount <= 8) ||
+      (isBinaryValues && uniqueCount <= 8)
+    ) {
       candidateStatusKey = key;
       break;
     }
@@ -159,9 +257,14 @@ function analyzeDatasetFile(rows: any[]): FileAnalysis {
   if (candidateStatusKey) {
     const valCounts = new Map<string, number>();
     for (const r of rows) {
-      const v = String(r[candidateStatusKey] === null || r[candidateStatusKey] === undefined ? '' : r[candidateStatusKey]).trim();
+      const v = String(
+        r[candidateStatusKey] === null || r[candidateStatusKey] === undefined
+          ? ''
+          : r[candidateStatusKey]
+      ).trim();
       if (v) {
-        const keyMatch = Array.from(valCounts.keys()).find((k) => k.toLowerCase() === v.toLowerCase()) || v;
+        const keyMatch =
+          Array.from(valCounts.keys()).find((k) => k.toLowerCase() === v.toLowerCase()) || v;
         valCounts.set(keyMatch, (valCounts.get(keyMatch) || 0) + 1);
       }
     }
@@ -180,7 +283,9 @@ function analyzeDatasetFile(rows: any[]): FileAnalysis {
       let variant: 'positive' | 'negative' | 'neutral' = 'neutral';
       if (['yes', 'true', '1', 'active', 'valid', 'y', 'available', 'success'].includes(lower)) {
         variant = 'positive';
-      } else if (['no', 'false', '0', 'inactive', 'invalid', 'n', 'unavailable', 'failed'].includes(lower)) {
+      } else if (
+        ['no', 'false', '0', 'inactive', 'invalid', 'n', 'unavailable', 'failed'].includes(lower)
+      ) {
         variant = 'negative';
       }
 
@@ -214,6 +319,10 @@ function analyzeDatasetFile(rows: any[]): FileAnalysis {
 }
 
 export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
+  // Mode toggle: 'file' | 'paste'
+  const [uploadMode, setUploadMode] = useState<'file' | 'paste'>('file');
+  const [pastedText, setPastedText] = useState('');
+
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{
     name: string;
@@ -361,6 +470,57 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
     }
   };
 
+  // Process Pasted Raw Text
+  const handleProcessPastedText = () => {
+    setError(null);
+    if (!pastedText.trim()) {
+      setError('Please paste or type some data first.');
+      return;
+    }
+
+    const { rows, error: parseErr } = parsePastedTextToRows(pastedText);
+
+    if (parseErr || !rows || rows.length === 0) {
+      setError('Unable to detect any valid rows in pasted text. Please check format.');
+      return;
+    }
+
+    const now = new Date();
+    const timeCode = `${now.getHours()}${now.getMinutes()}${now.getSeconds()}`;
+    const filename = `Pasted_Data_${now.toISOString().split('T')[0]}_${timeCode}.csv`;
+    const byteSize = new Blob([pastedText]).size;
+    const sizeStr = formatFileSize(byteSize);
+
+    applyFileResult(filename, sizeStr, rows);
+  };
+
+  // Clipboard Paste Helper
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          setPastedText(text);
+          setError(null);
+        }
+      }
+    } catch {
+      setError('Clipboard permission denied. Please press Ctrl+V to paste manually.');
+    }
+  };
+
+  // Sample Data Helper
+  const handleInsertSampleData = () => {
+    const sample = `Name\tPhone\tEmail\tLocation\tCategory
+Tanvir Ahmed\t01711000001\ttanvir@gmail.com\tDhaka\tVIP Client
+Farhana Yeasmin\t01812000002\tfarhana@yahoo.com\tChittagong\tHot Leads
+Sabbir Hossain\t01913000003\tsabbir@outlook.com\tSylhet\tCorporate
+Nusrat Jahan\t01614000004\tnusrat@gmail.com\tRajshahi\tRegular User
+Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
+    setPastedText(sample);
+    setError(null);
+  };
+
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -424,44 +584,168 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
 
   return (
     <div className="space-y-6">
-      {/* Drag and Drop Zone */}
-      <div
-        onDragEnter={handleDrag}
-        onDragOver={handleDrag}
-        onDragLeave={handleDrag}
-        onDrop={handleDrop}
-        onClick={() => inputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-3xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 ${
-          dragActive
-            ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-950/30 scale-[1.01]'
-            : 'border-gray-300 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-brand-400 dark:hover:border-slate-700 shadow-sm'
-        }`}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".csv, .xlsx, .xls"
-          onChange={handleFileChange}
-          className="hidden"
-        />
+      {/* 🌟 2-Way Upload Mode Switcher (File Upload vs Direct Copy-Paste) */}
+      {!selectedFile && (
+        <div className="flex items-center justify-center">
+          <div className="p-1.5 bg-gray-100 dark:bg-slate-800/90 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs flex items-center gap-1.5 w-full max-w-md">
+            <button
+              type="button"
+              onClick={() => {
+                setUploadMode('file');
+                setError(null);
+              }}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                uploadMode === 'file'
+                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <UploadCloud className="w-4 h-4" />
+              <span>1. Upload File (CSV, Excel)</span>
+            </button>
 
-        <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/25 mb-4">
-          <UploadCloud className="w-8 h-8" />
+            <button
+              type="button"
+              onClick={() => {
+                setUploadMode('paste');
+                setError(null);
+              }}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                uploadMode === 'paste'
+                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <Clipboard className="w-4 h-4" />
+              <span>2. Paste Data / Text</span>
+            </button>
+          </div>
         </div>
+      )}
 
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-          Upload your dataset
-        </h3>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 font-medium">
-          Drag & drop your CSV or Excel file here, or{' '}
-          <span className="text-brand-600 dark:text-brand-400 font-semibold underline">
-            browse files
+      {/* MODE 1: Drag & Drop File Zone */}
+      {!selectedFile && uploadMode === 'file' && (
+        <div
+          onDragEnter={handleDrag}
+          onDragOver={handleDrag}
+          onDragLeave={handleDrag}
+          onDrop={handleDrop}
+          onClick={() => inputRef.current?.click()}
+          className={`relative border-2 border-dashed rounded-3xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 ${
+            dragActive
+              ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-950/30 scale-[1.01]'
+              : 'border-gray-300 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-brand-400 dark:hover:border-slate-700 shadow-sm'
+          }`}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".csv, .xlsx, .xls"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/25 mb-4">
+            <UploadCloud className="w-8 h-8" />
+          </div>
+
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+            Upload your dataset file
+          </h3>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 font-medium">
+            Drag & drop your CSV or Excel file here, or{' '}
+            <span className="text-brand-600 dark:text-brand-400 font-semibold underline">
+              browse files
+            </span>
+          </p>
+          <span className="inline-block mt-3 px-3 py-1 rounded-full bg-gray-100 dark:bg-slate-800 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+            Supported: CSV, XLSX, XLS (Single-column or Multi-column, up to 50MB)
           </span>
-        </p>
-        <span className="inline-block mt-3 px-3 py-1 rounded-full bg-gray-100 dark:bg-slate-800 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
-          Supported: CSV, XLSX, XLS (Single-column or Multi-column, up to 50MB)
-        </span>
-      </div>
+        </div>
+      )}
+
+      {/* MODE 2: Direct Paste Data / Raw Text Input */}
+      {!selectedFile && uploadMode === 'paste' && (
+        <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 shadow-sm space-y-4 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Clipboard className="w-4 h-4 text-brand-600" />
+                Paste Raw Data / Contact List
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Copy rows directly from Excel, Google Sheets, WhatsApp, CRM, or a list of phone numbers and paste below.
+              </p>
+            </div>
+
+            {/* Paste Action Buttons */}
+            <div className="flex items-center gap-2 self-start sm:self-center">
+              <button
+                type="button"
+                onClick={handlePasteFromClipboard}
+                className="px-3 py-1.5 rounded-xl bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-900 text-xs font-bold flex items-center gap-1.5 hover:bg-brand-100 transition-colors shadow-2xs cursor-pointer active:scale-95"
+              >
+                <Clipboard className="w-3.5 h-3.5" />
+                <span>Paste from Clipboard</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleInsertSampleData}
+                className="px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 hover:bg-gray-200 transition-colors shadow-2xs cursor-pointer active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Sample Data</span>
+              </button>
+
+              {pastedText && (
+                <button
+                  type="button"
+                  onClick={() => setPastedText('')}
+                  className="p-1.5 rounded-xl text-gray-400 hover:text-rose-600 transition-colors"
+                  title="Clear Text"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Textarea */}
+          <div className="relative">
+            <textarea
+              rows={8}
+              value={pastedText}
+              onChange={(e) => setPastedText(e.target.value)}
+              placeholder={`Paste your copied data here...\n\nSupported formats:\n1. Excel / Google Sheets copy-paste (Tabs separated columns):\n   Name\tPhone\tEmail\tCity\n   Tanvir\t01711223344\ttanvir@gmail.com\tDhaka\n\n2. Pure phone numbers list (1 number per line or comma separated):\n   01711000001\n   01812000002\n   01913000003\n\n3. CSV / Comma separated:\n   name,phone,tags\n   John,01700000000,VIP`}
+              className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-slate-800/70 border border-gray-200 dark:border-slate-700 font-mono text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-y leading-relaxed shadow-inner"
+            />
+          </div>
+
+          {/* Bottom Bar: Action Trigger */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            <div className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">
+              {pastedText.trim() ? (
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                  ✓ Ready to parse ({pastedText.trim().split('\n').length} lines detected)
+                </span>
+              ) : (
+                <span>Tab-separated, Comma-separated, or Line-separated contacts supported.</span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleProcessPastedText}
+              disabled={!pastedText.trim()}
+              className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-brand-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Parse & Review Data</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Error Alert */}
       {error && (
@@ -471,7 +755,7 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
         </div>
       )}
 
-      {/* Selected File Card & Analysis */}
+      {/* Selected / Parsed File Card & Analysis (Common for both File and Pasted Data) */}
       {selectedFile && (
         <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 shadow-card space-y-5 animate-in fade-in">
           {/* File Header */}
@@ -490,7 +774,8 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
                   <span>{selectedFile.size}</span>
                   <span>&bull;</span>
                   <span className="font-semibold text-gray-700 dark:text-gray-300">
-                    {selectedFile.analysis.totalColumns} {selectedFile.analysis.totalColumns === 1 ? 'Column' : 'Columns'}
+                    {selectedFile.analysis.totalColumns}{' '}
+                    {selectedFile.analysis.totalColumns === 1 ? 'Column' : 'Columns'}
                   </span>
                 </p>
               </div>
@@ -514,73 +799,80 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
                   </span>
                 </h5>
                 <p className="text-blue-700 dark:text-blue-300 text-[11px] leading-relaxed">
-                  All rows in this file contain phone numbers. They will be imported directly and merged into your active database.
+                  All rows contain phone numbers. They will be imported directly and merged into your active database.
                 </p>
               </div>
             </div>
           )}
 
-          {/* 2. SMART SCOPE / YES-NO FILTER SELECTOR (Appears when 2-column or status column is detected) */}
-          {selectedFile.analysis.statusColumnName && selectedFile.analysis.statusOptions.length > 1 && (
-            <div className="p-5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/60 space-y-3.5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                <div>
-                  <h5 className="text-xs font-bold text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
-                    <ListFilter className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                    Column Filter Detected: <span className="underline decoration-amber-400">&ldquo;{selectedFile.analysis.statusColumnName}&rdquo;</span>
-                  </h5>
-                  <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
-                    This file has a decision/status column. Choose which records you want to import:
-                  </p>
+          {/* 2. SMART SCOPE / YES-NO FILTER SELECTOR */}
+          {selectedFile.analysis.statusColumnName &&
+            selectedFile.analysis.statusOptions.length > 1 && (
+              <div className="p-5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/60 space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                  <div>
+                    <h5 className="text-xs font-bold text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
+                      <ListFilter className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      Column Filter Detected:{' '}
+                      <span className="underline decoration-amber-400">
+                        &ldquo;{selectedFile.analysis.statusColumnName}&rdquo;
+                      </span>
+                    </h5>
+                    <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+                      This dataset has a decision/status column. Choose which records you want to import:
+                    </p>
+                  </div>
+
+                  <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-900/60 self-start sm:self-center">
+                    Importing: {finalRowsToUpload.length.toLocaleString()} of{' '}
+                    {selectedFile.rows.length.toLocaleString()} rows
+                  </span>
                 </div>
 
-                <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-900/60 self-start sm:self-center">
-                  Importing: {finalRowsToUpload.length.toLocaleString()} of {selectedFile.rows.length.toLocaleString()} rows
-                </span>
-              </div>
-
-              {/* Filter Selector Pills */}
-              <div className="flex flex-wrap gap-2 pt-1">
-                {selectedFile.analysis.statusOptions.map((opt) => {
-                  const isSelected = selectedFilterOption.toLowerCase() === opt.value.toLowerCase();
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setSelectedFilterOption(opt.value)}
-                      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${
-                        isSelected
-                          ? opt.variant === 'positive'
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20 ring-2 ring-emerald-500/20'
-                            : opt.variant === 'negative'
-                            ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20 ring-2 ring-rose-500/20'
-                            : 'bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-600/20 ring-2 ring-brand-500/20'
-                          : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-amber-400 hover:bg-amber-50/50 dark:hover:bg-slate-750'
-                      }`}
-                    >
-                      <span>
-                        {opt.value === 'ALL'
-                          ? '⚡ All Records'
-                          : opt.variant === 'positive'
-                          ? `🟢 Only '${opt.displayLabel}'`
-                          : opt.variant === 'negative'
-                          ? `🔴 Only '${opt.displayLabel}'`
-                          : `🏷️ ${opt.displayLabel}`}
-                      </span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'
+                {/* Filter Selector Pills */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {selectedFile.analysis.statusOptions.map((opt) => {
+                    const isSelected = selectedFilterOption.toLowerCase() === opt.value.toLowerCase();
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setSelectedFilterOption(opt.value)}
+                        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${
+                          isSelected
+                            ? opt.variant === 'positive'
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20 ring-2 ring-emerald-500/20'
+                              : opt.variant === 'negative'
+                              ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20 ring-2 ring-rose-500/20'
+                              : 'bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-600/20 ring-2 ring-brand-500/20'
+                            : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-amber-400 hover:bg-amber-50/50 dark:hover:bg-slate-750'
                         }`}
                       >
-                        {opt.count.toLocaleString()}
-                      </span>
-                      {isSelected && <Check className="w-3.5 h-3.5" />}
-                    </button>
-                  );
-                })}
+                        <span>
+                          {opt.value === 'ALL'
+                            ? '⚡ All Records'
+                            : opt.variant === 'positive'
+                            ? `🟢 Only '${opt.displayLabel}'`
+                            : opt.variant === 'negative'
+                            ? `🔴 Only '${opt.displayLabel}'`
+                            : `🏷️ ${opt.displayLabel}`}
+                        </span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
+                            isSelected
+                              ? 'bg-white/20 text-white'
+                              : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'
+                          }`}
+                        >
+                          {opt.count.toLocaleString()}
+                        </span>
+                        {isSelected && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* 3. CUSTOM COLUMN MAPPING STUDIO */}
           {selectedFile.analysis.columnNames.length > 0 && (
@@ -603,7 +895,8 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
                   Assign Batch Tags & Labels (Multi-Tag Selector)
                 </label>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                  Attach labels to these records. Select presets or type custom tags with the <strong className="text-brand-600 dark:text-brand-400">+</strong> button.
+                  Attach labels to these records. Select presets or type custom tags with the{' '}
+                  <strong className="text-brand-600 dark:text-brand-400">+</strong> button.
                 </p>
               </div>
 
@@ -618,7 +911,7 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
               )}
             </div>
 
-            {/* Currently Active Selected Tags Pills */}
+            {/* Active Tags */}
             {selectedTags.length > 0 && (
               <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-brand-200/60 dark:border-brand-900/40 space-y-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 block">
@@ -645,7 +938,7 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
               </div>
             )}
 
-            {/* Quick Preset Tags (Click to toggle) */}
+            {/* Quick Presets */}
             <div className="space-y-1.5">
               <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-brand-500" /> Quick Presets (Click to select/unselect):
@@ -676,7 +969,7 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
               </div>
             </div>
 
-            {/* + Add Custom Tag Input Form */}
+            {/* Add Custom Tag */}
             <div className="pt-1">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -694,7 +987,7 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
                         handleAddCustomTag();
                       }
                     }}
-                    placeholder="Type a custom tag name (e.g. 'Campaign Nov 2026', 'Banani Branch') and press Enter..."
+                    placeholder="Type a custom tag name (e.g. 'Campaign Nov 2026') and press Enter..."
                     className="w-full pl-9 pr-3.5 py-2.5 bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-900/80 rounded-xl text-xs font-medium text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm"
                   />
                 </div>
@@ -710,9 +1003,6 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
                   <span>Add Tag</span>
                 </button>
               </div>
-              <p className="text-[10px] text-gray-400 mt-1 pl-1">
-                Tip: You can add multiple custom tags by separating with commas (e.g. <em>Q4 Campaign, Hot VIP</em>).
-              </p>
             </div>
           </div>
 
@@ -727,11 +1017,12 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
                 setColumnMapping({});
                 setIsMappingStudioOpen(false);
                 setNewTagInput('');
+                setPastedText('');
                 if (inputRef.current) inputRef.current.value = '';
               }}
-              className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+              className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
-              Choose Different File
+              Cancel / Input Different Data
             </button>
 
             <button
@@ -745,7 +1036,7 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
                 </>
               ) : (
                 <>
-                  <UploadCloud className="w-4 h-4" /> Upload & Merge ({finalRowsToUpload.length.toLocaleString()} Records)
+                  <UploadCloud className="w-4 h-4" /> Upload & Stream Merge ({finalRowsToUpload.length.toLocaleString()} Records)
                   {selectedTags.length > 0 && (
                     <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-semibold">
                       {selectedTags.length} {selectedTags.length === 1 ? 'Tag' : 'Tags'}
