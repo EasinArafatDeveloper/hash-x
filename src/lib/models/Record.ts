@@ -51,6 +51,14 @@ const RecordSchema: Schema = new Schema(
   }
 );
 
+// High-speed deduplication and filtering B-Tree indexes
+RecordSchema.index({ phone: 1 });
+RecordSchema.index({ email: 1 });
+RecordSchema.index({ datasetId: 1 });
+RecordSchema.index({ tags: 1 });
+RecordSchema.index({ category: 1 });
+RecordSchema.index({ status: 1 });
+
 // Create compound search text index for lightning fast server-side full text searches
 RecordSchema.index({
   name: 'text',

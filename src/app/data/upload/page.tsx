@@ -105,7 +105,7 @@ export default function UploadDataPage() {
     setCurrentChunk(0);
 
     // Initial Telemetry Logs
-    addLog('info', `🚀 Starting Stream Ingestion for "${filename}"`, `Size: ${fileSize} | Rows: ${rows.length.toLocaleString()}`);
+    addLog('info', `🚀 Starting High-Speed Stream Ingestion for "${filename}"`, `Size: ${fileSize} | Rows: ${rows.length.toLocaleString()}`);
     addLog('info', `📋 Schema analyzed: ${Object.keys(rows[0] || {}).length} detected columns`, `Custom mapping applied`);
     addLog('info', `🛰️ Initializing session with MongoDB Atlas (/api/data/upload/init)...`);
 
@@ -137,84 +137,98 @@ export default function UploadDataPage() {
 
       setCurrentStep(2); // Stage 2: Schema validation
       addLog('info', `🔍 Validating data types and phone index integrity...`);
-      await sleep(200);
+      await sleep(150);
       addLog('success', `✅ Schema validated. Zero blocking anomalies.`);
 
       setCurrentStep(3); // Stage 3: Streaming micro-batches
-      addLog('info', `⚡ Streaming micro-batches into high-concurrency database pool...`);
 
       let cumulativeNew = 0;
       let cumulativeUpdated = 0;
       let cumulativeSkipped = 0;
+      let nextChunkIndex = 0;
+      let completedBatches = 0;
+      let processedRowCount = 0;
 
-      // 2. Stream Chunks Sequentially with Auto-Retry Logic
-      for (let i = 0; i < totalCalculatedChunks; i++) {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, rows.length);
-        const chunkRows = rows.slice(start, end);
-        setCurrentChunk(i + 1);
+      const PARALLEL_WORKERS = 3;
+      const activeWorkerCount = Math.min(PARALLEL_WORKERS, totalCalculatedChunks);
 
-        let success = false;
-        let lastErr: any = null;
+      addLog('info', `⚡ Spawning ${activeWorkerCount} parallel ingestion workers for turbo throughput...`);
 
-        // Auto retry up to 3 times on transient network drops
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          const chunkStartTime = Date.now();
-          try {
-            const chunkRes = await fetch('/api/data/upload/chunk', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                datasetId,
-                chunkIndex: i,
-                totalChunks: totalCalculatedChunks,
-                rows: chunkRows,
-                tags: tagsArray,
-                customTag: tagsArray[0] || '',
-                columnMapping,
-              }),
-            });
+      // 2. Stream Chunks with Multi-Worker Parallel Pipeline
+      const runWorker = async (workerId: number) => {
+        while (nextChunkIndex < totalCalculatedChunks) {
+          const i = nextChunkIndex++;
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, rows.length);
+          const chunkRows = rows.slice(start, end);
 
-            if (!chunkRes.ok) {
-              const errMsg = await parseSafeError(chunkRes, `Batch ${i + 1} processing failed`);
-              throw new Error(errMsg);
-            }
+          let success = false;
+          let lastErr: any = null;
 
-            const chunkData = await chunkRes.json();
-            const chunkDuration = Date.now() - chunkStartTime;
-            const chunkSpeed = Math.round(chunkRows.length / (chunkDuration / 1000 || 0.001));
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            const chunkStartTime = Date.now();
+            try {
+              const chunkRes = await fetch('/api/data/upload/chunk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  datasetId,
+                  chunkIndex: i,
+                  totalChunks: totalCalculatedChunks,
+                  rows: chunkRows,
+                  tags: tagsArray,
+                  customTag: tagsArray[0] || '',
+                  columnMapping,
+                }),
+              });
 
-            cumulativeNew += chunkData.newCount || 0;
-            cumulativeUpdated += chunkData.updatedCount || 0;
-            cumulativeSkipped += chunkData.skippedCount || 0;
+              if (!chunkRes.ok) {
+                const errMsg = await parseSafeError(chunkRes, `Batch ${i + 1} processing failed`);
+                throw new Error(errMsg);
+              }
 
-            setLiveNewCount(cumulativeNew);
-            setLiveUpdatedCount(cumulativeUpdated);
-            setProcessedRows(end);
+              const chunkData = await chunkRes.json();
+              const chunkDuration = Date.now() - chunkStartTime;
+              const chunkSpeed = Math.round(chunkRows.length / (chunkDuration / 1000 || 0.001));
 
-            addLog(
-              'batch',
-              `⚡ Batch ${i + 1}/${totalCalculatedChunks} (${chunkRows.length.toLocaleString()} rows) completed in ${chunkDuration}ms`,
-              `+${chunkData.newCount || 0} new, ${chunkData.updatedCount || 0} merged [${chunkSpeed.toLocaleString()} rows/s]`
-            );
+              cumulativeNew += chunkData.newCount || 0;
+              cumulativeUpdated += chunkData.updatedCount || 0;
+              cumulativeSkipped += chunkData.skippedCount || 0;
+              processedRowCount += chunkRows.length;
+              completedBatches += 1;
 
-            success = true;
-            break;
-          } catch (err: any) {
-            lastErr = err;
-            addLog('warn', `⚠️ Batch ${i + 1} attempt ${attempt} delayed. Retrying...`, err?.message || 'Network delay');
-            console.warn(`Chunk ${i + 1} attempt ${attempt} failed:`, err);
-            if (attempt < 3) {
-              await sleep(attempt * 1000); // Exponential backoff: 1s, 2s
+              setLiveNewCount(cumulativeNew);
+              setLiveUpdatedCount(cumulativeUpdated);
+              setProcessedRows(Math.min(processedRowCount, rows.length));
+              setCurrentChunk(completedBatches);
+
+              addLog(
+                'batch',
+                `⚡ Batch ${i + 1}/${totalCalculatedChunks} (${chunkRows.length.toLocaleString()} rows) completed in ${chunkDuration}ms`,
+                `+${chunkData.newCount || 0} new, ${chunkData.updatedCount || 0} merged [${chunkSpeed.toLocaleString()} rows/s | Worker #${workerId}]`
+              );
+
+              success = true;
+              break;
+            } catch (err: any) {
+              lastErr = err;
+              addLog('warn', `⚠️ Batch ${i + 1} attempt ${attempt} delayed. Retrying...`, err?.message || 'Network delay');
+              console.warn(`Chunk ${i + 1} attempt ${attempt} failed:`, err);
+              if (attempt < 3) {
+                await sleep(attempt * 500);
+              }
             }
           }
-        }
 
-        if (!success) {
-          addLog('error', `❌ Batch ${i + 1} failed after 3 attempts`, lastErr?.message);
-          throw new Error(lastErr?.message || `Failed to stream batch ${i + 1} of ${totalCalculatedChunks}`);
+          if (!success) {
+            addLog('error', `❌ Batch ${i + 1} failed after 3 attempts`, lastErr?.message);
+            throw new Error(lastErr?.message || `Failed to stream batch ${i + 1} of ${totalCalculatedChunks}`);
+          }
         }
-      }
+      };
+
+      const workers = Array.from({ length: activeWorkerCount }, (_, idx) => runWorker(idx + 1));
+      await Promise.all(workers);
 
       // 3. Finalize Dataset Session
       setCurrentStep(4); // Stage 4: Fast Mongo finalize & indexing

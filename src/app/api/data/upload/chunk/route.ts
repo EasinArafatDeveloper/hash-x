@@ -297,7 +297,7 @@ export async function POST(request: NextRequest) {
         } else if (values[0]) {
           normalizedRow.name = String(values[0]).trim();
         } else {
-          normalizedRow.name = `Record #${chunkIndex * 2000 + idx + 1}`;
+          normalizedRow.name = `Record #${chunkIndex * 2500 + idx + 1}`;
         }
       }
 
@@ -327,23 +327,36 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Lookup existing records in batch for this micro-chunk
+    // 1. High-Speed Targeted Index Lookups using B-Tree Projected Index Queries
     const incomingPhones = validRecords.map((r) => r.phone).filter(Boolean);
     const incomingEmails = validRecords.map((r) => r.email).filter(Boolean);
 
-    const lookupConditions: any[] = [];
-    if (incomingPhones.length > 0) lookupConditions.push({ phone: { $in: incomingPhones } });
-    if (incomingEmails.length > 0) lookupConditions.push({ email: { $in: incomingEmails } });
+    const uniquePhones = Array.from(new Set(incomingPhones));
+    const uniqueEmails = Array.from(new Set(incomingEmails));
 
-    let existingDocs: any[] = [];
-    if (lookupConditions.length > 0) {
-      existingDocs = await RecordModel.find({ $or: lookupConditions }).lean();
-    }
+    const projection =
+      '_id phone email name age gender avatarUrl avatarType location area address activeDays lastActive tags category customFields';
+
+    const [phoneDocs, emailDocs] = await Promise.all([
+      uniquePhones.length > 0
+        ? RecordModel.find({ phone: { $in: uniquePhones } })
+            .select(projection)
+            .lean()
+        : Promise.resolve([]),
+      uniqueEmails.length > 0
+        ? RecordModel.find({ email: { $in: uniqueEmails } })
+            .select(projection)
+            .lean()
+        : Promise.resolve([]),
+    ]);
 
     const phoneMap = new Map<string, any>();
     const emailMap = new Map<string, any>();
-    existingDocs.forEach((doc) => {
+
+    phoneDocs.forEach((doc: any) => {
       if (doc.phone) phoneMap.set(doc.phone, doc);
+    });
+    emailDocs.forEach((doc: any) => {
       if (doc.email) emailMap.set(doc.email, doc);
     });
 
@@ -354,10 +367,22 @@ export async function POST(request: NextRequest) {
     let unchangedCount = 0;
 
     const matchedDocIds = new Set<string>();
+    const batchSeenKeys = new Set<string>();
 
     validRecords.forEach((incoming) => {
-      const matched = (incoming.phone ? phoneMap.get(incoming.phone) : null) ||
-                      (incoming.email ? emailMap.get(incoming.email) : null);
+      // Check intra-batch duplicate
+      const dedupKey = incoming.phone || incoming.email || '';
+      if (dedupKey && batchSeenKeys.has(dedupKey)) {
+        unchangedCount++;
+        return;
+      }
+      if (dedupKey) {
+        batchSeenKeys.add(dedupKey);
+      }
+
+      const matched =
+        (incoming.phone ? phoneMap.get(incoming.phone) : null) ||
+        (incoming.email ? emailMap.get(incoming.email) : null);
 
       if (matched && !matchedDocIds.has(matched._id.toString())) {
         matchedDocIds.add(matched._id.toString());
@@ -434,16 +459,19 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Execute bulk write operations
+    // Execute bulk write operations in parallel
+    const writePromises: Promise<any>[] = [];
     if (newRecordsToInsert.length > 0) {
-      await RecordModel.insertMany(newRecordsToInsert, { ordered: false });
+      writePromises.push(RecordModel.insertMany(newRecordsToInsert, { ordered: false }));
     }
     if (bulkUpdateOps.length > 0) {
-      await RecordModel.bulkWrite(bulkUpdateOps);
+      writePromises.push(RecordModel.bulkWrite(bulkUpdateOps, { ordered: false }));
     }
 
+    await Promise.all(writePromises);
+
     // Increment Dataset document stats atomically
-    await DatasetModel.updateOne(
+    DatasetModel.updateOne(
       { _id: datasetId },
       {
         $inc: {
