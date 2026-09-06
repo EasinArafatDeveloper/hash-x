@@ -24,7 +24,6 @@ import {
   Users,
   X,
   Smartphone,
-  Fingerprint,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -128,8 +127,7 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
   // Local search filter
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Touch Armor Mode: Hold/Tap to Reveal state
-  const [isTouchArmorEnabled, setIsTouchArmorEnabled] = useState(true);
+  // Permanent Touch Armor State (Always enforced)
   const [activeHeldIndex, setActiveHeldIndex] = useState<number | null>(null);
   const [revealedIndices, setRevealedIndices] = useState<Set<number>>(new Set());
 
@@ -261,7 +259,6 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
     }
   };
 
-  // Helper to trigger screenshot lockout & wipe clipboard
   const triggerScreenshotLock = useCallback((reason = 'Screenshot Attempt Blocked') => {
     setIsScreenshotAttempted(true);
     setSecurityReason(reason);
@@ -277,7 +274,6 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
     }
   }, []);
 
-  // 3. Multi-Layer Mobile & Desktop Anti-Screenshot DRM Stack
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent | TouchEvent) => {
       e.preventDefault();
@@ -507,7 +503,7 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 select-none font-sans">
         <style jsx global>{`
           @media print {
-            body {
+            body, html {
               display: none !important;
             }
           }
@@ -786,19 +782,12 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
           </div>
 
           <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsTouchArmorEnabled(!isTouchArmorEnabled)}
-              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border text-[10px] sm:text-[11px] flex items-center gap-1.5 font-bold shadow-2xs transition-all cursor-pointer ${
-                isTouchArmorEnabled
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                  : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
-              }`}
-              title="Hold to reveal numbers - prevents hardware screenshots"
-            >
-              <Fingerprint className={`w-3.5 h-3.5 ${isTouchArmorEnabled ? 'text-emerald-600 animate-pulse' : 'text-gray-400'}`} />
-              <span>Touch Armor: {isTouchArmorEnabled ? 'ON' : 'OFF'}</span>
-            </button>
+            {/* Live Security Indicator (Permanent) */}
+            <div className="w-full sm:w-auto px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[10px] sm:text-[11px] text-emerald-800 flex items-center justify-center gap-1.5 font-semibold shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Touch-Protected & Anti-Screenshot Active</span>
+            </div>
           </div>
         </div>
       </header>
@@ -816,11 +805,7 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-brand-600 shrink-0" />
             <span className="text-xs font-semibold text-gray-800">
-              {isTouchArmorEnabled
-                ? '👆 Touch Armor Active: Tap or Hold phone numbers to reveal (Auto-blurs on release).'
-                : shareData.isOneTime || (shareData.maxViews && shareData.maxViews === 1)
-                ? '🔥 Single-Use: Snapshot self-destructs upon window close.'
-                : `Showing ${filteredRecords.length} of ${shareData.recordCount} contacts`}
+              👆 Touch & Hold phone numbers to reveal (Auto-blurs immediately on finger release).
             </span>
           </div>
 
@@ -889,7 +874,6 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
                 const badge = STATUS_BADGES[record.status || 'Active'] || STATUS_BADGES.Active;
                 const safeName = getSafeDisplayName(record.name, record.phone);
                 const isRevealed =
-                  !isTouchArmorEnabled ||
                   activeHeldIndex === index ||
                   revealedIndices.has(index);
 
@@ -942,15 +926,15 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
                         </div>
                       </div>
 
-                      {/* Touch Armor Interactive Phone Number Box */}
+                      {/* Touch Armor Interactive Phone Number Box (Permanent Protection) */}
                       <div
-                        onTouchStart={() => isTouchArmorEnabled && setActiveHeldIndex(index)}
-                        onTouchEnd={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
-                        onTouchCancel={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
-                        onMouseDown={() => isTouchArmorEnabled && setActiveHeldIndex(index)}
-                        onMouseUp={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
-                        onMouseLeave={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
-                        onClick={() => isTouchArmorEnabled && handleToggleCardReveal(index)}
+                        onTouchStart={() => setActiveHeldIndex(index)}
+                        onTouchEnd={() => setActiveHeldIndex(null)}
+                        onTouchCancel={() => setActiveHeldIndex(null)}
+                        onMouseDown={() => setActiveHeldIndex(index)}
+                        onMouseUp={() => setActiveHeldIndex(null)}
+                        onMouseLeave={() => setActiveHeldIndex(null)}
+                        onClick={() => handleToggleCardReveal(index)}
                         className={`mt-3 p-2.5 rounded-xl border flex items-center justify-between gap-2 select-none cursor-pointer transition-all ${
                           isRevealed
                             ? 'bg-emerald-50/90 border-emerald-300 shadow-2xs'
@@ -978,21 +962,19 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
                           </span>
                         </div>
 
-                        {isTouchArmorEnabled && (
-                          <div className="flex items-center gap-1 shrink-0 text-[10px] font-semibold text-slate-500">
-                            {isRevealed ? (
-                              <span className="flex items-center gap-0.5 text-emerald-600">
-                                <Eye className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline text-[9px]">Visible</span>
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-0.5 text-slate-400">
-                                <EyeOff className="w-3.5 h-3.5" />
-                                <span className="text-[9px]">Hold / Tap</span>
-                              </span>
-                            )}
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1 shrink-0 text-[10px] font-semibold text-slate-500">
+                          {isRevealed ? (
+                            <span className="flex items-center gap-0.5 text-emerald-600">
+                              <Eye className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline text-[9px]">Visible</span>
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-0.5 text-slate-400">
+                              <EyeOff className="w-3.5 h-3.5" />
+                              <span className="text-[9px]">Hold / Tap</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {((record.tags && record.tags.length > 0) || record.category) && (
@@ -1052,7 +1034,6 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
                     {filteredRecords.map((record, index) => {
                       const safeName = getSafeDisplayName(record.name, record.phone);
                       const isRevealed =
-                        !isTouchArmorEnabled ||
                         activeHeldIndex === index ||
                         revealedIndices.has(index);
 
@@ -1093,7 +1074,7 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
 
                           <td
                             className="py-3 px-4 font-mono font-bold text-emerald-700 select-none cursor-pointer"
-                            onClick={() => isTouchArmorEnabled && handleToggleCardReveal(index)}
+                            onClick={() => handleToggleCardReveal(index)}
                           >
                             <div className="flex items-center gap-1.5 select-none">
                               <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
