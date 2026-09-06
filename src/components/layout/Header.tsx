@@ -50,7 +50,7 @@ export function Header({ onMobileMenuOpen, isCollapsed, onToggleCollapse }: Head
   const [showNotifications, setShowNotifications] = useState(false);
 
   const currentPage = PAGE_META[pathname] || {
-    title: 'Dataflow Intelligence',
+    title: 'Morpheus Intelligence',
     subtitle: 'Enterprise Data Management Dashboard',
   };
 

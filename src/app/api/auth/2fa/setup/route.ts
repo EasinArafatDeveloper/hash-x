@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     await user.save();
 
     const accountLabel = user.email || user.username || 'admin';
-    const otpAuthUri = generateOtpAuthUri(accountLabel, secret, 'DATAFLOW');
+    const otpAuthUri = generateOtpAuthUri(accountLabel, secret, 'MORPHEUS');
     const qrCodeDataUrl = await generateQRCodeDataUrl(otpAuthUri);
 
     return NextResponse.json({
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       secretKey: secret,
       otpAuthUri,
       accountName: accountLabel,
-      issuer: 'DATAFLOW',
+      issuer: 'MORPHEUS',
     });
   } catch (error: any) {
     console.error('2FA setup error:', error);

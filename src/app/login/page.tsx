@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useTheme } from '@/components/theme/ThemeProvider';
 import { ThemeSelector } from '@/components/theme/ThemeSelector';
+import { MorpheusLogo } from '@/components/brand/MorpheusLogo';
 import { toast } from 'sonner';
 
 function LoginFormContent() {
@@ -169,15 +170,8 @@ function LoginFormContent() {
         <div className="p-7 sm:p-9 rounded-3xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border border-gray-200/90 dark:border-slate-800/90 shadow-2xl shadow-gray-200/50 dark:shadow-black/50 space-y-6">
           {/* Brand & Security Header */}
           <div className="text-center space-y-3">
-            <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-gradient-to-tr from-brand-600/10 via-indigo-500/10 to-brand-400/10 border border-brand-500/20 shadow-inner">
-              <img
-                src="/Logo_Next_new.png"
-                alt="Logo"
-                width={180}
-                height={40}
-                style={{ height: '40px', maxHeight: '40px', maxWidth: '180px', width: 'auto', objectFit: 'contain' }}
-                className="h-10 w-auto object-contain drop-shadow-sm shrink-0"
-              />
+            <div className="inline-flex items-center justify-center py-2 px-4 rounded-2xl bg-gradient-to-tr from-brand-600/10 via-indigo-500/10 to-brand-400/10 border border-brand-500/20 shadow-inner">
+              <MorpheusLogo variant="full" size="lg" />
             </div>
 
             <AnimatePresence mode="wait">
@@ -193,7 +187,7 @@ function LoginFormContent() {
                     Secure Dashboard Login
                   </h1>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Enter your authorized credentials to access DATAFLOW
+                    Enter your authorized credentials to access Morpheus
                   </p>
                 </motion.div>
               ) : (
@@ -449,7 +443,7 @@ function LoginFormContent() {
 
           {/* Clean Minimalist Footer */}
           <div className="pt-3 border-t border-gray-100 dark:border-slate-800/80 flex items-center justify-center text-[11px] text-gray-400 dark:text-gray-500 font-medium">
-            <span>DATAFLOW &bull; Lead Management Platform</span>
+            <span>MORPHEUS &bull; Enterprise Data Management Platform</span>
           </div>
         </div>
       </motion.div>

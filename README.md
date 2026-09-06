@@ -1,4 +1,4 @@
-# 📊 Next Leaders — Enterprise Data Management & Filtering Dashboard
+# 📊 Morpheus — Enterprise Data Management & Intelligence OS
 
 A high-performance, full-stack **Data Management, Intelligent Search & Analytics Dashboard** built with **Next.js 14 (App Router), TypeScript, Tailwind CSS, MongoDB (Mongoose), and Framer Motion**.
 

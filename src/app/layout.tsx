@@ -7,11 +7,11 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
-  title: 'Data Management & Intelligence Dashboard',
+  title: 'Morpheus — Enterprise Data Management & Intelligence OS',
   description:
-    'Premium data management, filtering, analytics and export dashboard. Upload CSV/Excel → Explore → Filter → Download.',
+    'Morpheus Enterprise: High-performance data management, filtering, deduplication, stream ingestion and contact intelligence dashboard.',
   icons: {
-    icon: '/Logo_Next_new.png',
+    icon: '/morpheus-icon.svg',
   },
 };
 
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/Logo_Next_new.png" />
+        <link rel="icon" type="image/svg+xml" href="/morpheus-icon.svg" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

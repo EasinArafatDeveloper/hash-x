@@ -69,7 +69,7 @@ export function generateTotpSecret(byteLength: number = 20): string {
 export function generateOtpAuthUri(
   accountName: string,
   secret: string,
-  issuer: string = 'DATAFLOW'
+  issuer: string = 'MORPHEUS'
 ): string {
   const encodedIssuer = encodeURIComponent(issuer);
   const encodedAccount = encodeURIComponent(accountName);

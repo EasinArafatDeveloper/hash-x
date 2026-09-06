@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { UserProfileDropdown } from './UserProfileDropdown';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MorpheusLogo } from '@/components/brand/MorpheusLogo';
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -39,16 +40,14 @@ const NAV_SECTIONS = [
   {
     title: 'MANAGEMENT',
     items: [
-      { label: 'Saved Filters', href: '/saved-filters', icon: Bookmark },
+      { label: 'Saved Filters', href: '/filters/saved', icon: Bookmark },
       { label: 'Downloads', href: '/downloads', icon: Download },
       { label: 'Activity', href: '/activity', icon: Activity },
     ],
   },
   {
     title: 'SYSTEM',
-    items: [
-      { label: 'Settings', href: '/settings', icon: Settings },
-    ],
+    items: [{ label: 'Settings', href: '/settings', icon: Settings }],
   },
 ];
 
@@ -74,28 +73,14 @@ export function Sidebar({
       >
         <Link
           href="/dashboard"
-          className="flex items-center group py-1 max-w-[170px] max-h-10 overflow-hidden"
-          title={collapsed ? 'DATAFLOW Platform' : undefined}
+          className="flex items-center group py-1 overflow-hidden"
+          title={collapsed ? 'Morpheus Platform' : undefined}
         >
-          {collapsed ? (
-            <img
-              src="/Logo_Next_new.png"
-              alt="Logo"
-              width={32}
-              height={32}
-              style={{ width: '32px', height: '32px', maxWidth: '32px', maxHeight: '32px', objectFit: 'contain' }}
-              className="h-8 w-8 object-contain rounded-lg shrink-0"
-            />
-          ) : (
-            <img
-              src="/Logo_Next_new.png"
-              alt="Logo"
-              width={160}
-              height={32}
-              style={{ height: '32px', maxHeight: '32px', maxWidth: '160px', width: 'auto', objectFit: 'contain' }}
-              className="h-8 w-auto max-w-[160px] object-contain group-hover:opacity-90 transition-opacity shrink-0"
-            />
-          )}
+          <MorpheusLogo
+            variant={collapsed ? 'icon-only' : 'full'}
+            size="md"
+            showBadge={!collapsed}
+          />
         </Link>
 
         {/* Desktop Collapse / Expand Button */}

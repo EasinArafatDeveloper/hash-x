@@ -1,0 +1,18 @@
+<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="40" height="40" rx="11" fill="#090D16" stroke="#6366F1" stroke-width="1.5"/>
+  <defs>
+    <linearGradient id="morpheusGradPrimary" x1="6" y1="8" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1" />
+      <stop offset="0.5" stop-color="#8B5CF6" />
+      <stop offset="1" stop-color="#06B6D4" />
+    </linearGradient>
+    <linearGradient id="morpheusGradAccent" x1="12" y1="12" x2="28" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EC4899" />
+      <stop offset="1" stop-color="#8B5CF6" />
+    </linearGradient>
+  </defs>
+  <path d="M9 30V12L16 23L20 29L9 30Z" fill="url(#morpheusGradPrimary)" opacity="0.9"/>
+  <path d="M31 30V12L24 23L20 29L31 30Z" fill="url(#morpheusGradPrimary)" opacity="0.9"/>
+  <path d="M20 10L25 18L20 25L15 18L20 10Z" fill="url(#morpheusGradAccent)"/>
+  <circle cx="20" cy="18" r="2.5" fill="#FFFFFF"/>
+</svg>

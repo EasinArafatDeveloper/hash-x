@@ -404,12 +404,12 @@ export default function SettingsPage() {
   // Download backup codes as .txt file
   const handleDownloadBackupCodes = () => {
     if (generatedBackupCodes.length === 0) return;
-    const content = `DATAFLOW ENTERPRISE - EMERGENCY 2FA BACKUP RECOVERY CODES\nGenerated: ${new Date().toLocaleString()}\nAccount: ${user?.username || 'Admin'}\n\n${generatedBackupCodes.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\n* Keep these recovery codes safe. Each code can only be used once if you lose access to your phone.`;
+    const content = `MORPHEUS ENTERPRISE - EMERGENCY 2FA BACKUP RECOVERY CODES\nGenerated: ${new Date().toLocaleString()}\nAccount: ${user?.username || 'Admin'}\n\n${generatedBackupCodes.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\n* Keep these recovery codes safe. Each code can only be used once if you lose access to your phone.`;
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dataflow-2fa-backup-codes-${Date.now()}.txt`;
+    a.download = `morpheus-2fa-backup-codes-${Date.now()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Backup codes downloaded as text file.');
@@ -1174,7 +1174,7 @@ export default function SettingsPage() {
 
                 <div className="py-3 px-4 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 space-y-2 text-xs">
                   {[
-                    { label: 'Application', value: 'DATAFLOW v1.0.0' },
+                    { label: 'Application', value: 'MORPHEUS v1.0.0' },
                     { label: 'Database', value: 'MongoDB Atlas (Connected)' },
                     { label: 'Security Mode', value: 'Two-Factor Authentication (2FA)' },
                     { label: 'Environment', value: 'Production' },
@@ -1317,7 +1317,7 @@ export default function SettingsPage() {
                       Enter the 6-Digit Code from Phone
                     </h5>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Check your Google Authenticator app for <strong>DATAFLOW ({setupAccountName})</strong> and enter the 6-digit code:
+                      Check your Google Authenticator app for <strong>MORPHEUS ({setupAccountName})</strong> and enter the 6-digit code:
                     </p>
                   </div>
 
