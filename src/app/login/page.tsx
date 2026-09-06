@@ -150,21 +150,7 @@ function LoginFormContent() {
       />
 
       {/* Subtle Gentle Darkening for Card Readability (Natural & Clear) */}
-      <div className="absolute inset-0 bg-black/25 pointer-events-none" />
-
-      {/* Top Left Matrix Terminal Status Indicator */}
-      <div className="absolute top-4 left-4 sm:top-6 sm:left-8 z-20 hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-emerald-500/40 text-[11px] font-mono text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-        <span>morpheus://secure.mainframe.active</span>
-      </div>
-
-      {/* Top Right Iconic Morpheus Quote */}
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-8 z-20 hidden md:flex items-center gap-3 text-right">
-        <div className="font-mono text-[11px] text-emerald-400 tracking-wider bg-black/60 px-3 py-1.5 rounded-xl border border-emerald-500/30 backdrop-blur-md">
-          <span className="text-emerald-300 font-bold">THE CHOICE IS YOURS.</span>
-          <p className="text-[10px] text-emerald-400/80 uppercase">Know Your Data. Control Your World.</p>
-        </div>
-      </div>
+      <div className="absolute inset-0 bg-black/20 pointer-events-none" />
 
       {/* Main Glassmorphic Terminal Card */}
       <motion.div
@@ -179,8 +165,8 @@ function LoginFormContent() {
 
           {/* Brand Header */}
           <div className="text-center space-y-3">
-            <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-black/60 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
-              <MorpheusLogo variant="full" size="lg" />
+            <div className="inline-flex items-center justify-center py-2 px-4 rounded-2xl bg-black/70 border border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
+              <MorpheusLogo variant="full" size="lg" textColor="white" />
             </div>
 
             <AnimatePresence mode="wait">

@@ -5,12 +5,14 @@ import React from 'react';
 interface MorpheusLogoProps {
   variant?: 'full' | 'compact' | 'icon-only';
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  textColor?: 'auto' | 'white' | 'emerald';
   className?: string;
 }
 
 export function MorpheusLogo({
   variant = 'full',
   size = 'md',
+  textColor = 'auto',
   className = '',
 }: MorpheusLogoProps) {
   // Size mappings
@@ -28,26 +30,38 @@ export function MorpheusLogo({
     xl: 'text-xl',
   };
 
+  // Compute text color classes
+  const getTextClass = () => {
+    if (textColor === 'white') {
+      return 'text-white drop-shadow-[0_2px_10px_rgba(255,255,255,0.3)]';
+    }
+    if (textColor === 'emerald') {
+      return 'text-emerald-300 drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]';
+    }
+    // auto: adapt between light and dark mode cleanly
+    return 'text-gray-900 dark:text-white';
+  };
+
   return (
     <div className={`flex items-center gap-2.5 select-none ${className}`}>
       {/* Sleek Futuristic Morpheus Glyph / Icon */}
       <div className={`relative ${iconSizes[size]} shrink-0 flex items-center justify-center`}>
         {/* Glow ambient layer */}
-        <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-accent-500 blur-[6px] opacity-40 group-hover:opacity-75 transition-opacity" />
+        <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-accent-500 blur-[6px] opacity-50 group-hover:opacity-85 transition-opacity" />
 
         {/* Vector SVG Emblem */}
         <svg
           viewBox="0 0 40 40"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full relative z-10 drop-shadow-sm transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-full relative z-10 drop-shadow-md transition-transform duration-300 group-hover:scale-105"
         >
           {/* Background Rounded Squircle */}
           <rect
             width="40"
             height="40"
             rx="11"
-            className="fill-slate-900 dark:fill-slate-950 stroke-brand-500/30 dark:stroke-brand-400/40"
+            className="fill-slate-900 stroke-brand-500/40"
             strokeWidth="1.5"
           />
 
@@ -92,7 +106,7 @@ export function MorpheusLogo({
       {/* Pure Typography & Clean Brand Name ONLY */}
       {variant !== 'icon-only' && (
         <span
-          className={`font-black tracking-wider uppercase font-sans ${textSizes[size]} bg-gradient-to-r from-gray-950 via-slate-800 to-gray-700 dark:from-white dark:via-gray-100 dark:to-gray-300 bg-clip-text text-transparent`}
+          className={`font-black tracking-widest uppercase font-sans ${textSizes[size]} ${getTextClass()}`}
         >
           MORPHEUS
         </span>
