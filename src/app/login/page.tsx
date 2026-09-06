@@ -16,12 +16,10 @@ import {
   CheckCircle2,
   RefreshCw,
   Terminal,
-  Zap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/components/auth/AuthContext';
 import { MorpheusLogo } from '@/components/brand/MorpheusLogo';
-import { MatrixRain } from '@/components/brand/MatrixRain';
 import { toast } from 'sonner';
 
 function LoginFormContent() {
@@ -144,35 +142,27 @@ function LoginFormContent() {
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-[#03070E] select-none">
-      {/* 🌟 Morpheus Matrix Cinematic Background Image */}
+    <div className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black select-none">
+      {/* 🌟 Morpheus Matrix HD Natural Background Image */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 sm:opacity-55 filter saturate-[1.2] brightness-[0.85] transition-all duration-1000 scale-105"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-500"
         style={{ backgroundImage: `url('/morpheus-matrix-bg.jpg')` }}
       />
 
-      {/* Dynamic Animated Matrix Code Rain Layer */}
-      <MatrixRain opacity={0.25} />
-
-      {/* Cyberpunk Vignette & Radial Glow Gradients */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#03070E] via-transparent to-[#03070E]/80 pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#03070E]/90 via-transparent to-[#03070E]/90 pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,#03070E_85%)] pointer-events-none" />
-
-      {/* Subtle Scanline Overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%)] bg-[size:100%_4px] pointer-events-none opacity-50 z-0" />
+      {/* Subtle Gentle Darkening for Card Readability (Natural & Clear) */}
+      <div className="absolute inset-0 bg-black/25 pointer-events-none" />
 
       {/* Top Left Matrix Terminal Status Indicator */}
-      <div className="absolute top-4 left-4 sm:top-6 sm:left-8 z-20 hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/30 text-[11px] font-mono text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+      <div className="absolute top-4 left-4 sm:top-6 sm:left-8 z-20 hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-emerald-500/40 text-[11px] font-mono text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
         <span>morpheus://secure.mainframe.active</span>
       </div>
 
       {/* Top Right Iconic Morpheus Quote */}
       <div className="absolute top-4 right-4 sm:top-6 sm:right-8 z-20 hidden md:flex items-center gap-3 text-right">
-        <div className="font-mono text-[11px] text-emerald-500/80 tracking-wider">
-          <span className="text-emerald-400 font-bold">THE CHOICE IS YOURS.</span>
-          <p className="text-[10px] text-emerald-600/90 uppercase">Know Your Data. Control Your World.</p>
+        <div className="font-mono text-[11px] text-emerald-400 tracking-wider bg-black/60 px-3 py-1.5 rounded-xl border border-emerald-500/30 backdrop-blur-md">
+          <span className="text-emerald-300 font-bold">THE CHOICE IS YOURS.</span>
+          <p className="text-[10px] text-emerald-400/80 uppercase">Know Your Data. Control Your World.</p>
         </div>
       </div>
 
