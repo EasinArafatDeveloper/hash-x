@@ -625,7 +625,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col select-none relative overflow-x-hidden font-sans">
-      {/* 100% Solid Opaque Privacy Blackout Shield */}
+      {/* 100% Solid Privacy Shield (White Theme Matching) */}
       <AnimatePresence>
         {isShieldActive && (
           <motion.div
@@ -633,27 +633,35 @@ export default function SecureSharePage({ params }: { params: { token: string } 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.08 }}
-            className="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6 text-center select-none backdrop-blur-3xl"
+            className="fixed inset-0 z-50 bg-slate-50/98 flex flex-col items-center justify-center p-4 sm:p-6 text-center select-none backdrop-blur-2xl"
           >
-            <div className="w-full max-w-sm sm:max-w-md p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-4 text-white">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center mx-auto shadow-inner">
+            <div className="w-full max-w-sm sm:max-w-md p-6 sm:p-8 rounded-3xl bg-white border border-gray-200 shadow-2xl space-y-4 text-gray-900">
+              <div
+                className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mx-auto shadow-inner ${
+                  isScreenshotAttempted
+                    ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                    : isWindowBlurred
+                    ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                    : 'bg-brand-50 text-brand-600 border border-brand-200'
+                }`}
+              >
                 {isScreenshotAttempted ? (
-                  <CameraOff className="w-7 h-7 sm:w-8 sm:h-8 animate-pulse text-rose-500" />
+                  <CameraOff className="w-7 h-7 sm:w-8 sm:h-8 animate-pulse text-rose-600" />
                 ) : isWindowBlurred ? (
-                  <Smartphone className="w-7 h-7 sm:w-8 sm:h-8 text-amber-400 animate-pulse" />
+                  <Smartphone className="w-7 h-7 sm:w-8 sm:h-8 text-amber-600 animate-pulse" />
                 ) : (
-                  <EyeOff className="w-7 h-7 sm:w-8 sm:h-8 text-amber-400" />
+                  <EyeOff className="w-7 h-7 sm:w-8 sm:h-8 text-brand-600" />
                 )}
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-extrabold text-white">
+                <h3 className="text-base sm:text-lg font-extrabold text-gray-900">
                   {isScreenshotAttempted
                     ? 'Screenshot Attempt Blocked!'
                     : isDevToolsDetected
                     ? 'Developer Tools Detected'
                     : 'Confidential View Protected'}
                 </h3>
-                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                <p className="text-xs text-gray-600 mt-2 leading-relaxed">
                   {isScreenshotAttempted
                     ? 'Hardware button and gesture screen capture are strictly guarded. Clipboard has been cleared.'
                     : isDevToolsDetected
@@ -661,7 +669,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                     : 'Screen capture protection is active. Tap below to resume secure viewing.'}
                 </p>
                 {securityReason && (
-                  <span className="inline-block mt-2 px-2.5 py-1 rounded-md bg-slate-800/80 border border-slate-700 text-[10px] text-slate-400 font-mono">
+                  <span className="inline-block mt-2 px-3 py-1 rounded-full bg-gray-100 border border-gray-200 text-[10px] text-gray-600 font-mono font-semibold">
                     {securityReason}
                   </span>
                 )}
@@ -675,7 +683,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                     setIsDevToolsDetected(false);
                     setSecurityReason('');
                   }}
-                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-brand-600/30 transition-all active:scale-95 cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-accent-500 hover:from-brand-700 hover:to-accent-600 text-white font-bold text-xs shadow-lg shadow-brand-600/20 transition-all active:scale-95 cursor-pointer"
                 >
                   Resume Secure View
                 </button>
