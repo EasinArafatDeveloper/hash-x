@@ -15,6 +15,7 @@ import {
   MapPin,
   KeyRound,
   EyeOff,
+  Eye,
   Sparkles,
   CameraOff,
   LayoutGrid,
@@ -23,6 +24,7 @@ import {
   Users,
   X,
   Smartphone,
+  Fingerprint,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -90,7 +92,6 @@ function getSafeDisplayName(name?: string, phone?: string): string {
       const inner = rawName.slice(6, -1).trim();
       return `User (${inner.includes('*') ? inner : rawPhone || '***'})`;
     }
-    // Replace unmasked phone sequences (8801XXXXXXXXX or 01XXXXXXXXX) with masked phone
     return rawName.replace(/\b(\+?88)?01\d{8,9}\b/g, (match) => {
       if (match.length <= 6) return '***';
       const isPlus = match.startsWith('+');
@@ -127,6 +128,11 @@ export default function SecureSharePage({ params }: { params: { token: string } 
   // Local search filter
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Touch Armor Mode: Hold/Tap to Reveal state
+  const [isTouchArmorEnabled, setIsTouchArmorEnabled] = useState(true);
+  const [activeHeldIndex, setActiveHeldIndex] = useState<number | null>(null);
+  const [revealedIndices, setRevealedIndices] = useState<Set<number>>(new Set());
+
   // Security violation states
   const [isWindowBlurred, setIsWindowBlurred] = useState(false);
   const [isDevToolsDetected, setIsDevToolsDetected] = useState(false);
@@ -134,6 +140,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
   const [securityReason, setSecurityReason] = useState<string>('');
 
   const hasFetchedRef = useRef(false);
+  const autoHideTimeoutsRef = useRef<Record<number, NodeJS.Timeout>>({});
 
   // 1. Initial Link Load
   useEffect(() => {
@@ -258,12 +265,13 @@ export default function SecureSharePage({ params }: { params: { token: string } 
   const triggerScreenshotLock = useCallback((reason = 'Screenshot Attempt Blocked') => {
     setIsScreenshotAttempted(true);
     setSecurityReason(reason);
+    setActiveHeldIndex(null);
+    setRevealedIndices(new Set());
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText('⚠️ CONFIDENTIAL - SCREENSHOT PROHIBITED BY SECURITY POLICY');
       }
     } catch {}
-    // Clear selections
     if (typeof window !== 'undefined' && window.getSelection) {
       window.getSelection()?.removeAllRanges();
     }
@@ -271,7 +279,6 @@ export default function SecureSharePage({ params }: { params: { token: string } 
 
   // 3. Multi-Layer Mobile & Desktop Anti-Screenshot DRM Stack
   useEffect(() => {
-    // 3.1 Context Menu & Selection Prevention
     const handleContextMenu = (e: MouseEvent | TouchEvent) => {
       e.preventDefault();
       return false;
@@ -282,9 +289,8 @@ export default function SecureSharePage({ params }: { params: { token: string } 
       return false;
     };
 
-    // 3.2 Mobile Multi-Touch / 3-Finger Gesture Trap (Xiaomi, Realme, Oppo, OnePlus, Samsung Palm Swipe)
+    // Mobile Multi-Touch / 3-Finger Gesture Trap
     const handleTouchStart = (e: TouchEvent) => {
-      // If user touches with 2 or more fingers simultaneously (common gesture for screenshot or magnification)
       if (e.touches && e.touches.length >= 2) {
         if (e.touches.length >= 3) {
           e.preventDefault();
@@ -300,9 +306,27 @@ export default function SecureSharePage({ params }: { params: { token: string } 
       }
     };
 
-    // 3.3 Keyboard Shortcut Interception (Desktop & Mobile with Hardware Keyboards)
+    // Hardware Squeeze / Jolt Acceleration Spike Interceptor (Physical Power + Volume Down Squeeze)
+    let lastAcc = { x: 0, y: 0, z: 0, time: 0 };
+    const handleDeviceMotion = (e: DeviceMotionEvent) => {
+      const acc = e.accelerationIncludingGravity || e.acceleration;
+      if (!acc) return;
+      const now = Date.now();
+      if (now - lastAcc.time > 80) {
+        const dx = Math.abs((acc.x || 0) - lastAcc.x);
+        const dy = Math.abs((acc.y || 0) - lastAcc.y);
+        const dz = Math.abs((acc.z || 0) - lastAcc.z);
+        const delta = dx + dy + dz;
+
+        // Abrupt simultaneous dual-side hardware squeeze spike
+        if (delta > 26) {
+          triggerScreenshotLock('Hardware Squeeze / Physical Capture Sensed');
+        }
+        lastAcc = { x: acc.x || 0, y: acc.y || 0, z: acc.z || 0, time: now };
+      }
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      // PrintScreen, Win+Shift+S, Cmd+Shift+3/4/5
       if (
         e.key === 'PrintScreen' ||
         e.code === 'PrintScreen' ||
@@ -315,25 +339,21 @@ export default function SecureSharePage({ params }: { params: { token: string } 
         return false;
       }
 
-      // Block F12 (DevTools)
       if (e.key === 'F12' || e.keyCode === 123) {
         e.preventDefault();
         return false;
       }
 
-      // Block Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (DevTools)
       if (e.ctrlKey && e.shiftKey && ['I', 'J', 'C', 'i', 'j', 'c'].includes(e.key)) {
         e.preventDefault();
         return false;
       }
 
-      // Block Ctrl+U (View Source)
       if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) {
         e.preventDefault();
         return false;
       }
 
-      // Block Ctrl+S (Save Page) & Ctrl+P (Print)
       if (e.ctrlKey && ['s', 'S', 'p', 'P'].includes(e.key)) {
         e.preventDefault();
         return false;
@@ -346,7 +366,6 @@ export default function SecureSharePage({ params }: { params: { token: string } 
       }
     };
 
-    // 3.4 Clipboard Protection
     const handleCopyCut = (e: ClipboardEvent) => {
       e.preventDefault();
       try {
@@ -357,26 +376,27 @@ export default function SecureSharePage({ params }: { params: { token: string } 
       return false;
     };
 
-    // 3.5 Mobile App Switcher, Notification Shade, and Screen Lock Handlers
     const handleVisibilityChange = () => {
       if (document.hidden || document.visibilityState !== 'visible') {
-        // App went to background / screenshot tool opened / multitasking view
         setIsWindowBlurred(true);
         setSecurityReason('Page Hidden / App Switcher Active');
+        setActiveHeldIndex(null);
+        setRevealedIndices(new Set());
       }
     };
 
     const handlePageHide = () => {
       setIsWindowBlurred(true);
       setSecurityReason('Page Transition / Window Suspended');
+      setActiveHeldIndex(null);
     };
 
     const handleWindowBlur = () => {
       setIsWindowBlurred(true);
       setSecurityReason('Window Lost Focus (Privacy Guard)');
+      setActiveHeldIndex(null);
     };
 
-    // 3.6 DevTools Detection
     const checkDevTools = () => {
       const threshold = 160;
       const widthDiff = window.outerWidth - window.innerWidth > threshold;
@@ -388,7 +408,6 @@ export default function SecureSharePage({ params }: { params: { token: string } 
       }
     };
 
-    // Register all listeners
     window.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('selectstart', handleSelectStart);
     window.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
@@ -401,6 +420,10 @@ export default function SecureSharePage({ params }: { params: { token: string } 
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('blur', handleWindowBlur);
     window.addEventListener('resize', checkDevTools);
+
+    if (typeof window !== 'undefined' && 'ondevicemotion' in window) {
+      window.addEventListener('devicemotion', handleDeviceMotion);
+    }
 
     return () => {
       window.removeEventListener('contextmenu', handleContextMenu);
@@ -415,8 +438,38 @@ export default function SecureSharePage({ params }: { params: { token: string } 
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('resize', checkDevTools);
+      if (typeof window !== 'undefined' && 'ondevicemotion' in window) {
+        window.removeEventListener('devicemotion', handleDeviceMotion);
+      }
     };
   }, [triggerScreenshotLock]);
+
+  // Touch Armor Peek / Hold Handler
+  const handleToggleCardReveal = (index: number) => {
+    setRevealedIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+        if (autoHideTimeoutsRef.current[index]) {
+          clearTimeout(autoHideTimeoutsRef.current[index]);
+        }
+      } else {
+        next.add(index);
+        // Auto-re-lock after 3.5 seconds
+        if (autoHideTimeoutsRef.current[index]) {
+          clearTimeout(autoHideTimeoutsRef.current[index]);
+        }
+        autoHideTimeoutsRef.current[index] = setTimeout(() => {
+          setRevealedIndices((curr) => {
+            const updated = new Set(curr);
+            updated.delete(index);
+            return updated;
+          });
+        }, 3500);
+      }
+      return next;
+    });
+  };
 
   // Filtered records by local search
   const filteredRecords = useMemo(() => {
@@ -434,7 +487,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
     });
   }, [shareData, searchTerm]);
 
-  // Loading Screen (White Theme)
+  // Loading Screen
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 text-slate-800 select-none font-sans">
@@ -445,7 +498,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
           <div>
             <h3 className="font-bold text-base text-gray-900">Loading Secure View...</h3>
             <p className="text-xs text-gray-500 mt-1">
-              Verifying link access & security DRM
+              Verifying link access & Touch Armor DRM
             </p>
           </div>
         </div>
@@ -453,7 +506,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
     );
   }
 
-  // Error / Burned / Expired Screen (White Theme)
+  // Error / Burned / Expired Screen
   if (errorInfo) {
     const isBurned = errorInfo.statusType === 'BURNED';
     const isExpired = errorInfo.statusType === 'EXPIRED';
@@ -519,7 +572,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
     );
   }
 
-  // Passcode Prompt Screen (White Theme)
+  // Passcode Prompt Screen
   if (requiresPasscode) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 select-none font-sans">
@@ -576,7 +629,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col select-none relative overflow-x-hidden font-sans">
-      {/* 100% Solid Opaque Privacy Blackout Shield (Zero-Transparency - Eliminates mobile multitasking screenshot leaks) */}
+      {/* 100% Solid Opaque Privacy Blackout Shield */}
       <AnimatePresence>
         {isShieldActive && (
           <motion.div
@@ -606,7 +659,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                 </h3>
                 <p className="text-xs text-slate-400 mt-2 leading-relaxed">
                   {isScreenshotAttempted
-                    ? 'Screen capturing is strictly blocked on mobile and desktop gateways. Clipboard has been cleared.'
+                    ? 'Hardware button and gesture screen capture are strictly guarded. Clipboard has been cleared.'
                     : isDevToolsDetected
                     ? 'Please close your browser developer tools to view this confidential data.'
                     : 'Screen capture protection is active. Tap below to resume secure viewing.'}
@@ -636,7 +689,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
         )}
       </AnimatePresence>
 
-      {/* Global CSS Anti-Screenshot, Anti-Print & Touch-Callout Protections */}
+      {/* Global CSS Anti-Screenshot & Touch Protections */}
       <style jsx global>{`
         @media print {
           body, html {
@@ -660,7 +713,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
         }
       `}</style>
 
-      {/* Dynamic Repeating Forensic DRM Watermark Mesh Overlay (Blocks photo/screenshot leaks) */}
+      {/* Dynamic Repeating Forensic DRM Watermark Mesh Overlay */}
       <div
         className="fixed inset-0 pointer-events-none z-20 overflow-hidden select-none opacity-[0.045]"
         aria-hidden="true"
@@ -714,14 +767,13 @@ export default function SecureSharePage({ params }: { params: { token: string } 
       {/* Top Header Bar (100% Mobile Responsive) */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-2xs">
         <div className="max-w-7xl mx-auto px-3.5 sm:px-6 py-3 sm:py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
-          {/* Left Brand & Title Info */}
           <div className="flex items-start sm:items-center gap-3">
             <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-500 text-white shadow-md shadow-brand-600/20 shrink-0 mt-0.5 sm:mt-0">
               <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                <h1 className="text-sm sm:text-base font-extrabold text-gray-900 tracking-tight truncate max-w-[220px] sm:max-w-md">
+                <h1 className="text-sm sm:text-base font-extrabold text-gray-900 tracking-tight truncate max-w-[200px] sm:max-w-md">
                   {shareData.title}
                 </h1>
                 {shareData.isOneTime || (shareData.maxViews && shareData.maxViews === 1) ? (
@@ -742,13 +794,21 @@ export default function SecureSharePage({ params }: { params: { token: string } 
             </div>
           </div>
 
-          {/* Right Security Badge */}
           <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
-            <div className="w-full sm:w-auto px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[10px] sm:text-[11px] text-emerald-800 flex items-center justify-center gap-1.5 font-semibold shadow-2xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>Mobile Anti-Screenshot Active</span>
-            </div>
+            {/* Touch Armor Security Shield Pill */}
+            <button
+              type="button"
+              onClick={() => setIsTouchArmorEnabled(!isTouchArmorEnabled)}
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border text-[10px] sm:text-[11px] flex items-center gap-1.5 font-bold shadow-2xs transition-all cursor-pointer ${
+                isTouchArmorEnabled
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                  : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+              }`}
+              title="Hold to reveal numbers - prevents hardware screenshots"
+            >
+              <Fingerprint className={`w-3.5 h-3.5 ${isTouchArmorEnabled ? 'text-emerald-600 animate-pulse' : 'text-gray-400'}`} />
+              <span>Touch Armor: {isTouchArmorEnabled ? 'ON' : 'OFF'}</span>
+            </button>
           </div>
         </div>
       </header>
@@ -761,23 +821,20 @@ export default function SecureSharePage({ params }: { params: { token: string } 
         }}
         className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 space-y-3.5 sm:space-y-4 z-10 transition-opacity duration-100"
       >
-        {/* Notice & Control Toolbar (View Toggle + Search) */}
+        {/* Notice & Control Toolbar */}
         <div className="p-3 sm:p-4 rounded-2xl bg-white border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-          {/* Status Alert Banner */}
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-brand-600 shrink-0" />
             <span className="text-xs font-semibold text-gray-800">
-              {shareData.isOneTime || (shareData.maxViews && shareData.maxViews === 1)
+              {isTouchArmorEnabled
+                ? '👆 Touch Armor Active: Tap or Hold phone numbers to reveal (Auto-blurs on release).'
+                : shareData.isOneTime || (shareData.maxViews && shareData.maxViews === 1)
                 ? '🔥 Single-Use: Snapshot self-destructs upon window close.'
-                : shareData.maxViews && shareData.maxViews > 1
-                ? `👥 Active View ${shareData.viewCount || 1}/${shareData.maxViews} (${Math.max(0, (shareData.maxViews || 0) - (shareData.viewCount || 0))} view${(shareData.maxViews || 0) - (shareData.viewCount || 0) === 1 ? '' : 's'} remaining)`
                 : `Showing ${filteredRecords.length} of ${shareData.recordCount} contacts`}
             </span>
           </div>
 
-          {/* Action Bar: Cards/Table Toggle & Search */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
-            {/* View Mode Toggle Switch */}
             <div className="flex items-center p-1 bg-gray-100 rounded-xl border border-gray-200/80 shadow-2xs w-full sm:w-auto">
               <button
                 type="button"
@@ -805,7 +862,6 @@ export default function SecureSharePage({ params }: { params: { token: string } 
               </button>
             </div>
 
-            {/* Search Input Box */}
             <div className="relative w-full sm:w-60">
               <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-2.5" />
               <input
@@ -828,7 +884,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
           </div>
         </div>
 
-        {/* Contact View Wrapper */}
+        {/* View Wrapper */}
         <div className="transition-all duration-150">
           {filteredRecords.length === 0 ? (
             <div className="p-8 sm:p-12 text-center rounded-2xl bg-white border border-gray-200 shadow-sm space-y-2">
@@ -838,11 +894,14 @@ export default function SecureSharePage({ params }: { params: { token: string } 
               </p>
             </div>
           ) : viewMode === 'cards' ? (
-            /* Responsive Secure Cards Grid (1 col on mobile, 2 cols on tablet/desktop, 3 on xl) */
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
               {filteredRecords.map((record, index) => {
                 const badge = STATUS_BADGES[record.status || 'Active'] || STATUS_BADGES.Active;
                 const safeName = getSafeDisplayName(record.name, record.phone);
+                const isRevealed =
+                  !isTouchArmorEnabled ||
+                  activeHeldIndex === index ||
+                  revealedIndices.has(index);
 
                 return (
                   <motion.div
@@ -853,7 +912,6 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                     className="p-4 sm:p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between group relative overflow-hidden"
                   >
                     <div>
-                      {/* Top Bar: Index & Status */}
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-500 font-mono text-[10px] font-bold">
                           #{index + 1}
@@ -866,9 +924,7 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                         </span>
                       </div>
 
-                      {/* Contact Profile Row */}
                       <div className="flex items-start gap-3">
-                        {/* Avatar */}
                         {record.avatarUrl ? (
                           <img
                             src={record.avatarUrl}
@@ -881,7 +937,6 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                           </div>
                         )}
 
-                        {/* Name & Email */}
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-gray-900 text-xs sm:text-sm truncate group-hover:text-brand-600 transition-colors">
                             {safeName}
@@ -897,17 +952,59 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                         </div>
                       </div>
 
-                      {/* Phone Display (Protected Non-copyable Box) */}
-                      <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-2 select-none pointer-events-none">
-                        <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                          <Phone className="w-3.5 h-3.5" />
+                      {/* Touch Armor Interactive Phone Number Box (Hold/Tap to Reveal) */}
+                      <div
+                        onTouchStart={() => isTouchArmorEnabled && setActiveHeldIndex(index)}
+                        onTouchEnd={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
+                        onTouchCancel={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
+                        onMouseDown={() => isTouchArmorEnabled && setActiveHeldIndex(index)}
+                        onMouseUp={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
+                        onMouseLeave={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
+                        onClick={() => isTouchArmorEnabled && handleToggleCardReveal(index)}
+                        className={`mt-3 p-2.5 rounded-xl border flex items-center justify-between gap-2 select-none cursor-pointer transition-all ${
+                          isRevealed
+                            ? 'bg-emerald-50/90 border-emerald-300 shadow-2xs'
+                            : 'bg-slate-100 border-slate-200 hover:bg-slate-200/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                              isRevealed
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-slate-200 text-slate-500'
+                            }`}
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                          </div>
+                          <span
+                            className={`font-mono font-bold text-xs select-none tracking-wide transition-all ${
+                              isRevealed
+                                ? 'text-emerald-700 blur-none'
+                                : 'text-slate-400 blur-[3px] opacity-70'
+                            }`}
+                          >
+                            {isRevealed ? record.phone : '• • • • • • • • • •'}
+                          </span>
                         </div>
-                        <span className="font-mono font-bold text-xs text-emerald-700 select-none tracking-wide">
-                          {record.phone}
-                        </span>
+
+                        {isTouchArmorEnabled && (
+                          <div className="flex items-center gap-1 shrink-0 text-[10px] font-semibold text-slate-500">
+                            {isRevealed ? (
+                              <span className="flex items-center gap-0.5 text-emerald-600">
+                                <Eye className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline text-[9px]">Visible</span>
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-0.5 text-slate-400">
+                                <EyeOff className="w-3.5 h-3.5" />
+                                <span className="text-[9px]">Hold / Tap</span>
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Tags / Segments */}
                       {((record.tags && record.tags.length > 0) || record.category) && (
                         <div className="flex flex-wrap gap-1 mt-2.5">
                           {record.tags && record.tags.length > 0 ? (
@@ -930,7 +1027,6 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                       )}
                     </div>
 
-                    {/* Card Footer: Location & Demographics */}
                     <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-600 gap-2">
                       <div className="flex items-center gap-1 truncate min-w-0">
                         <MapPin className="w-3 h-3 text-gray-400 shrink-0" />
@@ -948,7 +1044,6 @@ export default function SecureSharePage({ params }: { params: { token: string } 
               })}
             </div>
           ) : (
-            /* Fully Responsive Mobile-Friendly Table View */
             <div className="rounded-2xl bg-white border border-gray-200 shadow-2xs overflow-hidden">
               <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <table className="w-full text-left text-xs border-collapse min-w-[640px]">
@@ -966,17 +1061,20 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                   <tbody className="divide-y divide-gray-100">
                     {filteredRecords.map((record, index) => {
                       const safeName = getSafeDisplayName(record.name, record.phone);
+                      const isRevealed =
+                        !isTouchArmorEnabled ||
+                        activeHeldIndex === index ||
+                        revealedIndices.has(index);
+
                       return (
                         <tr
                           key={index}
                           className="hover:bg-slate-50/80 transition-colors"
                         >
-                          {/* Index */}
                           <td className="py-3 px-3.5 text-gray-400 font-mono text-[11px]">
                             {index + 1}
                           </td>
 
-                          {/* Contact Name & Email */}
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2.5">
                               {record.avatarUrl ? (
@@ -1003,15 +1101,23 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                             </div>
                           </td>
 
-                          {/* Phone (Protected / Non-copyable) */}
-                          <td className="py-3 px-4 font-mono font-bold text-emerald-700 select-none">
-                            <div className="flex items-center gap-1.5 select-none pointer-events-none">
-                              <Phone className="w-3.5 h-3.5 text-gray-400" />
-                              <span className="select-none">{record.phone}</span>
+                          {/* Table Phone Number Cell with Touch Armor */}
+                          <td
+                            className="py-3 px-4 font-mono font-bold text-emerald-700 select-none cursor-pointer"
+                            onClick={() => isTouchArmorEnabled && handleToggleCardReveal(index)}
+                          >
+                            <div className="flex items-center gap-1.5 select-none">
+                              <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                              <span
+                                className={`transition-all ${
+                                  isRevealed ? 'blur-none text-emerald-700' : 'blur-[3px] text-slate-400'
+                                }`}
+                              >
+                                {isRevealed ? record.phone : '• • • • • • • • • •'}
+                              </span>
                             </div>
                           </td>
 
-                          {/* Tags */}
                           <td className="py-3 px-4">
                             <div className="flex flex-wrap gap-1">
                               {record.tags && record.tags.length > 0 ? (
@@ -1033,7 +1139,6 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                             </div>
                           </td>
 
-                          {/* Location */}
                           <td className="py-3 px-4 text-gray-700">
                             {record.location ? (
                               <div className="flex items-center gap-1">
@@ -1046,13 +1151,11 @@ export default function SecureSharePage({ params }: { params: { token: string } 
                             )}
                           </td>
 
-                          {/* Demographics */}
                           <td className="py-3 px-4 text-gray-700">
                             <span>{record.gender || '–'}</span>
                             {record.age ? <span className="text-gray-400 ml-1">({record.age}y)</span> : null}
                           </td>
 
-                          {/* Status */}
                           <td className="py-3 px-4">
                             <span
                               className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${

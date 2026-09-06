@@ -15,6 +15,7 @@ import {
   MapPin,
   KeyRound,
   EyeOff,
+  Eye,
   Sparkles,
   CameraOff,
   LayoutGrid,
@@ -23,6 +24,7 @@ import {
   Users,
   X,
   Smartphone,
+  Fingerprint,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -126,6 +128,11 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
   // Local search filter
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Touch Armor Mode: Hold/Tap to Reveal state
+  const [isTouchArmorEnabled, setIsTouchArmorEnabled] = useState(true);
+  const [activeHeldIndex, setActiveHeldIndex] = useState<number | null>(null);
+  const [revealedIndices, setRevealedIndices] = useState<Set<number>>(new Set());
+
   // Security violation states
   const [isWindowBlurred, setIsWindowBlurred] = useState(false);
   const [isDevToolsDetected, setIsDevToolsDetected] = useState(false);
@@ -133,6 +140,7 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
   const [securityReason, setSecurityReason] = useState<string>('');
 
   const hasFetchedRef = useRef(false);
+  const autoHideTimeoutsRef = useRef<Record<number, NodeJS.Timeout>>({});
 
   // 1. Initial Link Load
   useEffect(() => {
@@ -257,6 +265,8 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
   const triggerScreenshotLock = useCallback((reason = 'Screenshot Attempt Blocked') => {
     setIsScreenshotAttempted(true);
     setSecurityReason(reason);
+    setActiveHeldIndex(null);
+    setRevealedIndices(new Set());
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText('⚠️ CONFIDENTIAL - SCREENSHOT PROHIBITED BY SECURITY POLICY');
@@ -292,6 +302,24 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
       if (e.touches && e.touches.length >= 2) {
         e.preventDefault();
         triggerScreenshotLock('Gesture Capture Attempt Blocked');
+      }
+    };
+
+    let lastAcc = { x: 0, y: 0, z: 0, time: 0 };
+    const handleDeviceMotion = (e: DeviceMotionEvent) => {
+      const acc = e.accelerationIncludingGravity || e.acceleration;
+      if (!acc) return;
+      const now = Date.now();
+      if (now - lastAcc.time > 80) {
+        const dx = Math.abs((acc.x || 0) - lastAcc.x);
+        const dy = Math.abs((acc.y || 0) - lastAcc.y);
+        const dz = Math.abs((acc.z || 0) - lastAcc.z);
+        const delta = dx + dy + dz;
+
+        if (delta > 26) {
+          triggerScreenshotLock('Hardware Squeeze / Physical Capture Sensed');
+        }
+        lastAcc = { x: acc.x || 0, y: acc.y || 0, z: acc.z || 0, time: now };
       }
     };
 
@@ -349,17 +377,21 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
       if (document.hidden || document.visibilityState !== 'visible') {
         setIsWindowBlurred(true);
         setSecurityReason('Page Hidden / App Switcher Active');
+        setActiveHeldIndex(null);
+        setRevealedIndices(new Set());
       }
     };
 
     const handlePageHide = () => {
       setIsWindowBlurred(true);
       setSecurityReason('Page Transition / Window Suspended');
+      setActiveHeldIndex(null);
     };
 
     const handleWindowBlur = () => {
       setIsWindowBlurred(true);
       setSecurityReason('Window Lost Focus (Privacy Guard)');
+      setActiveHeldIndex(null);
     };
 
     const checkDevTools = () => {
@@ -386,6 +418,10 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
     window.addEventListener('blur', handleWindowBlur);
     window.addEventListener('resize', checkDevTools);
 
+    if (typeof window !== 'undefined' && 'ondevicemotion' in window) {
+      window.addEventListener('devicemotion', handleDeviceMotion);
+    }
+
     return () => {
       window.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('selectstart', handleSelectStart);
@@ -399,10 +435,37 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('resize', checkDevTools);
+      if (typeof window !== 'undefined' && 'ondevicemotion' in window) {
+        window.removeEventListener('devicemotion', handleDeviceMotion);
+      }
     };
   }, [triggerScreenshotLock]);
 
-  // Filtered records by local search
+  const handleToggleCardReveal = (index: number) => {
+    setRevealedIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+        if (autoHideTimeoutsRef.current[index]) {
+          clearTimeout(autoHideTimeoutsRef.current[index]);
+        }
+      } else {
+        next.add(index);
+        if (autoHideTimeoutsRef.current[index]) {
+          clearTimeout(autoHideTimeoutsRef.current[index]);
+        }
+        autoHideTimeoutsRef.current[index] = setTimeout(() => {
+          setRevealedIndices((curr) => {
+            const updated = new Set(curr);
+            updated.delete(index);
+            return updated;
+          });
+        }, 3500);
+      }
+      return next;
+    });
+  };
+
   const filteredRecords = useMemo(() => {
     if (!shareData?.records) return [];
     if (!searchTerm.trim()) return shareData.records;
@@ -418,7 +481,6 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
     });
   }, [shareData, searchTerm]);
 
-  // Loading Screen (White Theme)
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 text-slate-800 select-none font-sans">
@@ -429,7 +491,7 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
           <div>
             <h3 className="font-bold text-base text-gray-900">Loading Secure View...</h3>
             <p className="text-xs text-gray-500 mt-1">
-              Verifying link access & security DRM
+              Verifying link access & Touch Armor DRM
             </p>
           </div>
         </div>
@@ -437,7 +499,6 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
     );
   }
 
-  // Error / Burned / Expired Screen (White Theme)
   if (errorInfo) {
     const isBurned = errorInfo.statusType === 'BURNED';
     const isExpired = errorInfo.statusType === 'EXPIRED';
@@ -503,7 +564,6 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
     );
   }
 
-  // Passcode Prompt Screen (White Theme)
   if (requiresPasscode) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 select-none font-sans">
@@ -590,7 +650,7 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
                 </h3>
                 <p className="text-xs text-slate-400 mt-2 leading-relaxed">
                   {isScreenshotAttempted
-                    ? 'Screen capturing is strictly blocked on mobile and desktop gateways. Clipboard has been cleared.'
+                    ? 'Hardware button and gesture screen capture are strictly guarded. Clipboard has been cleared.'
                     : isDevToolsDetected
                     ? 'Please close your browser developer tools to view this confidential data.'
                     : 'Screen capture protection is active. Tap below to resume secure viewing.'}
@@ -704,7 +764,7 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                <h1 className="text-sm sm:text-base font-extrabold text-gray-900 tracking-tight truncate max-w-[220px] sm:max-w-md">
+                <h1 className="text-sm sm:text-base font-extrabold text-gray-900 tracking-tight truncate max-w-[200px] sm:max-w-md">
                   {shareData.title}
                 </h1>
                 {shareData.isOneTime || (shareData.maxViews && shareData.maxViews === 1) ? (
@@ -726,11 +786,19 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
           </div>
 
           <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
-            <div className="w-full sm:w-auto px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[10px] sm:text-[11px] text-emerald-800 flex items-center justify-center gap-1.5 font-semibold shadow-2xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>Mobile Anti-Screenshot Active</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsTouchArmorEnabled(!isTouchArmorEnabled)}
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border text-[10px] sm:text-[11px] flex items-center gap-1.5 font-bold shadow-2xs transition-all cursor-pointer ${
+                isTouchArmorEnabled
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                  : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+              }`}
+              title="Hold to reveal numbers - prevents hardware screenshots"
+            >
+              <Fingerprint className={`w-3.5 h-3.5 ${isTouchArmorEnabled ? 'text-emerald-600 animate-pulse' : 'text-gray-400'}`} />
+              <span>Touch Armor: {isTouchArmorEnabled ? 'ON' : 'OFF'}</span>
+            </button>
           </div>
         </div>
       </header>
@@ -748,10 +816,10 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-brand-600 shrink-0" />
             <span className="text-xs font-semibold text-gray-800">
-              {shareData.isOneTime || (shareData.maxViews && shareData.maxViews === 1)
+              {isTouchArmorEnabled
+                ? '👆 Touch Armor Active: Tap or Hold phone numbers to reveal (Auto-blurs on release).'
+                : shareData.isOneTime || (shareData.maxViews && shareData.maxViews === 1)
                 ? '🔥 Single-Use: Snapshot self-destructs upon window close.'
-                : shareData.maxViews && shareData.maxViews > 1
-                ? `👥 Active View ${shareData.viewCount || 1}/${shareData.maxViews} (${Math.max(0, (shareData.maxViews || 0) - (shareData.viewCount || 0))} view${(shareData.maxViews || 0) - (shareData.viewCount || 0) === 1 ? '' : 's'} remaining)`
                 : `Showing ${filteredRecords.length} of ${shareData.recordCount} contacts`}
             </span>
           </div>
@@ -820,6 +888,10 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
               {filteredRecords.map((record, index) => {
                 const badge = STATUS_BADGES[record.status || 'Active'] || STATUS_BADGES.Active;
                 const safeName = getSafeDisplayName(record.name, record.phone);
+                const isRevealed =
+                  !isTouchArmorEnabled ||
+                  activeHeldIndex === index ||
+                  revealedIndices.has(index);
 
                 return (
                   <motion.div
@@ -870,13 +942,57 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
                         </div>
                       </div>
 
-                      <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-2 select-none pointer-events-none">
-                        <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                          <Phone className="w-3.5 h-3.5" />
+                      {/* Touch Armor Interactive Phone Number Box */}
+                      <div
+                        onTouchStart={() => isTouchArmorEnabled && setActiveHeldIndex(index)}
+                        onTouchEnd={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
+                        onTouchCancel={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
+                        onMouseDown={() => isTouchArmorEnabled && setActiveHeldIndex(index)}
+                        onMouseUp={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
+                        onMouseLeave={() => isTouchArmorEnabled && setActiveHeldIndex(null)}
+                        onClick={() => isTouchArmorEnabled && handleToggleCardReveal(index)}
+                        className={`mt-3 p-2.5 rounded-xl border flex items-center justify-between gap-2 select-none cursor-pointer transition-all ${
+                          isRevealed
+                            ? 'bg-emerald-50/90 border-emerald-300 shadow-2xs'
+                            : 'bg-slate-100 border-slate-200 hover:bg-slate-200/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                              isRevealed
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-slate-200 text-slate-500'
+                            }`}
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                          </div>
+                          <span
+                            className={`font-mono font-bold text-xs select-none tracking-wide transition-all ${
+                              isRevealed
+                                ? 'text-emerald-700 blur-none'
+                                : 'text-slate-400 blur-[3px] opacity-70'
+                            }`}
+                          >
+                            {isRevealed ? record.phone : '• • • • • • • • • •'}
+                          </span>
                         </div>
-                        <span className="font-mono font-bold text-xs text-emerald-700 select-none tracking-wide">
-                          {record.phone}
-                        </span>
+
+                        {isTouchArmorEnabled && (
+                          <div className="flex items-center gap-1 shrink-0 text-[10px] font-semibold text-slate-500">
+                            {isRevealed ? (
+                              <span className="flex items-center gap-0.5 text-emerald-600">
+                                <Eye className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline text-[9px]">Visible</span>
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-0.5 text-slate-400">
+                                <EyeOff className="w-3.5 h-3.5" />
+                                <span className="text-[9px]">Hold / Tap</span>
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {((record.tags && record.tags.length > 0) || record.category) && (
@@ -935,6 +1051,11 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
                   <tbody className="divide-y divide-gray-100">
                     {filteredRecords.map((record, index) => {
                       const safeName = getSafeDisplayName(record.name, record.phone);
+                      const isRevealed =
+                        !isTouchArmorEnabled ||
+                        activeHeldIndex === index ||
+                        revealedIndices.has(index);
+
                       return (
                         <tr
                           key={index}
@@ -970,10 +1091,19 @@ export default function SecureVaultViewerPage({ params }: { params: { token: str
                             </div>
                           </td>
 
-                          <td className="py-3 px-4 font-mono font-bold text-emerald-700 select-none">
-                            <div className="flex items-center gap-1.5 select-none pointer-events-none">
-                              <Phone className="w-3.5 h-3.5 text-gray-400" />
-                              <span className="select-none">{record.phone}</span>
+                          <td
+                            className="py-3 px-4 font-mono font-bold text-emerald-700 select-none cursor-pointer"
+                            onClick={() => isTouchArmorEnabled && handleToggleCardReveal(index)}
+                          >
+                            <div className="flex items-center gap-1.5 select-none">
+                              <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                              <span
+                                className={`transition-all ${
+                                  isRevealed ? 'blur-none text-emerald-700' : 'blur-[3px] text-slate-400'
+                                }`}
+                              >
+                                {isRevealed ? record.phone : '• • • • • • • • • •'}
+                              </span>
                             </div>
                           </td>
 
