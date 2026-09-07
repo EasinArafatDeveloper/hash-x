@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Zap, AlertTriangle, RefreshCw, Terminal, Skull, ShieldCheck, Flame } from 'lucide-react';
+import { Terminal, Flame, AlertTriangle, RefreshCw, Skull, Sparkles } from 'lucide-react';
 import { matrixSoundFx } from '@/lib/matrixSoundFx';
 
 interface MorpheusPillChoiceProps {
@@ -19,11 +19,11 @@ export function MorpheusPillChoice({ onSelectRed }: MorpheusPillChoiceProps) {
     if (selectedPill !== 'none') return;
     setSelectedPill('red');
     matrixSoundFx.playRedPillSound();
-    
+
     // Smooth transition to Operator Login card after awakening animation
     setTimeout(() => {
       onSelectRed();
-    }, 900);
+    }, 850);
   };
 
   const handleBluePillClick = () => {
@@ -35,7 +35,7 @@ export function MorpheusPillChoice({ onSelectRed }: MorpheusPillChoiceProps) {
     // Trigger full simulation crash screen
     setTimeout(() => {
       setExplodedDone(true);
-    }, 1800);
+    }, 1600);
   };
 
   const handleReboot = () => {
@@ -45,7 +45,7 @@ export function MorpheusPillChoice({ onSelectRed }: MorpheusPillChoiceProps) {
   };
 
   return (
-    <div className="relative w-full max-w-5xl mx-auto px-4 py-6 flex flex-col items-center justify-center min-h-[90vh] select-none z-20">
+    <div className="relative w-full max-w-4xl mx-auto px-3 sm:px-6 flex flex-col items-center justify-center select-none z-20 py-2 sm:py-4">
       {/* 💥 BLUE PILL EXPLOSION / SCREEN SHATTER OVERLAY */}
       <AnimatePresence>
         {isExploding && (
@@ -59,11 +59,11 @@ export function MorpheusPillChoice({ onSelectRed }: MorpheusPillChoiceProps) {
             <motion.div
               animate={{
                 backgroundColor: [
-                  'rgba(255, 0, 0, 0.8)',
-                  'rgba(0, 200, 255, 0.9)',
+                  'rgba(255, 0, 0, 0.85)',
+                  'rgba(0, 200, 255, 0.95)',
                   'rgba(255, 255, 255, 1)',
-                  'rgba(0, 0, 0, 0.95)',
-                  'rgba(239, 68, 68, 0.7)',
+                  'rgba(0, 0, 0, 0.98)',
+                  'rgba(239, 68, 68, 0.8)',
                   'rgba(15, 23, 42, 0.98)',
                 ],
               }}
@@ -75,13 +75,13 @@ export function MorpheusPillChoice({ onSelectRed }: MorpheusPillChoiceProps) {
             <motion.div
               initial={{ scale: 0.1, opacity: 1 }}
               animate={{ scale: 8, opacity: 0 }}
-              transition={{ duration: 1.4, ease: 'easeOut' }}
+              transition={{ duration: 1.3, ease: 'easeOut' }}
               className="absolute w-96 h-96 rounded-full border-8 border-cyan-400 shadow-[0_0_120px_#06b6d4]"
             />
             <motion.div
               initial={{ scale: 0.1, opacity: 1 }}
               animate={{ scale: 6, opacity: 0 }}
-              transition={{ duration: 1.2, delay: 0.1, ease: 'easeOut' }}
+              transition={{ duration: 1.1, delay: 0.1, ease: 'easeOut' }}
               className="absolute w-80 h-80 rounded-full border-8 border-rose-500 shadow-[0_0_120px_#f43f5e]"
             />
 
@@ -99,16 +99,16 @@ export function MorpheusPillChoice({ onSelectRed }: MorpheusPillChoiceProps) {
             animate={{ opacity: 1, scale: 1.2 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8 }}
-            className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center bg-emerald-950/70 backdrop-blur-md"
+            className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center bg-emerald-950/75 backdrop-blur-md"
           >
-            <div className="text-center space-y-4">
+            <div className="text-center space-y-3">
               <motion.div
                 animate={{ rotate: 360, scale: [1, 1.4, 1] }}
                 transition={{ duration: 0.9, repeat: Infinity }}
-                className="w-24 h-24 mx-auto rounded-full border-4 border-emerald-400 border-t-transparent shadow-[0_0_80px_#10b981]"
+                className="w-20 h-20 mx-auto rounded-full border-4 border-emerald-400 border-t-transparent shadow-[0_0_80px_#10b981]"
               />
-              <div className="text-2xl sm:text-3xl font-mono font-black text-emerald-400 tracking-widest uppercase drop-shadow-[0_0_20px_#10b981]">
-                [ AWAKENING FROM THE MATRIX ]
+              <div className="text-xl sm:text-2xl font-mono font-black text-emerald-400 tracking-widest uppercase drop-shadow-[0_0_20px_#10b981]">
+                [ ACCESSING THE MATRIX ]
               </div>
               <div className="text-xs sm:text-sm font-mono text-emerald-300">
                 DECRYPTING OPERATOR MAINFRAME...
@@ -124,26 +124,26 @@ export function MorpheusPillChoice({ onSelectRed }: MorpheusPillChoiceProps) {
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="w-full max-w-xl p-8 sm:p-10 rounded-3xl bg-black/95 border-2 border-rose-600/80 shadow-[0_0_80px_rgba(225,29,72,0.4)] text-center space-y-7 relative overflow-hidden backdrop-blur-2xl z-30"
+          className="w-full max-w-lg p-6 sm:p-8 rounded-3xl bg-black/95 border-2 border-rose-600/80 shadow-[0_0_80px_rgba(225,29,72,0.4)] text-center space-y-5 relative overflow-hidden backdrop-blur-2xl z-30 my-auto"
         >
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-rose-500 to-transparent shadow-[0_0_20px_#f43f5e]" />
 
           {/* Glitch Danger Icon */}
-          <div className="w-20 h-20 mx-auto rounded-3xl bg-rose-950/80 border-2 border-rose-500/60 flex items-center justify-center shadow-[0_0_40px_rgba(244,63,94,0.5)] animate-bounce">
-            <Flame className="w-10 h-10 text-rose-400" />
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-950/80 border-2 border-rose-500/60 flex items-center justify-center shadow-[0_0_40px_rgba(244,63,94,0.5)] animate-bounce">
+            <Flame className="w-8 h-8 text-rose-400" />
           </div>
 
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-950/90 border border-rose-500/50 text-rose-300 font-mono text-xs uppercase tracking-widest font-bold">
-              <Skull className="w-4 h-4 text-rose-400" /> SIMULATION TERMINATED // BOOM
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-950/90 border border-rose-500/50 text-rose-300 font-mono text-xs uppercase tracking-widest font-bold">
+              <Skull className="w-3.5 h-3.5 text-rose-400" /> SIMULATION DESTROYED // BOOM
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
               You Chose The <span className="text-rose-400 underline decoration-rose-500">Blue Pill</span>
             </h2>
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-sans font-normal">
-              The story ended, the simulation exploded, and you woke up in your bed believing whatever you want to believe.
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-sans font-normal">
+              The story ended, the website detonated, and you woke up in your bed believing whatever you want to believe.
             </p>
-            <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-900/60 text-xs font-mono text-rose-300">
+            <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-900/60 text-[11px] font-mono text-rose-300">
               FATAL_ERROR_0x99A: CONNECTION SEVERED BY USER CHOICE.
             </div>
           </div>
@@ -152,9 +152,9 @@ export function MorpheusPillChoice({ onSelectRed }: MorpheusPillChoiceProps) {
           <div className="pt-2">
             <button
               onClick={handleReboot}
-              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-sm uppercase tracking-wider shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center justify-center gap-2.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
-              <RefreshCw className="w-5 h-5 text-black" />
+              <RefreshCw className="w-4 h-4 text-black" />
               <span>Reboot Matrix & Take The Red Pill</span>
             </button>
           </div>
@@ -162,55 +162,55 @@ export function MorpheusPillChoice({ onSelectRed }: MorpheusPillChoiceProps) {
       ) : (
         /* 🕶️ MORPHEUS WITH OPEN HANDS & TWO PILLS */
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{
             opacity: 1,
             y: 0,
             x: isExploding ? [0, -15, 15, -10, 10, -5, 5, 0] : 0,
           }}
-          transition={{ duration: 0.6 }}
-          className="w-full flex flex-col items-center text-center space-y-6 sm:space-y-8"
+          transition={{ duration: 0.5 }}
+          className="w-full flex flex-col items-center text-center space-y-3 sm:space-y-4"
         >
           {/* Header Title & Morpheus Quote */}
-          <div className="space-y-2.5 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-              <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-              <span>THE MORPHEUS PROTOCOL</span>
+          <div className="space-y-1 max-w-xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[11px] font-mono font-bold shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+              <Terminal className="w-3 h-3 text-emerald-400" />
+              <span>THE MORPHEUS CHOICE</span>
             </div>
 
-            <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
-              Choose Your <span className="bg-gradient-to-r from-rose-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">Reality</span>
+            <h1 className="text-xl sm:text-3xl font-black text-white tracking-tight">
+              Choose Your <span className="bg-gradient-to-r from-rose-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">Pill</span>
             </h1>
 
-            <p className="text-xs sm:text-sm md:text-base text-slate-300 font-sans italic max-w-xl mx-auto leading-relaxed drop-shadow">
-              &ldquo;This is your last chance. After this, there is no turning back. You take the blue pill—the story ends. You take the red pill—you stay in Wonderland, and I show you how deep the rabbit hole goes.&rdquo;
+            <p className="text-[11px] sm:text-xs text-slate-300 font-sans italic max-w-lg mx-auto leading-relaxed opacity-90">
+              &ldquo;This is your last chance. After this, there is no turning back. You take the blue pill—the story ends. You take the red pill—you stay in Wonderland.&rdquo;
             </p>
           </div>
 
-          {/* Interactive Morpheus Scene */}
-          <div className="relative w-full max-w-[760px] aspect-[1024/682] flex items-center justify-center">
+          {/* Interactive Morpheus Scene with Exact Palm Positioning */}
+          <div className="relative w-full max-w-[650px] aspect-[1024/682] flex items-center justify-center select-none">
             {/* Morpheus Image Cutout */}
-            <div className="relative w-full h-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.9)]">
+            <div className="relative w-full h-full drop-shadow-[0_15px_30px_rgba(0,0,0,0.85)]">
               <Image
                 src="/images/matrix/morpheus-choice.png"
                 alt="Morpheus offering the Red and Blue Pill"
                 fill
                 priority
-                className="object-contain pointer-events-none drop-shadow-[0_0_35px_rgba(16,185,129,0.15)]"
-                sizes="(max-width: 768px) 100vw, 760px"
+                className="object-contain pointer-events-none drop-shadow-[0_0_30px_rgba(16,185,129,0.12)]"
+                sizes="(max-width: 768px) 100vw, 650px"
               />
             </div>
 
-            {/* 🔴 RED PILL (Viewer's Left Hand / Morpheus's Right Hand) */}
+            {/* 🔴 RED PILL (Morpheus Right Hand / Viewer Left Hand: X=14.5%, Y=76%) */}
             <motion.div
               style={{
-                left: '18%',
-                top: '74%',
+                left: '14.5%',
+                top: '76%',
               }}
-              className="absolute -translate-x-1/2 -translate-y-1/2 z-30 cursor-pointer group"
+              className="absolute -translate-x-1/2 -translate-y-1/2 z-30 cursor-pointer group flex flex-col items-center"
               onClick={handleRedPillClick}
               onMouseEnter={() => matrixSoundFx.playHover('red')}
-              whileHover={{ scale: 1.18 }}
+              whileHover={{ scale: 1.15 }}
               whileTap={{ scale: 0.92 }}
             >
               {/* Pulsing Red Aura Light */}
@@ -219,41 +219,45 @@ export function MorpheusPillChoice({ onSelectRed }: MorpheusPillChoiceProps) {
               {/* Floating Animation */}
               <motion.div
                 animate={{
-                  y: [0, -10, 0],
+                  y: [0, -8, 0],
                   rotate: [0, -3, 0],
                 }}
                 transition={{
-                  duration: 2.8,
+                  duration: 2.6,
                   repeat: Infinity,
                   ease: 'easeInOut',
                 }}
-                className="relative w-16 h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 flex items-center justify-center"
+                className="relative w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 flex items-center justify-center"
               >
                 <Image
                   src="/images/matrix/red-pill.png"
                   alt="Red Pill"
                   fill
-                  className="object-contain drop-shadow-[0_0_25px_rgba(239,68,68,0.95)] group-hover:drop-shadow-[0_0_35px_rgba(239,68,68,1)] transition-all"
-                  sizes="(max-width: 768px) 96px, 120px"
+                  className="object-contain drop-shadow-[0_0_20px_rgba(239,68,68,0.95)] group-hover:drop-shadow-[0_0_35px_rgba(239,68,68,1)] transition-all"
+                  sizes="(max-width: 768px) 80px, 96px"
                 />
-
-                {/* Floating Tooltip / Label */}
-                <div className="absolute -top-7 sm:-top-9 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 rounded-full bg-red-950/95 border border-red-500 text-[10px] sm:text-xs font-mono font-bold text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.6)] group-hover:scale-105 transition-all">
-                  🔴 RED PILL
-                </div>
               </motion.div>
+
+              {/* Red Pill Interactive Click Button / Badge */}
+              <motion.button
+                type="button"
+                className="mt-1 px-3 py-1 rounded-full bg-red-950/95 border-2 border-red-500 text-[10px] sm:text-xs font-mono font-black text-red-100 shadow-[0_0_20px_rgba(239,68,68,0.6)] group-hover:bg-red-600 group-hover:text-white transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <Flame className="w-3 h-3 text-red-400 group-hover:text-white" />
+                <span>RED PILL (LOGIN)</span>
+              </motion.button>
             </motion.div>
 
-            {/* 🔵 BLUE PILL (Viewer's Right Hand / Morpheus's Left Hand) */}
+            {/* 🔵 BLUE PILL (Morpheus Left Hand / Viewer Right Hand: X=85.6%, Y=76%) */}
             <motion.div
               style={{
-                left: '82%',
-                top: '74%',
+                left: '85.6%',
+                top: '76%',
               }}
-              className="absolute -translate-x-1/2 -translate-y-1/2 z-30 cursor-pointer group"
+              className="absolute -translate-x-1/2 -translate-y-1/2 z-30 cursor-pointer group flex flex-col items-center"
               onClick={handleBluePillClick}
               onMouseEnter={() => matrixSoundFx.playHover('blue')}
-              whileHover={{ scale: 1.18 }}
+              whileHover={{ scale: 1.15 }}
               whileTap={{ scale: 0.92 }}
             >
               {/* Pulsing Blue Aura Light */}
@@ -262,82 +266,41 @@ export function MorpheusPillChoice({ onSelectRed }: MorpheusPillChoiceProps) {
               {/* Floating Animation */}
               <motion.div
                 animate={{
-                  y: [0, -10, 0],
+                  y: [0, -8, 0],
                   rotate: [0, 3, 0],
                 }}
                 transition={{
-                  duration: 2.8,
-                  delay: 0.4,
+                  duration: 2.6,
+                  delay: 0.3,
                   repeat: Infinity,
                   ease: 'easeInOut',
                 }}
-                className="relative w-16 h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 flex items-center justify-center"
+                className="relative w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 flex items-center justify-center"
               >
                 <Image
                   src="/images/matrix/blue-pill.png"
                   alt="Blue Pill"
                   fill
-                  className="object-contain drop-shadow-[0_0_25px_rgba(6,182,212,0.95)] group-hover:drop-shadow-[0_0_35px_rgba(6,182,212,1)] transition-all"
-                  sizes="(max-width: 768px) 96px, 120px"
+                  className="object-contain drop-shadow-[0_0_20px_rgba(6,182,212,0.95)] group-hover:drop-shadow-[0_0_35px_rgba(6,182,212,1)] transition-all"
+                  sizes="(max-width: 768px) 80px, 96px"
                 />
-
-                {/* Floating Tooltip / Label */}
-                <div className="absolute -top-7 sm:-top-9 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 rounded-full bg-cyan-950/95 border border-cyan-500 text-[10px] sm:text-xs font-mono font-bold text-cyan-200 shadow-[0_0_15px_rgba(6,182,212,0.6)] group-hover:scale-105 transition-all">
-                  🔵 BLUE PILL
-                </div>
               </motion.div>
+
+              {/* Blue Pill Interactive Click Button / Badge */}
+              <motion.button
+                type="button"
+                className="mt-1 px-3 py-1 rounded-full bg-cyan-950/95 border-2 border-cyan-500 text-[10px] sm:text-xs font-mono font-black text-cyan-100 shadow-[0_0_20px_rgba(6,182,212,0.6)] group-hover:bg-cyan-600 group-hover:text-white transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <AlertTriangle className="w-3 h-3 text-cyan-400 group-hover:text-white" />
+                <span>BLUE PILL (BOOM)</span>
+              </motion.button>
             </motion.div>
           </div>
 
-          {/* Interactive Choice Action Cards below Morpheus */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 w-full max-w-2xl pt-2">
-            {/* RED PILL BUTTON CARD */}
-            <motion.button
-              type="button"
-              onClick={handleRedPillClick}
-              onMouseEnter={() => matrixSoundFx.playHover('red')}
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-red-950/80 via-black/80 to-red-950/40 border-2 border-red-500/50 hover:border-red-400 text-left space-y-2 shadow-[0_0_25px_rgba(239,68,68,0.2)] hover:shadow-[0_0_40px_rgba(239,68,68,0.45)] transition-all cursor-pointer group relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 w-28 h-28 bg-red-500/10 rounded-full blur-2xl group-hover:bg-red-500/25 transition-all" />
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-900/60 border border-red-500/50 text-red-200 font-mono text-xs font-bold shadow-[0_0_10px_rgba(239,68,68,0.3)]">
-                  <Flame className="w-3.5 h-3.5 text-red-400" /> TAKE THE RED PILL
-                </span>
-                <span className="text-xl">🔴</span>
-              </div>
-              <h3 className="text-base sm:text-lg font-black text-white group-hover:text-red-300 transition-colors">
-                Enter The Matrix (Login)
-              </h3>
-              <p className="text-xs text-slate-300 font-sans leading-relaxed">
-                Stay in Wonderland, unlock the terminal, and view the raw truth.
-              </p>
-            </motion.button>
-
-            {/* BLUE PILL BUTTON CARD */}
-            <motion.button
-              type="button"
-              onClick={handleBluePillClick}
-              onMouseEnter={() => matrixSoundFx.playHover('blue')}
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-cyan-950/80 via-black/80 to-blue-950/40 border-2 border-cyan-500/50 hover:border-cyan-400 text-left space-y-2 shadow-[0_0_25px_rgba(6,182,212,0.2)] hover:shadow-[0_0_40px_rgba(6,182,212,0.45)] transition-all cursor-pointer group relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 w-28 h-28 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/25 transition-all" />
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-900/60 border border-cyan-500/50 text-cyan-200 font-mono text-xs font-bold shadow-[0_0_10px_rgba(6,182,212,0.3)]">
-                  <AlertTriangle className="w-3.5 h-3.5 text-cyan-400" /> TAKE THE BLUE PILL
-                </span>
-                <span className="text-xl">🔵</span>
-              </div>
-              <h3 className="text-base sm:text-lg font-black text-white group-hover:text-cyan-300 transition-colors">
-                Detonate & Disconnect
-              </h3>
-              <p className="text-xs text-slate-300 font-sans leading-relaxed">
-                The story ends, the website explodes into bits, and you wake up.
-              </p>
-            </motion.button>
+          {/* Quick Guidance */}
+          <div className="pt-1 flex items-center justify-center gap-2 text-[11px] font-mono text-emerald-400/80">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Click the <strong>Red Pill</strong> to reveal login, or the <strong>Blue Pill</strong> to explode</span>
           </div>
         </motion.div>
       )}
