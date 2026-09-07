@@ -6,24 +6,17 @@ import {
   Phone,
   User,
   Mail,
-  Image as ImageIcon,
-  Calendar,
   MapPin,
-  Tag,
-  Folder,
-  Activity,
-  Clock,
-  Shield,
-  Layers,
-  CheckCircle2,
+  Calendar,
+  DollarSign,
+  Package,
   AlertTriangle,
   RotateCcw,
   Sparkles,
   Info,
   Ban,
-  Check,
-  X,
-  EyeOff,
+  Layers,
+  CheckCircle2,
 } from 'lucide-react';
 
 export interface ColumnMappingItem {
@@ -33,74 +26,74 @@ export interface ColumnMappingItem {
 }
 
 export const TARGET_SYSTEM_FIELDS = [
-  { value: 'phone', label: '📞 Phone / Mobile Number (Key)', icon: Phone, color: 'text-emerald-600 dark:text-emerald-400', isKey: true },
-  { value: 'name', label: '👤 Full Name / Nickname', icon: User, color: 'text-blue-600 dark:text-blue-400' },
-  { value: 'email', label: '✉️ Email Address', icon: Mail, color: 'text-purple-600 dark:text-purple-400' },
-  { value: 'avatarUrl', label: '🖼️ Avatar / Photo URL', icon: ImageIcon, color: 'text-pink-600 dark:text-pink-400' },
-  { value: 'avatarType', label: '🎨 Avatar Type (With/Without)', icon: ImageIcon, color: 'text-pink-500 dark:text-pink-400' },
-  { value: 'age', label: '🎂 Age (Years)', icon: Calendar, color: 'text-amber-600 dark:text-amber-400' },
-  { value: 'gender', label: '⚧ Gender (Male/Female/Other)', icon: User, color: 'text-indigo-600 dark:text-indigo-400' },
-  { value: 'location', label: '📍 Location / City / District', icon: MapPin, color: 'text-teal-600 dark:text-teal-400' },
-  { value: 'area', label: '🏘️ Area / Thana / Zone', icon: MapPin, color: 'text-teal-500 dark:text-teal-400' },
-  { value: 'address', label: '🏠 Full Street Address', icon: MapPin, color: 'text-teal-600 dark:text-teal-400' },
-  { value: 'tags', label: '🏷️ Tags / Batch Labels (Comma-separated)', icon: Tag, color: 'text-brand-600 dark:text-brand-400' },
-  { value: 'category', label: '📁 Category / Segment', icon: Folder, color: 'text-brand-500 dark:text-brand-400' },
-  { value: 'status', label: '⚡ Status (Active / Inactive)', icon: Shield, color: 'text-emerald-500 dark:text-emerald-400' },
-  { value: 'activeDays', label: '📅 Active Days (Number)', icon: Activity, color: 'text-orange-600 dark:text-orange-400' },
-  { value: 'lastActive', label: '🕒 Last Online / Timestamp', icon: Clock, color: 'text-sky-600 dark:text-sky-400' },
-  { value: 'custom', label: '🧩 Custom Field (Keep as Attribute)', icon: Layers, color: 'text-gray-600 dark:text-gray-400' },
-  { value: 'skip', label: '🚫 Skip / Ignore Column', icon: AlertTriangle, color: 'text-rose-500 dark:text-rose-400' },
+  { value: 'name', label: '👤 Name', icon: User, color: 'text-blue-600 dark:text-blue-400' },
+  { value: 'email', label: '✉️ Email', icon: Mail, color: 'text-purple-600 dark:text-purple-400' },
+  { value: 'phone', label: '📞 Mobile No', icon: Phone, color: 'text-emerald-600 dark:text-emerald-400', isKey: true },
+  { value: 'address', label: '🏠 Address', icon: MapPin, color: 'text-teal-600 dark:text-teal-400' },
+  { value: 'orderAmount', label: '💰 Order Amount', icon: DollarSign, color: 'text-amber-600 dark:text-amber-400' },
+  { value: 'area', label: '🏘️ Area Name', icon: MapPin, color: 'text-teal-500 dark:text-teal-400' },
+  { value: 'age', label: '🎂 Age', icon: Calendar, color: 'text-orange-600 dark:text-orange-400' },
+  { value: 'gender', label: '⚧ Gender', icon: User, color: 'text-indigo-600 dark:text-indigo-400' },
+  { value: 'orderCount', label: '📦 Order Count', icon: Package, color: 'text-sky-600 dark:text-sky-400' },
+  { value: 'skip', label: '🚫 skip', icon: AlertTriangle, color: 'text-rose-500 dark:text-rose-400' },
 ];
 
 export function getAutoSuggestedField(columnName: string, sampleValues: any[] = []): string {
   const lk = columnName.toLowerCase().replace(/[\s_\.-]+/g, '');
 
-  // 1. Explicitly protect non-phone metric & commerce fields (Amounts, counts, orders, prices, refunds, IDs)
+  // 1. Mobile No / Phone
+  if (['phone', 'mobile', 'cell', 'contact', 'tel', 'msisdn', 'phonenumber', 'mobilenumber', 'contactno', 'cellphone', 'mobileno', 'number'].includes(lk)) return 'phone';
+
+  // 2. Name
+  if (['name', 'fullname', 'username', 'nickname', 'nick', 'contactname', 'customername', 'person', 'client', 'title', 'buyer'].includes(lk)) return 'name';
+
+  // 3. Email
+  if (['email', 'mail', 'emailaddress', 'useremail', 'customeremail'].includes(lk)) return 'email';
+
+  // 4. Address
+  if (['address', 'fulladdress', 'street', 'presentaddress', 'permanentaddress', 'shippingaddress', 'deliveryaddress', 'canonicaladdress'].includes(lk)) return 'address';
+
+  // 5. Order Amount (spend, price, bdt, total, revenue, amount, etc.)
   if (
+    lk.includes('orderamount') ||
     lk.includes('amount') ||
-    lk.includes('count') ||
-    lk.includes('order') ||
-    lk.includes('bdt') ||
+    lk.includes('spend') ||
     lk.includes('price') ||
-    lk.includes('total') ||
-    lk.includes('refund') ||
-    lk.includes('fee') ||
-    lk.includes('cost') ||
-    lk.includes('qty') ||
-    lk.includes('quantity') ||
-    lk.includes('balance') ||
-    lk.includes('diversity') ||
-    lk.includes('frequency') ||
+    lk.includes('bdt') ||
     lk.includes('revenue') ||
-    lk.includes('merchant') ||
-    lk.includes('invoice') ||
-    lk.includes('voucher') ||
-    lk.includes('version') ||
-    lk.includes('score') ||
-    lk.includes('rating') ||
-    lk.includes('rank')
+    lk.includes('sales') ||
+    lk.includes('cost') ||
+    lk.includes('totalspend') ||
+    lk.includes('orderprice') ||
+    lk.includes('bill')
   ) {
-    return 'custom';
+    return 'orderAmount';
   }
 
-  // 2. Direct Column Name Exact & Strong Keyword Matches
-  if (['phone', 'mobile', 'cell', 'contact', 'tel', 'msisdn', 'phonenumber', 'mobilenumber', 'contactno', 'cellphone'].includes(lk)) return 'phone';
-  if (['name', 'fullname', 'username', 'nickname', 'nick', 'contactname', 'customername', 'person', 'title'].includes(lk)) return 'name';
-  if (['email', 'mail', 'emailaddress', 'useremail'].includes(lk)) return 'email';
-  if (['avatar', 'photo', 'image', 'picture', 'avatarurl', 'userphoto', 'imageurl', 'photourl', 'userimage'].includes(lk)) return 'avatarUrl';
-  if (['avatartype', 'avatarcategory', 'imagetype'].includes(lk)) return 'avatarType';
-  if (['age', 'years', 'userage'].includes(lk)) return 'age';
-  if (['gender', 'sex'].includes(lk)) return 'gender';
-  if (['location', 'district', 'city', 'division', 'state', 'country'].includes(lk)) return 'location';
-  if (['area', 'thana', 'zone', 'subdistrict', 'upazila'].includes(lk)) return 'area';
-  if (['address', 'fulladdress', 'street', 'presentaddress', 'permanentaddress'].includes(lk)) return 'address';
-  if (['tag', 'tags', 'label', 'labels', 'badge'].includes(lk)) return 'tags';
-  if (['category', 'group', 'segment', 'batch'].includes(lk)) return 'category';
-  if (['status', 'accountstatus', 'state', 'userstatus'].includes(lk)) return 'status';
-  if (['activedays', 'days', 'active', 'activeday'].includes(lk)) return 'activeDays';
-  if (['lastonline', 'lastactive', 'online', 'date', 'timestamp', 'lastseen', 'lastactivity'].includes(lk)) return 'lastActive';
+  // 6. Area Name (area, thana, zone, location, city, district, subdistrict)
+  if (['area', 'areaname', 'thana', 'zone', 'subdistrict', 'upazila', 'city', 'district', 'location', 'division', 'state'].includes(lk)) return 'area';
 
-  // 3. Strict Sample values heuristic inspection
+  // 7. Age
+  if (['age', 'years', 'userage', 'customerage'].includes(lk)) return 'age';
+
+  // 8. Gender
+  if (['gender', 'sex'].includes(lk)) return 'gender';
+
+  // 9. Order Count (count, orders, totalorders, ordercount, qty, quantity, items)
+  if (
+    lk.includes('ordercount') ||
+    lk.includes('orders') ||
+    lk.includes('totalorders') ||
+    lk.includes('count') ||
+    lk.includes('matchedordercount') ||
+    lk.includes('qty') ||
+    lk.includes('quantity') ||
+    lk.includes('frequency')
+  ) {
+    return 'orderCount';
+  }
+
+  // 10. Sample value heuristic inspection
   for (const v of sampleValues) {
     if (v === null || v === undefined) continue;
     const s = String(v).trim();
@@ -111,14 +104,7 @@ export function getAutoSuggestedField(columnName: string, sampleValues: any[] = 
       return 'email';
     }
 
-    // Check for Avatar / Image URL
-    if (s.startsWith('http://') || s.startsWith('https://')) {
-      if (/\.(jpg|jpeg|png|webp|gif|svg)/i.test(s) || s.includes('avatar') || s.includes('photo') || s.includes('image')) {
-        return 'avatarUrl';
-      }
-    }
-
-    // Check for genuine Bangladeshi & International mobile phone numbers (10 to 15 digits)
+    // Check for Phone number (10 to 15 digits)
     const cleanPhone = s.replace(/[\s\+\-\(\)]/g, '');
     if (/^\d{10,15}$/.test(cleanPhone)) {
       if (
@@ -131,7 +117,7 @@ export function getAutoSuggestedField(columnName: string, sampleValues: any[] = 
     }
   }
 
-  return 'custom';
+  return 'skip';
 }
 
 interface ColumnMappingStudioProps {
@@ -159,14 +145,12 @@ export function ColumnMappingStudio({
   };
 
   const handleToggleSkip = (columnName: string) => {
-    const current = mapping[columnName] || 'custom';
+    const current = mapping[columnName] || 'skip';
     if (current === 'skip') {
-      // Restore to auto-detected field or custom
       const samples = sampleRows.map((r) => r[columnName]).filter((v) => v !== null && v !== undefined && String(v).trim() !== '');
       const suggested = getAutoSuggestedField(columnName, samples);
-      handleFieldSelect(columnName, suggested === 'skip' ? 'custom' : suggested);
+      handleFieldSelect(columnName, suggested === 'skip' ? 'name' : suggested);
     } else {
-      // Instant 1-click skip
       handleFieldSelect(columnName, 'skip');
     }
   };
@@ -174,7 +158,7 @@ export function ColumnMappingStudio({
   const handleSkipAllNonKeys = () => {
     const updated: Record<string, string> = { ...mapping };
     columnNames.forEach((col) => {
-      const current = updated[col] || 'custom';
+      const current = updated[col] || 'skip';
       if (current !== 'phone' && current !== 'name' && current !== 'email') {
         updated[col] = 'skip';
       }
@@ -182,11 +166,13 @@ export function ColumnMappingStudio({
     onMappingChange(updated);
   };
 
-  const handleKeepAllAsCustom = () => {
+  const handleKeepAll = () => {
     const updated: Record<string, string> = { ...mapping };
     columnNames.forEach((col) => {
       if (updated[col] === 'skip') {
-        updated[col] = 'custom';
+        const samples = sampleRows.map((r) => r[col]).filter((v) => v !== null && v !== undefined && String(v).trim() !== '');
+        const suggested = getAutoSuggestedField(col, samples);
+        updated[col] = suggested === 'skip' ? 'name' : suggested;
       }
     });
     onMappingChange(updated);
@@ -242,12 +228,12 @@ export function ColumnMappingStudio({
           {phoneMappedColumn ? (
             <span className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 text-[11px] font-bold flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Phone: &ldquo;{phoneMappedColumn}&rdquo;</span>
+              <span>Mobile No: &ldquo;{phoneMappedColumn}&rdquo;</span>
             </span>
           ) : (
             <span className="px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900 text-[11px] font-bold flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>No Phone Selected</span>
+              <span>No Mobile No Selected</span>
             </span>
           )}
 
@@ -276,7 +262,7 @@ export function ColumnMappingStudio({
               <button
                 type="button"
                 onClick={handleSkipAllNonKeys}
-                title="Skip all non-essential columns, keeping only Phone, Name, and Email"
+                title="Skip all non-essential columns, keeping only Mobile No, Name, and Email"
                 className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer active:scale-95"
               >
                 <Ban className="w-3 h-3" />
@@ -285,8 +271,8 @@ export function ColumnMappingStudio({
 
               <button
                 type="button"
-                onClick={handleKeepAllAsCustom}
-                title="Un-skip all columns and keep them as custom attributes"
+                onClick={handleKeepAll}
+                title="Un-skip all columns and map them automatically"
                 className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 hover:bg-gray-100 text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer active:scale-95"
               >
                 <Layers className="w-3 h-3 text-gray-500" />
@@ -317,7 +303,7 @@ export function ColumnMappingStudio({
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                 {columnNames.map((colName, idx) => {
-                  const currentField = mapping[colName] || 'custom';
+                  const currentField = mapping[colName] || 'skip';
                   const isSkipped = currentField === 'skip';
                   const isPhoneKey = currentField === 'phone';
 
@@ -408,8 +394,6 @@ export function ColumnMappingStudio({
                                   ? 'border-emerald-400 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/40'
                                   : currentField === 'skip'
                                   ? 'border-rose-300 dark:border-rose-900 text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/30'
-                                  : currentField === 'custom'
-                                  ? 'border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-300'
                                   : 'border-brand-300 dark:border-brand-800 text-brand-700 dark:text-brand-300 bg-brand-50/40 dark:bg-brand-950/30'
                               }`}
                             >
@@ -465,11 +449,6 @@ export function ColumnMappingStudio({
                 <strong>{skippedColumnsCount}</strong> skipped).
               </span>
             </span>
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-[11px] text-gray-600 dark:text-gray-300">
-                Custom attributes are safely kept in contact details.
-              </span>
-            </div>
           </div>
         </div>
       )}

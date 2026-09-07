@@ -80,6 +80,8 @@ export async function POST(request: NextRequest) {
         location: '',
         area: '',
         address: '',
+        orderAmount: 0,
+        orderCount: 0,
         status: 'Active',
         activeDays: 0,
         avatarType: 'Without Avatar',
@@ -104,6 +106,37 @@ export async function POST(request: NextRequest) {
             normalizedRow.name = String(val).trim();
           } else if (targetField === 'email') {
             normalizedRow.email = String(val).trim();
+          } else if (targetField === 'address') {
+            normalizedRow.address = String(val).trim();
+          } else if (targetField === 'orderAmount') {
+            const cleanAmount = String(val).replace(/[^0-9.-]+/g, '');
+            const num = parseFloat(cleanAmount);
+            if (!isNaN(num)) {
+              normalizedRow.orderAmount = num;
+              normalizedRow.customFields['Order Amount'] = num;
+            } else {
+              normalizedRow.customFields['Order Amount'] = val;
+            }
+          } else if (targetField === 'area') {
+            normalizedRow.area = String(val).trim();
+            if (!normalizedRow.location) normalizedRow.location = String(val).trim();
+          } else if (targetField === 'age') {
+            const num = parseInt(String(val), 10);
+            if (!isNaN(num)) normalizedRow.age = num;
+          } else if (targetField === 'gender') {
+            const gStr = String(val).trim().toLowerCase();
+            if (gStr.startsWith('m')) normalizedRow.gender = 'Male';
+            else if (gStr.startsWith('f')) normalizedRow.gender = 'Female';
+            else normalizedRow.gender = 'Other';
+          } else if (targetField === 'orderCount') {
+            const cleanCount = String(val).replace(/[^0-9.-]+/g, '');
+            const num = parseInt(cleanCount, 10);
+            if (!isNaN(num)) {
+              normalizedRow.orderCount = num;
+              normalizedRow.customFields['Order Count'] = num;
+            } else {
+              normalizedRow.customFields['Order Count'] = val;
+            }
           } else if (targetField === 'avatarUrl') {
             const avatarVal = String(val).trim();
             if (avatarVal.startsWith('http://') || avatarVal.startsWith('https://')) {
@@ -115,20 +148,6 @@ export async function POST(request: NextRequest) {
             }
           } else if (targetField === 'avatarType') {
             normalizedRow.avatarType = String(val).trim();
-          } else if (targetField === 'age') {
-            const num = parseInt(String(val), 10);
-            if (!isNaN(num)) normalizedRow.age = num;
-          } else if (targetField === 'gender') {
-            const gStr = String(val).trim().toLowerCase();
-            if (gStr.startsWith('m')) normalizedRow.gender = 'Male';
-            else if (gStr.startsWith('f')) normalizedRow.gender = 'Female';
-            else normalizedRow.gender = 'Other';
-          } else if (targetField === 'location') {
-            normalizedRow.location = String(val).trim();
-          } else if (targetField === 'area') {
-            normalizedRow.area = String(val).trim();
-          } else if (targetField === 'address') {
-            normalizedRow.address = String(val).trim();
           } else if (targetField === 'tags') {
             String(val).split(',').forEach((t) => {
               const ct = t.trim();

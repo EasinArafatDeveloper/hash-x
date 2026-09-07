@@ -9,6 +9,8 @@ export interface IRecordDocument extends Document {
   location: string;
   area: string;
   address: string;
+  orderAmount?: number;
+  orderCount?: number;
   status: string;
   lastActive: Date;
   activeDays: number;
@@ -34,6 +36,8 @@ const RecordSchema: Schema = new Schema(
     location: { type: String, default: '', index: true },
     area: { type: String, default: '' },
     address: { type: String, default: '' },
+    orderAmount: { type: Number, default: 0, index: true },
+    orderCount: { type: Number, default: 0, index: true },
     status: { type: String, default: 'Active', index: true },
     lastActive: { type: Date, default: Date.now, index: true },
     activeDays: { type: Number, default: 0, index: true },
@@ -58,6 +62,8 @@ RecordSchema.index({ datasetId: 1 });
 RecordSchema.index({ tags: 1 });
 RecordSchema.index({ category: 1 });
 RecordSchema.index({ status: 1 });
+RecordSchema.index({ orderAmount: 1 });
+RecordSchema.index({ orderCount: 1 });
 
 // Create compound search text index for lightning fast server-side full text searches
 RecordSchema.index({
