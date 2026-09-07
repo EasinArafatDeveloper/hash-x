@@ -20,6 +20,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/components/auth/AuthContext';
 import { MorpheusLogo } from '@/components/brand/MorpheusLogo';
+import { MatrixRain } from '@/components/brand/MatrixRain';
 import { toast } from 'sonner';
 
 function LoginFormContent() {
@@ -142,15 +143,18 @@ function LoginFormContent() {
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-black select-none">
-      {/* 🌟 Morpheus Matrix HD Natural Background Image */}
+    <div className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-[#02060C] select-none">
+      {/* 🌟 Morpheus Matrix HD Natural Background Backdrop */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-500"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 mix-blend-screen transition-all duration-500"
         style={{ backgroundImage: `url('/morpheus-matrix-bg.jpg')` }}
       />
 
-      {/* Subtle Gentle Darkening for Card Readability (Natural & Clear) */}
-      <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+      {/* ⚡ Live Animated Matrix Digital Rain Canvas (Real-time Falling & Mutating Characters) */}
+      <MatrixRain opacity={0.88} speedMultiplier={1.1} />
+
+      {/* Subtle Gentle Vignette for Optimal Card Readability */}
+      <div className="absolute inset-0 bg-radial-gradient from-transparent via-black/40 to-black/80 pointer-events-none" />
 
       {/* Main Glassmorphic Terminal Card */}
       <motion.div
