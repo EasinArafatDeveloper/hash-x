@@ -494,6 +494,75 @@ export function parseRowData(
     providedFields.category = customCategory.trim();
   }
 
+  // Smart Row-Level Tag Discovery (conditional on individual record attributes)
+  const waStatus = String(
+    providedCustomFields['whatsapp_status'] ||
+    providedCustomFields['WhatsApp Status'] ||
+    row['whatsapp_status'] ||
+    row['wa_status'] ||
+    row['whatsapp'] ||
+    ''
+  ).toLowerCase().trim();
+  if (
+    waStatus.includes('active') ||
+    waStatus === 'yes' ||
+    waStatus === 'true' ||
+    waStatus === 'valid' ||
+    waStatus === '1'
+  ) {
+    if (!providedTags.includes('WhatsApp Active')) {
+      providedTags.push('WhatsApp Active');
+    }
+  }
+
+  // VIP Client (Spend >= 10,000 or VIP value segment)
+  const spend =
+    providedFields.orderAmount ||
+    parseFloat(String(providedCustomFields['lifetime_net_order_amount_bdt'] || '').replace(/[^0-9.-]+/g, '')) ||
+    0;
+  const valSeg = String(
+    providedCustomFields['lifetime_value_segment'] ||
+    providedCustomFields['Value Segment'] ||
+    row['lifetime_value_segment'] ||
+    ''
+  ).toLowerCase();
+  if (spend >= 10000 || valSeg.includes('vip') || valSeg.includes('high')) {
+    if (!providedTags.includes('VIP Client')) {
+      providedTags.push('VIP Client');
+    }
+  }
+
+  // Hot Leads / Frequent Buyer (Orders >= 3 or frequent buyer segment)
+  const orders =
+    providedFields.orderCount ||
+    parseInt(String(providedCustomFields['lifetime_order_count'] || '').replace(/[^0-9.-]+/g, ''), 10) ||
+    0;
+  const freqSeg = String(
+    providedCustomFields['lifetime_frequency_segment'] ||
+    providedCustomFields['Frequency Segment'] ||
+    row['lifetime_frequency_segment'] ||
+    ''
+  ).toLowerCase();
+  if (orders >= 3 || freqSeg.includes('frequent') || freqSeg.includes('loyal')) {
+    if (!providedTags.includes('Hot Leads')) {
+      providedTags.push('Hot Leads');
+    }
+  }
+
+  // Geographic Dhaka Zone
+  const geoStr = [
+    providedFields.location,
+    providedFields.area,
+    providedFields.address,
+    providedCustomFields['matched_district_filters'],
+    providedCustomFields['matched_city_filters'],
+  ].join(' ').toLowerCase();
+  if (geoStr.includes('dhaka')) {
+    if (!providedTags.includes('Dhaka Zone')) {
+      providedTags.push('Dhaka Zone');
+    }
+  }
+
   // Format tags string into customFields for human-readable views
   if (providedTags.length > 0) {
     providedCustomFields['Tags / Labels'] = providedTags.join(', ');

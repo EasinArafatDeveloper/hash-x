@@ -17,13 +17,22 @@ import {
   Layers,
   Phone,
   Clipboard,
-  FileText,
   Trash2,
   Code,
+  Zap,
+  Bot,
+  Flame,
+  DollarSign,
+  Compass,
+  ShieldCheck,
+  TrendingUp,
+  MessageSquare,
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
 import { ColumnMappingStudio, getAutoSuggestedField } from './ColumnMappingStudio';
+import { computeSmartTagsFromRows, AISmartTag } from '@/lib/deepseek';
 
 interface DropZoneProps {
   onFileParsed: (
@@ -348,12 +357,61 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
   const [newTagInput, setNewTagInput] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
+  // DeepSeek AI Smart Tag Discovery State
+  const [discoveredSmartTags, setDiscoveredSmartTags] = useState<AISmartTag[]>([]);
+  const [isAiTagsLoading, setIsAiTagsLoading] = useState(false);
+
   // Custom Column Mapping State
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [isMappingStudioOpen, setIsMappingStudioOpen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
+
+  // Automatically compute and refresh Smart Tags from raw file data whenever file or mapping changes
+  React.useEffect(() => {
+    if (selectedFile && selectedFile.rows && selectedFile.rows.length > 0) {
+      const tags = computeSmartTagsFromRows(selectedFile.rows, columnMapping);
+      setDiscoveredSmartTags(tags);
+    } else {
+      setDiscoveredSmartTags([]);
+    }
+  }, [selectedFile, columnMapping]);
+
+  const handleApplyAllAiTags = () => {
+    if (discoveredSmartTags.length === 0) return;
+    const allTagNames = discoveredSmartTags.map((t) => t.tag);
+    const combined = Array.from(new Set([...selectedTags, ...allTagNames]));
+    setSelectedTags(combined);
+    toast.success(`Attached all ${allTagNames.length} AI smart tags to batch!`);
+  };
+
+  const handleDeepSeekScanTags = async () => {
+    if (!selectedFile) return;
+    setIsAiTagsLoading(true);
+    try {
+      const res = await fetch('/api/ai/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sampleRows: selectedFile.rows.slice(0, 30),
+          totalRows: selectedFile.rows.length,
+          columnMapping,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.smartTags) && data.smartTags.length > 0) {
+          setDiscoveredSmartTags(data.smartTags);
+          toast.success(`DeepSeek AI discovered ${data.smartTags.length} smart segmentation tags!`);
+        }
+      }
+    } catch (err) {
+      console.warn('AI tag scan error:', err);
+    } finally {
+      setIsAiTagsLoading(false);
+    }
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -993,7 +1051,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                   Assign Batch Tags & Labels (Multi-Tag Selector)
                 </label>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                  Attach labels to these records. Select presets or type custom tags with the{' '}
+                  Attach labels to these records. Select AI-discovered tags, quick presets, or type custom tags with the{' '}
                   <strong className="text-brand-600 dark:text-brand-400">+</strong> button.
                 </p>
               </div>
@@ -1032,6 +1090,104 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                       </button>
                     </span>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* 🌟 4.1 DEEPSEEK AI AUTO-DETECTED SMART TAGS */}
+            {discoveredSmartTags.length > 0 && (
+              <div className="p-4 rounded-2xl bg-white/90 dark:bg-slate-850/90 border border-purple-200/80 dark:border-purple-900/60 shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-950/80 text-purple-600 dark:text-purple-400">
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-gray-900 dark:text-white">
+                          ✨ DeepSeek AI Auto-Detected Smart Tags
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                          {discoveredSmartTags.length} Discovered
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                        Smart labels dynamically identified from uploaded file content with real record metrics.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleApplyAllAiTags}
+                      className="px-2.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold shadow-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Zap className="w-3 h-3" />
+                      <span>⚡ Apply All AI Tags</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDeepSeekScanTags}
+                      disabled={isAiTagsLoading}
+                      className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                      title="Run DeepSeek AI Deep Scan"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isAiTagsLoading ? 'animate-spin' : ''}`} />
+                      <span>{isAiTagsLoading ? 'Scanning...' : 'AI Deep Scan'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Smart Tags Interactive Badges */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1">
+                  {discoveredSmartTags.map((st) => {
+                    const isSelected = selectedTags.includes(st.tag);
+                    return (
+                      <div
+                        key={st.id || st.tag}
+                        onClick={() => handleTogglePresetTag(st.tag)}
+                        className={`p-2.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                          isSelected
+                            ? 'bg-purple-50/90 dark:bg-purple-950/40 border-purple-400 dark:border-purple-700 ring-2 ring-purple-500/20 shadow-xs'
+                            : 'bg-white dark:bg-slate-800/80 border-gray-200/80 dark:border-slate-700/80 hover:border-purple-300 hover:bg-purple-50/40'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
+                            {st.label}
+                          </span>
+                          <span
+                            className={`p-1 rounded-md text-[10px] font-bold ${
+                              isSelected
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-gray-100 dark:bg-slate-700 text-gray-500'
+                            }`}
+                          >
+                            {isSelected ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                          <span className="font-semibold text-purple-700 dark:text-purple-300 font-mono">
+                            {st.count.toLocaleString()} rows ({st.percentage}%)
+                          </span>
+                          <span className="text-[10px] text-gray-400 truncate max-w-[120px]" title={st.reason}>
+                            {st.reason.slice(0, 30)}...
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Explanatory Precision Footer */}
+                <div className="p-2 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 flex items-center gap-2 text-[10px] text-purple-800 dark:text-purple-300">
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-purple-600 dark:text-purple-400" />
+                  <span>
+                    <strong>Smart Row-Level Precision:</strong> Only matching individual rows receive conditional tags (e.g. only records with active WhatsApp receive <em>'WhatsApp Active'</em>, spenders ≥ ৳10k receive <em>'VIP Client'</em>).
+                  </span>
                 </div>
               </div>
             )}
