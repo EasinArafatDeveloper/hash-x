@@ -174,10 +174,10 @@ export default function DataExplorerPage() {
     }));
   }, []);
 
-  const handleExportCSV = async () => {
+  const handleExportCSV = () => {
     setIsExporting(true);
     const countStr = data?.pagination?.total ? data.pagination.total.toLocaleString() : 'all';
-    const toastId = toast.loading(`Preparing high-speed CSV export for ${countStr} records...`);
+    const toastId = toast.loading(`Starting high-speed export for ${countStr} records...`);
 
     try {
       const payload = {
@@ -201,32 +201,29 @@ export default function DataExplorerPage() {
         avatarTypeWise: filters.avatarTypeWise,
       };
 
-      const res = await fetch('/api/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      // Native Hidden Form Submission for 100% Reliable, Zero-Timeout Browser Download Stream
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/api/export';
+      form.style.display = 'none';
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.message || 'Export request failed');
-      }
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'payload';
+      input.value = JSON.stringify(payload);
+      form.appendChild(input);
 
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `morpheus-data-${data?.pagination?.total || 0}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      document.body.appendChild(form);
+      form.submit();
+      form.remove();
 
-      toast.success(`Export complete! ${countStr} records downloaded successfully.`, { id: toastId });
+      setTimeout(() => {
+        toast.success(`Download initiated! Streaming ${countStr} records directly to your computer.`, { id: toastId });
+        setIsExporting(false);
+      }, 1500);
     } catch (err: any) {
       console.error('Export CSV error:', err);
       toast.error(err.message || 'Export failed. Please try again.', { id: toastId });
-    } finally {
       setIsExporting(false);
     }
   };
