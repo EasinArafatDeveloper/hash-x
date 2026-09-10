@@ -176,7 +176,9 @@ export default function DataExplorerPage() {
 
   const handleExportCSV = async () => {
     setIsExporting(true);
-    toast.loading('Preparing filtered CSV export...');
+    const countStr = data?.pagination?.total ? data.pagination.total.toLocaleString() : 'all';
+    const toastId = toast.loading(`Preparing high-speed CSV export for ${countStr} records...`);
+
     try {
       const payload = {
         search: filters.search,
@@ -205,23 +207,25 @@ export default function DataExplorerPage() {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error('Export failed');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Export request failed');
+      }
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `filtered-data-${data?.pagination?.total || 0}.csv`;
+      a.download = `morpheus-data-${data?.pagination?.total || 0}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
 
-      toast.dismiss();
-      toast.success(`Export complete! ${data?.pagination?.total?.toLocaleString() || 0} records downloaded.`);
-    } catch (err) {
-      toast.dismiss();
-      toast.error('Export failed. Please try again.');
+      toast.success(`Export complete! ${countStr} records downloaded successfully.`, { id: toastId });
+    } catch (err: any) {
+      console.error('Export CSV error:', err);
+      toast.error(err.message || 'Export failed. Please try again.', { id: toastId });
     } finally {
       setIsExporting(false);
     }

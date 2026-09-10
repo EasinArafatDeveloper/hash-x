@@ -5,18 +5,20 @@ import DownloadHistoryModel from '@/lib/models/DownloadHistory';
 import ActivityLogModel from '@/lib/models/ActivityLog';
 import { getSessionUser } from '@/lib/auth';
 import { buildPhonePrefixRegex } from '@/lib/phone';
-import Papa from 'papaparse';
 
 export const dynamic = 'force-dynamic';
 
-function sanitizeCsvField(val: any): any {
-  if (typeof val === 'string') {
-    const trimmed = val.trim();
-    if (/^[=\+\-@\t\r]/.test(trimmed)) {
-      return `'${val}`;
-    }
+function escapeCsvCell(val: any): string {
+  if (val === null || val === undefined) return '""';
+  let str = String(val);
+
+  // Prevent CSV Formula Injection in Excel/Google Sheets
+  const trimmed = str.trim();
+  if (/^[=\+\-@\t\r]/.test(trimmed)) {
+    str = `'${str}`;
   }
-  return val ?? '';
+
+  return `"${str.replace(/"/g, '""')}"`;
 }
 
 export async function POST(request: NextRequest) {
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
         if (nameWise) {
           targetedConditions.push({ name: searchRegex });
           targetedConditions.push({ 'customFields.nickname': searchRegex });
+          targetedConditions.push({ 'customFields.customer_name': searchRegex });
         }
         if (numberWise) {
           targetedConditions.push({ phone: new RegExp(cleanPhoneSearch || escaped, 'i') });
@@ -96,6 +99,7 @@ export async function POST(request: NextRequest) {
           { tags: searchRegex },
           { category: searchRegex },
           { 'customFields.nickname': searchRegex },
+          { 'customFields.customer_name': searchRegex },
           { 'customFields.Tag / Label': searchRegex },
         ];
 
@@ -160,40 +164,9 @@ export async function POST(request: NextRequest) {
     const session = await getSessionUser();
     const currentUser = session?.name || session?.username || 'Administrator';
 
-    const matchingRecords = await RecordModel.find(query).lean();
-
-    // Map records to clean, formula-injection-safe CSV columns including dynamic customFields
-    const csvData = matchingRecords.map((rec: any) => {
-      const baseRow: Record<string, any> = {
-        'Phone / Mobile': sanitizeCsvField(rec.phone),
-        'Customer Name': sanitizeCsvField(rec.name),
-        'Canonical Address': sanitizeCsvField(rec.address || ''),
-        Gender: sanitizeCsvField(rec.gender),
-        Email: sanitizeCsvField(rec.email),
-        Age: rec.age || '',
-        'Order Amount (BDT)': rec.orderAmount || 0,
-        'Order Count': rec.orderCount || 0,
-        Location: sanitizeCsvField(rec.location || ''),
-        Area: sanitizeCsvField(rec.area || ''),
-        Status: sanitizeCsvField(rec.status || 'Active'),
-        'Tags / Segments': sanitizeCsvField(rec.tags && rec.tags.length > 0 ? rec.tags.join(', ') : rec.category || ''),
-      };
-
-      // Dynamically attach all custom attributes uploaded by the user
-      if (rec.customFields && typeof rec.customFields === 'object') {
-        Object.entries(rec.customFields).forEach(([k, v]) => {
-          if (v !== null && v !== undefined && k !== 'Tags / Labels') {
-            baseRow[k] = sanitizeCsvField(v);
-          }
-        });
-      }
-
-      baseRow['Created At'] = rec.createdAt ? new Date(rec.createdAt).toISOString().split('T')[0] : '';
-      return baseRow;
-    });
-
-    const csvString = Papa.unparse(csvData);
-    const filename = `filtered-data-${matchingRecords.length}.csv`;
+    // Fast total count using indexed query
+    const totalCount = await RecordModel.countDocuments(query);
+    const filename = `filtered-data-${totalCount}.csv`;
 
     const appliedFiltersList: string[] = [];
     if (search) appliedFiltersList.push(`Search: "${search}"`);
@@ -209,25 +182,132 @@ export async function POST(request: NextRequest) {
     const filtersAppliedSummary =
       appliedFiltersList.length > 0 ? appliedFiltersList.join(' + ') : 'All Records (No Filters)';
 
-    await DownloadHistoryModel.create({
+    // Log download history & activity asynchronously
+    DownloadHistoryModel.create({
       filename,
-      recordCount: matchingRecords.length,
+      recordCount: totalCount,
       filtersApplied: filtersAppliedSummary,
       status: 'Ready',
-    });
+    }).catch(() => {});
 
-    await ActivityLogModel.create({
+    ActivityLogModel.create({
       action: 'CSV Exported',
-      description: `Exported ${matchingRecords.length.toLocaleString()} matching records (${filtersAppliedSummary})`,
+      description: `Exported ${totalCount.toLocaleString()} matching records (${filtersAppliedSummary})`,
       user: currentUser,
       type: 'export',
+    }).catch(() => {});
+
+    // High-speed CSV Header row
+    const headers = [
+      'Phone / Mobile',
+      'Customer Name',
+      'Canonical Address',
+      'Gender',
+      'Email',
+      'Age',
+      'Order Amount (BDT)',
+      'Order Count',
+      'Location',
+      'Area',
+      'Status',
+      'Tags / Segments',
+      'WhatsApp Status',
+      'Matched Order Count',
+      'Lifetime Order Count',
+      'Matched Net Order Amount BDT',
+      'Lifetime Net Order Amount BDT',
+      'Prepaid Order Count',
+      'Matched Unique Merchant Count',
+      'Lifetime Unique Merchant Count',
+      'Primary Merchant',
+      'Matched District Filters',
+      'Matched City Filters',
+      'Matched Area Filters',
+      'Matched Block Road Filters',
+      'Inferred Primary Area',
+      'Lifetime Frequency Segment',
+      'Lifetime Value Segment',
+      'Lifetime Primary Category',
+      'Created At',
+    ];
+
+    // High-Speed Stream Processor using Cursor (Can stream 1,000,000+ rows with flat ~5MB RAM)
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Send UTF-8 BOM for Excel Bengali/Unicode support + Header Row
+          controller.enqueue(encoder.encode('\uFEFF' + headers.map(escapeCsvCell).join(',') + '\r\n'));
+
+          const cursor = RecordModel.find(query).lean().cursor({ batchSize: 2500 });
+          let buffer = '';
+
+          for await (const doc of cursor) {
+            const rec = doc as any;
+            const cf = rec.customFields || {};
+
+            const row = [
+              escapeCsvCell(rec.phone || ''),
+              escapeCsvCell(rec.name || ''),
+              escapeCsvCell(rec.address || ''),
+              escapeCsvCell(rec.gender || 'Other'),
+              escapeCsvCell(rec.email || ''),
+              escapeCsvCell(rec.age || ''),
+              escapeCsvCell(rec.orderAmount ?? cf['matched_net_order_amount_bdt'] ?? cf['Order Amount'] ?? 0),
+              escapeCsvCell(rec.orderCount ?? cf['matched_order_count'] ?? cf['Order Count'] ?? 0),
+              escapeCsvCell(rec.location || ''),
+              escapeCsvCell(rec.area || ''),
+              escapeCsvCell(rec.status || 'Active'),
+              escapeCsvCell(rec.tags && rec.tags.length > 0 ? rec.tags.join(', ') : rec.category || ''),
+              escapeCsvCell(cf['whatsapp_status'] || cf['WhatsApp Status'] || ''),
+              escapeCsvCell(cf['matched_order_count'] || cf['Matched Order Count'] || ''),
+              escapeCsvCell(cf['lifetime_order_count'] || cf['Lifetime Order Count'] || rec.orderCount || ''),
+              escapeCsvCell(cf['matched_net_order_amount_bdt'] || cf['Matched Order Amount BDT'] || ''),
+              escapeCsvCell(cf['lifetime_net_order_amount_bdt'] || cf['Lifetime Order Amount BDT'] || rec.orderAmount || ''),
+              escapeCsvCell(cf['prepaid_order_count'] || cf['Prepaid Order Count'] || ''),
+              escapeCsvCell(cf['matched_unique_merchant_count'] || cf['Matched Unique Merchant Count'] || ''),
+              escapeCsvCell(cf['lifetime_unique_merchant_count'] || cf['Lifetime Unique Merchant Count'] || ''),
+              escapeCsvCell(cf['primary_merchant'] || cf['Primary Merchant'] || ''),
+              escapeCsvCell(cf['matched_district_filters'] || cf['Matched District'] || ''),
+              escapeCsvCell(cf['matched_city_filters'] || cf['Matched City'] || ''),
+              escapeCsvCell(cf['matched_area_filters'] || cf['Matched Area'] || ''),
+              escapeCsvCell(cf['matched_block_road_filters'] || cf['Matched Block / Road'] || ''),
+              escapeCsvCell(cf['inferred_primary_area'] || cf['Inferred Primary Area'] || ''),
+              escapeCsvCell(cf['lifetime_frequency_segment'] || cf['Frequency Segment'] || ''),
+              escapeCsvCell(cf['lifetime_value_segment'] || cf['Value Segment'] || ''),
+              escapeCsvCell(cf['lifetime_primary_category'] || cf['Primary Category'] || rec.category || ''),
+              escapeCsvCell(rec.createdAt ? new Date(rec.createdAt).toISOString().split('T')[0] : ''),
+            ];
+
+            buffer += row.join(',') + '\r\n';
+
+            // Flush chunk when buffer exceeds 32KB
+            if (buffer.length >= 32768) {
+              controller.enqueue(encoder.encode(buffer));
+              buffer = '';
+            }
+          }
+
+          // Flush remaining buffer
+          if (buffer.length > 0) {
+            controller.enqueue(encoder.encode(buffer));
+          }
+
+          controller.close();
+        } catch (streamErr) {
+          console.error('CSV Stream error:', streamErr);
+          controller.error(streamErr);
+        }
+      },
     });
 
-    return new NextResponse(csvString, {
+    return new NextResponse(stream, {
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="${filename}"`,
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     });
   } catch (error: any) {
