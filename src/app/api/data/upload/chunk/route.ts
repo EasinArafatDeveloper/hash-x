@@ -104,39 +104,116 @@ export async function POST(request: NextRequest) {
             normalizedRow.phone = String(val).trim();
           } else if (targetField === 'name') {
             normalizedRow.name = String(val).trim();
-          } else if (targetField === 'email') {
-            normalizedRow.email = String(val).trim();
           } else if (targetField === 'address') {
             normalizedRow.address = String(val).trim();
-          } else if (targetField === 'orderAmount') {
-            const cleanAmount = String(val).replace(/[^0-9.-]+/g, '');
-            const num = parseFloat(cleanAmount);
-            if (!isNaN(num)) {
-              normalizedRow.orderAmount = num;
-              normalizedRow.customFields['Order Amount'] = num;
-            } else {
-              normalizedRow.customFields['Order Amount'] = val;
-            }
-          } else if (targetField === 'area') {
-            normalizedRow.area = String(val).trim();
-            if (!normalizedRow.location) normalizedRow.location = String(val).trim();
-          } else if (targetField === 'age') {
-            const num = parseInt(String(val), 10);
-            if (!isNaN(num)) normalizedRow.age = num;
           } else if (targetField === 'gender') {
             const gStr = String(val).trim().toLowerCase();
             if (gStr.startsWith('m')) normalizedRow.gender = 'Male';
             else if (gStr.startsWith('f')) normalizedRow.gender = 'Female';
             else normalizedRow.gender = 'Other';
-          } else if (targetField === 'orderCount') {
-            const cleanCount = String(val).replace(/[^0-9.-]+/g, '');
-            const num = parseInt(cleanCount, 10);
+            normalizedRow.customFields['gender'] = normalizedRow.gender;
+          } else if (targetField === 'whatsapp_status') {
+            normalizedRow.customFields['whatsapp_status'] = String(val).trim();
+            normalizedRow.customFields['WhatsApp Status'] = String(val).trim();
+          } else if (targetField === 'matched_order_count') {
+            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
+            if (!isNaN(num)) {
+              normalizedRow.customFields['matched_order_count'] = num;
+              normalizedRow.customFields['Matched Order Count'] = num;
+              if (!normalizedRow.orderCount) normalizedRow.orderCount = num;
+            } else {
+              normalizedRow.customFields['matched_order_count'] = val;
+            }
+          } else if (targetField === 'lifetime_order_count' || targetField === 'orderCount') {
+            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
             if (!isNaN(num)) {
               normalizedRow.orderCount = num;
+              normalizedRow.customFields['lifetime_order_count'] = num;
+              normalizedRow.customFields['Lifetime Order Count'] = num;
               normalizedRow.customFields['Order Count'] = num;
             } else {
-              normalizedRow.customFields['Order Count'] = val;
+              normalizedRow.customFields['lifetime_order_count'] = val;
             }
+          } else if (targetField === 'matched_net_order_amount_bdt') {
+            const num = parseFloat(String(val).replace(/[^0-9.-]+/g, ''));
+            if (!isNaN(num)) {
+              normalizedRow.customFields['matched_net_order_amount_bdt'] = num;
+              normalizedRow.customFields['Matched Order Amount BDT'] = num;
+              if (!normalizedRow.orderAmount) normalizedRow.orderAmount = num;
+            } else {
+              normalizedRow.customFields['matched_net_order_amount_bdt'] = val;
+            }
+          } else if (targetField === 'lifetime_net_order_amount_bdt' || targetField === 'orderAmount') {
+            const num = parseFloat(String(val).replace(/[^0-9.-]+/g, ''));
+            if (!isNaN(num)) {
+              normalizedRow.orderAmount = num;
+              normalizedRow.customFields['lifetime_net_order_amount_bdt'] = num;
+              normalizedRow.customFields['Lifetime Order Amount BDT'] = num;
+              normalizedRow.customFields['Order Amount'] = num;
+            } else {
+              normalizedRow.customFields['lifetime_net_order_amount_bdt'] = val;
+            }
+          } else if (targetField === 'prepaid_order_count') {
+            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
+            if (!isNaN(num)) {
+              normalizedRow.customFields['prepaid_order_count'] = num;
+              normalizedRow.customFields['Prepaid Order Count'] = num;
+            } else {
+              normalizedRow.customFields['prepaid_order_count'] = val;
+            }
+          } else if (targetField === 'matched_unique_merchant_count') {
+            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
+            if (!isNaN(num)) {
+              normalizedRow.customFields['matched_unique_merchant_count'] = num;
+              normalizedRow.customFields['Matched Unique Merchant Count'] = num;
+            } else {
+              normalizedRow.customFields['matched_unique_merchant_count'] = val;
+            }
+          } else if (targetField === 'lifetime_unique_merchant_count') {
+            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
+            if (!isNaN(num)) {
+              normalizedRow.customFields['lifetime_unique_merchant_count'] = num;
+              normalizedRow.customFields['Lifetime Unique Merchant Count'] = num;
+            } else {
+              normalizedRow.customFields['lifetime_unique_merchant_count'] = val;
+            }
+          } else if (targetField === 'primary_merchant') {
+            normalizedRow.customFields['primary_merchant'] = String(val).trim();
+            normalizedRow.customFields['Primary Merchant'] = String(val).trim();
+          } else if (targetField === 'matched_district_filters') {
+            normalizedRow.customFields['matched_district_filters'] = String(val).trim();
+            normalizedRow.customFields['Matched District'] = String(val).trim();
+            if (!normalizedRow.location) normalizedRow.location = String(val).trim();
+          } else if (targetField === 'matched_city_filters') {
+            normalizedRow.customFields['matched_city_filters'] = String(val).trim();
+            normalizedRow.customFields['Matched City'] = String(val).trim();
+            if (!normalizedRow.location) normalizedRow.location = String(val).trim();
+          } else if (targetField === 'matched_area_filters' || targetField === 'area') {
+            normalizedRow.customFields['matched_area_filters'] = String(val).trim();
+            normalizedRow.customFields['Matched Area'] = String(val).trim();
+            normalizedRow.area = String(val).trim();
+          } else if (targetField === 'matched_block_road_filters') {
+            normalizedRow.customFields['matched_block_road_filters'] = String(val).trim();
+            normalizedRow.customFields['Matched Block / Road'] = String(val).trim();
+          } else if (targetField === 'inferred_primary_area') {
+            normalizedRow.customFields['inferred_primary_area'] = String(val).trim();
+            normalizedRow.customFields['Inferred Primary Area'] = String(val).trim();
+            if (!normalizedRow.area) normalizedRow.area = String(val).trim();
+          } else if (targetField === 'lifetime_frequency_segment') {
+            normalizedRow.customFields['lifetime_frequency_segment'] = String(val).trim();
+            normalizedRow.customFields['Frequency Segment'] = String(val).trim();
+          } else if (targetField === 'lifetime_value_segment') {
+            normalizedRow.customFields['lifetime_value_segment'] = String(val).trim();
+            normalizedRow.customFields['Value Segment'] = String(val).trim();
+          } else if (targetField === 'lifetime_primary_category') {
+            normalizedRow.category = String(val).trim();
+            normalizedRow.customFields['lifetime_primary_category'] = String(val).trim();
+            normalizedRow.customFields['Primary Category'] = String(val).trim();
+          } else if (targetField === 'email') {
+            normalizedRow.email = String(val).trim();
+          } else if (targetField === 'age') {
+            const num = parseInt(String(val), 10);
+            if (!isNaN(num)) normalizedRow.age = num;
           } else if (targetField === 'avatarUrl') {
             const avatarVal = String(val).trim();
             if (avatarVal.startsWith('http://') || avatarVal.startsWith('https://')) {
@@ -176,12 +253,12 @@ export async function POST(request: NextRequest) {
 
           if (
             lowerKey === 'name' ||
+            lowerKey === 'customername' ||
             lowerKey === 'fullname' ||
             lowerKey === 'username' ||
             lowerKey === 'nickname' ||
             lowerKey === 'nick' ||
             lowerKey === 'contactname' ||
-            lowerKey === 'customername' ||
             lowerKey === 'person' ||
             lowerKey === 'title'
           ) {
@@ -199,6 +276,118 @@ export async function POST(request: NextRequest) {
           ) {
             normalizedRow.phone = String(val || '').trim();
           } else if (
+            lowerKey === 'canonicaladdress' ||
+            lowerKey === 'address' ||
+            lowerKey === 'fulladdress'
+          ) {
+            normalizedRow.address = String(val || '').trim();
+          } else if (
+            lowerKey === 'gender' ||
+            lowerKey === 'sex'
+          ) {
+            const gStr = String(val || '').trim().toLowerCase();
+            if (gStr.startsWith('m')) normalizedRow.gender = 'Male';
+            else if (gStr.startsWith('f')) normalizedRow.gender = 'Female';
+            else normalizedRow.gender = 'Other';
+            normalizedRow.customFields['gender'] = normalizedRow.gender;
+          } else if (lowerKey === 'whatsappstatus' || lowerKey === 'whatsapp') {
+            normalizedRow.customFields['whatsapp_status'] = String(val).trim();
+            normalizedRow.customFields['WhatsApp Status'] = String(val).trim();
+          } else if (lowerKey === 'matchedordercount') {
+            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
+            if (!isNaN(num)) {
+              normalizedRow.customFields['matched_order_count'] = num;
+              normalizedRow.customFields['Matched Order Count'] = num;
+              if (!normalizedRow.orderCount) normalizedRow.orderCount = num;
+            } else {
+              normalizedRow.customFields['matched_order_count'] = val;
+            }
+          } else if (lowerKey === 'lifetimeordercount' || lowerKey === 'ordercount' || lowerKey === 'totalorders') {
+            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
+            if (!isNaN(num)) {
+              normalizedRow.orderCount = num;
+              normalizedRow.customFields['lifetime_order_count'] = num;
+              normalizedRow.customFields['Lifetime Order Count'] = num;
+              normalizedRow.customFields['Order Count'] = num;
+            } else {
+              normalizedRow.customFields['lifetime_order_count'] = val;
+            }
+          } else if (lowerKey === 'matchednetorderamountbdt' || lowerKey === 'matchedorderamount') {
+            const num = parseFloat(String(val).replace(/[^0-9.-]+/g, ''));
+            if (!isNaN(num)) {
+              normalizedRow.customFields['matched_net_order_amount_bdt'] = num;
+              normalizedRow.customFields['Matched Order Amount BDT'] = num;
+              if (!normalizedRow.orderAmount) normalizedRow.orderAmount = num;
+            } else {
+              normalizedRow.customFields['matched_net_order_amount_bdt'] = val;
+            }
+          } else if (lowerKey === 'lifetimenetorderamountbdt' || lowerKey === 'lifetimeorderamount' || lowerKey === 'orderamount' || lowerKey === 'amount' || lowerKey === 'totalamount') {
+            const num = parseFloat(String(val).replace(/[^0-9.-]+/g, ''));
+            if (!isNaN(num)) {
+              normalizedRow.orderAmount = num;
+              normalizedRow.customFields['lifetime_net_order_amount_bdt'] = num;
+              normalizedRow.customFields['Lifetime Order Amount BDT'] = num;
+              normalizedRow.customFields['Order Amount'] = num;
+            } else {
+              normalizedRow.customFields['lifetime_net_order_amount_bdt'] = val;
+            }
+          } else if (lowerKey === 'prepaidordercount' || lowerKey === 'prepaid') {
+            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
+            if (!isNaN(num)) {
+              normalizedRow.customFields['prepaid_order_count'] = num;
+              normalizedRow.customFields['Prepaid Order Count'] = num;
+            } else {
+              normalizedRow.customFields['prepaid_order_count'] = val;
+            }
+          } else if (lowerKey === 'matcheduniquemerchantcount') {
+            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
+            if (!isNaN(num)) {
+              normalizedRow.customFields['matched_unique_merchant_count'] = num;
+              normalizedRow.customFields['Matched Unique Merchant Count'] = num;
+            } else {
+              normalizedRow.customFields['matched_unique_merchant_count'] = val;
+            }
+          } else if (lowerKey === 'lifetimeuniquemerchantcount') {
+            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
+            if (!isNaN(num)) {
+              normalizedRow.customFields['lifetime_unique_merchant_count'] = num;
+              normalizedRow.customFields['Lifetime Unique Merchant Count'] = num;
+            } else {
+              normalizedRow.customFields['lifetime_unique_merchant_count'] = val;
+            }
+          } else if (lowerKey === 'primarymerchant' || lowerKey === 'merchant') {
+            normalizedRow.customFields['primary_merchant'] = String(val).trim();
+            normalizedRow.customFields['Primary Merchant'] = String(val).trim();
+          } else if (lowerKey === 'matcheddistrictfilters' || lowerKey === 'district') {
+            normalizedRow.customFields['matched_district_filters'] = String(val).trim();
+            normalizedRow.customFields['Matched District'] = String(val).trim();
+            if (!normalizedRow.location) normalizedRow.location = String(val).trim();
+          } else if (lowerKey === 'matchedcityfilters' || lowerKey === 'city') {
+            normalizedRow.customFields['matched_city_filters'] = String(val).trim();
+            normalizedRow.customFields['Matched City'] = String(val).trim();
+            if (!normalizedRow.location) normalizedRow.location = String(val).trim();
+          } else if (lowerKey === 'matchedareafilters' || lowerKey === 'area' || lowerKey === 'thana' || lowerKey === 'zone') {
+            normalizedRow.customFields['matched_area_filters'] = String(val).trim();
+            normalizedRow.customFields['Matched Area'] = String(val).trim();
+            normalizedRow.area = String(val).trim();
+          } else if (lowerKey === 'matchedblockroadfilters' || lowerKey === 'blockroad') {
+            normalizedRow.customFields['matched_block_road_filters'] = String(val).trim();
+            normalizedRow.customFields['Matched Block / Road'] = String(val).trim();
+          } else if (lowerKey === 'inferredprimaryarea') {
+            normalizedRow.customFields['inferred_primary_area'] = String(val).trim();
+            normalizedRow.customFields['Inferred Primary Area'] = String(val).trim();
+            if (!normalizedRow.area) normalizedRow.area = String(val).trim();
+          } else if (lowerKey === 'lifetimefrequencysegment' || lowerKey === 'frequencysegment') {
+            normalizedRow.customFields['lifetime_frequency_segment'] = String(val).trim();
+            normalizedRow.customFields['Frequency Segment'] = String(val).trim();
+          } else if (lowerKey === 'lifetimevaluesegment' || lowerKey === 'valuesegment') {
+            normalizedRow.customFields['lifetime_value_segment'] = String(val).trim();
+            normalizedRow.customFields['Value Segment'] = String(val).trim();
+          } else if (lowerKey === 'lifetimeprimarycategory' || lowerKey === 'primarycategory') {
+            normalizedRow.category = String(val).trim();
+            normalizedRow.customFields['lifetime_primary_category'] = String(val).trim();
+            normalizedRow.customFields['Primary Category'] = String(val).trim();
+          } else if (
             lowerKey === 'email' ||
             lowerKey === 'mail' ||
             lowerKey === 'emailaddress'
@@ -207,11 +396,6 @@ export async function POST(request: NextRequest) {
           } else if (lowerKey === 'age' || lowerKey === 'years') {
             const numAge = parseInt(val, 10);
             if (!isNaN(numAge)) normalizedRow.age = numAge;
-          } else if (lowerKey === 'gender' || lowerKey === 'sex') {
-            const gStr = String(val || '').trim().toLowerCase();
-            if (gStr.startsWith('m')) normalizedRow.gender = 'Male';
-            else if (gStr.startsWith('f')) normalizedRow.gender = 'Female';
-            else normalizedRow.gender = 'Other';
           } else if (
             lowerKey === 'avatartype' ||
             lowerKey === 'avatar' ||
@@ -244,17 +428,11 @@ export async function POST(request: NextRequest) {
             if (!isNaN(parsedDate.getTime())) normalizedRow.lastActive = parsedDate;
           } else if (
             lowerKey === 'location' ||
-            lowerKey === 'district' ||
-            lowerKey === 'city' ||
             lowerKey === 'division' ||
             lowerKey === 'state' ||
             lowerKey === 'country'
           ) {
             normalizedRow.location = String(val || '').trim();
-          } else if (lowerKey === 'area' || lowerKey === 'thana' || lowerKey === 'zone') {
-            normalizedRow.area = String(val || '').trim();
-          } else if (lowerKey === 'address' || lowerKey === 'fulladdress') {
-            normalizedRow.address = String(val || '').trim();
           } else if (lowerKey === 'status' || lowerKey === 'state') {
             const sVal = String(val || '').trim();
             normalizedRow.status = ['Active', 'Inactive', 'Pending', 'Suspended'].includes(sVal) ? sVal : 'Active';

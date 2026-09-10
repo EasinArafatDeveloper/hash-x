@@ -17,6 +17,16 @@ import {
   Ban,
   Layers,
   CheckCircle2,
+  MessageSquare,
+  CreditCard,
+  Store,
+  ShoppingBag,
+  Compass,
+  Building2,
+  Navigation,
+  LocateFixed,
+  BarChart3,
+  Tag,
 } from 'lucide-react';
 
 export interface ColumnMappingItem {
@@ -26,85 +36,186 @@ export interface ColumnMappingItem {
 }
 
 export const TARGET_SYSTEM_FIELDS = [
-  { value: 'name', label: '👤 Name', icon: User, color: 'text-blue-600 dark:text-blue-400' },
+  // 1. Core Profile & Contact
+  { value: 'phone', label: '📞 Mobile No (phone)', icon: Phone, color: 'text-emerald-600 dark:text-emerald-400', isKey: true },
+  { value: 'name', label: '👤 Customer Name (customer_name)', icon: User, color: 'text-blue-600 dark:text-blue-400' },
+  { value: 'address', label: '🏠 Canonical Address (canonical_address)', icon: MapPin, color: 'text-teal-600 dark:text-teal-400' },
+  { value: 'gender', label: '⚧ Gender (gender)', icon: User, color: 'text-indigo-600 dark:text-indigo-400' },
+  { value: 'whatsapp_status', label: '💬 WhatsApp Status (whatsapp_status)', icon: MessageSquare, color: 'text-green-600 dark:text-green-400' },
+
+  // 2. Orders & Spending Metrics
+  { value: 'matched_order_count', label: '📦 Matched Order Count (matched_order_count)', icon: Package, color: 'text-sky-600 dark:text-sky-400' },
+  { value: 'lifetime_order_count', label: '📦 Lifetime Order Count (lifetime_order_count)', icon: Package, color: 'text-cyan-600 dark:text-cyan-400' },
+  { value: 'matched_net_order_amount_bdt', label: '💰 Matched Order Amount BDT (matched_net_order_amount_bdt)', icon: DollarSign, color: 'text-amber-600 dark:text-amber-400' },
+  { value: 'lifetime_net_order_amount_bdt', label: '💰 Lifetime Order Amount BDT (lifetime_net_order_amount_bdt)', icon: DollarSign, color: 'text-emerald-600 dark:text-emerald-400' },
+  { value: 'prepaid_order_count', label: '💳 Prepaid Order Count (prepaid_order_count)', icon: CreditCard, color: 'text-violet-600 dark:text-violet-400' },
+
+  // 3. Merchant Analytics
+  { value: 'matched_unique_merchant_count', label: '🏬 Matched Merchant Count (matched_unique_merchant_count)', icon: Store, color: 'text-pink-600 dark:text-pink-400' },
+  { value: 'lifetime_unique_merchant_count', label: '🏬 Lifetime Merchant Count (lifetime_unique_merchant_count)', icon: Store, color: 'text-fuchsia-600 dark:text-fuchsia-400' },
+  { value: 'primary_merchant', label: '🏪 Primary Merchant (primary_merchant)', icon: ShoppingBag, color: 'text-rose-600 dark:text-rose-400' },
+
+  // 4. Location & Geographic Filters
+  { value: 'matched_district_filters', label: '🗺️ Matched District (matched_district_filters)', icon: Compass, color: 'text-blue-500 dark:text-blue-400' },
+  { value: 'matched_city_filters', label: '🏙️ Matched City (matched_city_filters)', icon: Building2, color: 'text-indigo-500 dark:text-indigo-400' },
+  { value: 'matched_area_filters', label: '🏘️ Matched Area (matched_area_filters)', icon: MapPin, color: 'text-teal-500 dark:text-teal-400' },
+  { value: 'matched_block_road_filters', label: '🛣️ Matched Block / Road (matched_block_road_filters)', icon: Navigation, color: 'text-amber-500 dark:text-amber-400' },
+  { value: 'inferred_primary_area', label: '📍 Inferred Primary Area (inferred_primary_area)', icon: LocateFixed, color: 'text-emerald-500 dark:text-emerald-400' },
+
+  // 5. Customer Segmentation
+  { value: 'lifetime_frequency_segment', label: '📊 Frequency Segment (lifetime_frequency_segment)', icon: BarChart3, color: 'text-purple-500 dark:text-purple-400' },
+  { value: 'lifetime_value_segment', label: '💎 Value Segment (lifetime_value_segment)', icon: Sparkles, color: 'text-yellow-500 dark:text-yellow-400' },
+  { value: 'lifetime_primary_category', label: '🏷️ Primary Category (lifetime_primary_category)', icon: Tag, color: 'text-orange-500 dark:text-orange-400' },
+
+  // 6. Generic Fields & Skip
   { value: 'email', label: '✉️ Email', icon: Mail, color: 'text-purple-600 dark:text-purple-400' },
-  { value: 'phone', label: '📞 Mobile No', icon: Phone, color: 'text-emerald-600 dark:text-emerald-400', isKey: true },
-  { value: 'address', label: '🏠 Address', icon: MapPin, color: 'text-teal-600 dark:text-teal-400' },
-  { value: 'orderAmount', label: '💰 Order Amount', icon: DollarSign, color: 'text-amber-600 dark:text-amber-400' },
-  { value: 'area', label: '🏘️ Area Name', icon: MapPin, color: 'text-teal-500 dark:text-teal-400' },
   { value: 'age', label: '🎂 Age', icon: Calendar, color: 'text-orange-600 dark:text-orange-400' },
-  { value: 'gender', label: '⚧ Gender', icon: User, color: 'text-indigo-600 dark:text-indigo-400' },
-  { value: 'orderCount', label: '📦 Order Count', icon: Package, color: 'text-sky-600 dark:text-sky-400' },
   { value: 'skip', label: '🚫 skip', icon: AlertTriangle, color: 'text-rose-500 dark:text-rose-400' },
 ];
 
 export function getAutoSuggestedField(columnName: string, sampleValues: any[] = []): string {
-  const lk = columnName.toLowerCase().replace(/[\s_\.-]+/g, '');
+  const raw = columnName.toLowerCase().trim();
+  const lk = raw.replace(/[\s_\.-]+/g, '');
 
-  // 1. Mobile No / Phone
-  if (['phone', 'mobile', 'cell', 'contact', 'tel', 'msisdn', 'phonenumber', 'mobilenumber', 'contactno', 'cellphone', 'mobileno', 'number'].includes(lk)) return 'phone';
+  // 1. Phone / Mobile No
+  if (
+    raw === 'phone' ||
+    ['phone', 'mobile', 'cell', 'contact', 'tel', 'msisdn', 'phonenumber', 'mobilenumber', 'contactno', 'cellphone', 'mobileno', 'number'].includes(lk)
+  ) return 'phone';
 
-  // 2. Name
-  if (['name', 'fullname', 'username', 'nickname', 'nick', 'contactname', 'customername', 'person', 'client', 'title', 'buyer'].includes(lk)) return 'name';
+  // 2. Customer Name
+  if (
+    raw === 'customer_name' ||
+    ['customername', 'name', 'fullname', 'username', 'nickname', 'nick', 'contactname', 'person', 'client', 'title', 'buyer'].includes(lk)
+  ) return 'name';
 
-  // 3. Email
+  // 3. Canonical Address
+  if (
+    raw === 'canonical_address' ||
+    ['canonicaladdress', 'address', 'fulladdress', 'street', 'presentaddress', 'permanentaddress', 'shippingaddress', 'deliveryaddress'].includes(lk)
+  ) return 'address';
+
+  // 4. Gender
+  if (raw === 'gender' || ['gender', 'sex'].includes(lk)) return 'gender';
+
+  // 5. WhatsApp Status
+  if (
+    raw === 'whatsapp_status' ||
+    ['whatsappstatus', 'whatsapp', 'wastatus', 'wa_status'].includes(lk)
+  ) return 'whatsapp_status';
+
+  // 6. Matched Order Count
+  if (
+    raw === 'matched_order_count' ||
+    ['matchedordercount', 'matchedorders', 'matchedcount'].includes(lk)
+  ) return 'matched_order_count';
+
+  // 7. Lifetime Order Count
+  if (
+    raw === 'lifetime_order_count' ||
+    ['lifetimeordercount', 'lifetimeorders', 'totalorders', 'ordercount'].includes(lk)
+  ) return 'lifetime_order_count';
+
+  // 8. Matched Net Order Amount BDT
+  if (
+    raw === 'matched_net_order_amount_bdt' ||
+    ['matchednetorderamountbdt', 'matchedorderamount', 'matchedamount', 'matchedorderamountbdt', 'matchedspend'].includes(lk)
+  ) return 'matched_net_order_amount_bdt';
+
+  // 9. Lifetime Net Order Amount BDT
+  if (
+    raw === 'lifetime_net_order_amount_bdt' ||
+    ['lifetimenetorderamountbdt', 'lifetimeorderamount', 'lifetimeamount', 'lifetimeorderamountbdt', 'lifetimespend', 'totalamount', 'orderamount'].includes(lk)
+  ) return 'lifetime_net_order_amount_bdt';
+
+  // 10. Prepaid Order Count
+  if (
+    raw === 'prepaid_order_count' ||
+    ['prepaidordercount', 'prepaidorders', 'prepaidcount', 'prepaid'].includes(lk)
+  ) return 'prepaid_order_count';
+
+  // 11. Matched Unique Merchant Count
+  if (
+    raw === 'matched_unique_merchant_count' ||
+    ['matcheduniquemerchantcount', 'matchedmerchants', 'matchedmerchantcount'].includes(lk)
+  ) return 'matched_unique_merchant_count';
+
+  // 12. Lifetime Unique Merchant Count
+  if (
+    raw === 'lifetime_unique_merchant_count' ||
+    ['lifetimeuniquemerchantcount', 'lifetimemerchants', 'lifetimemerchantcount'].includes(lk)
+  ) return 'lifetime_unique_merchant_count';
+
+  // 13. Primary Merchant
+  if (
+    raw === 'primary_merchant' ||
+    ['primarymerchant', 'merchant', 'store', 'shop', 'vendor', 'seller'].includes(lk)
+  ) return 'primary_merchant';
+
+  // 14. Matched District Filters
+  if (
+    raw === 'matched_district_filters' ||
+    ['matcheddistrictfilters', 'matcheddistrict', 'district', 'districtname'].includes(lk)
+  ) return 'matched_district_filters';
+
+  // 15. Matched City Filters
+  if (
+    raw === 'matched_city_filters' ||
+    ['matchedcityfilters', 'matchedcity', 'city', 'cityname'].includes(lk)
+  ) return 'matched_city_filters';
+
+  // 16. Matched Area Filters
+  if (
+    raw === 'matched_area_filters' ||
+    ['matchedareafilters', 'matchedarea', 'area', 'areaname', 'thana', 'zone', 'subdistrict'].includes(lk)
+  ) return 'matched_area_filters';
+
+  // 17. Matched Block Road Filters
+  if (
+    raw === 'matched_block_road_filters' ||
+    ['matchedblockroadfilters', 'matchedblockroad', 'blockroad', 'road', 'block', 'roadno'].includes(lk)
+  ) return 'matched_block_road_filters';
+
+  // 18. Inferred Primary Area
+  if (
+    raw === 'inferred_primary_area' ||
+    ['inferredprimaryarea', 'inferredarea', 'primaryarea'].includes(lk)
+  ) return 'inferred_primary_area';
+
+  // 19. Lifetime Frequency Segment
+  if (
+    raw === 'lifetime_frequency_segment' ||
+    ['lifetimefrequencysegment', 'frequencysegment', 'frequency'].includes(lk)
+  ) return 'lifetime_frequency_segment';
+
+  // 20. Lifetime Value Segment
+  if (
+    raw === 'lifetime_value_segment' ||
+    ['lifetimevaluesegment', 'valuesegment', 'segment'].includes(lk)
+  ) return 'lifetime_value_segment';
+
+  // 21. Lifetime Primary Category
+  if (
+    raw === 'lifetime_primary_category' ||
+    ['lifetimeprimarycategory', 'primarycategory', 'category', 'itemcategory'].includes(lk)
+  ) return 'lifetime_primary_category';
+
+  // 22. Email
   if (['email', 'mail', 'emailaddress', 'useremail', 'customeremail'].includes(lk)) return 'email';
 
-  // 4. Address
-  if (['address', 'fulladdress', 'street', 'presentaddress', 'permanentaddress', 'shippingaddress', 'deliveryaddress', 'canonicaladdress'].includes(lk)) return 'address';
-
-  // 5. Order Amount (spend, price, bdt, total, revenue, amount, etc.)
-  if (
-    lk.includes('orderamount') ||
-    lk.includes('amount') ||
-    lk.includes('spend') ||
-    lk.includes('price') ||
-    lk.includes('bdt') ||
-    lk.includes('revenue') ||
-    lk.includes('sales') ||
-    lk.includes('cost') ||
-    lk.includes('totalspend') ||
-    lk.includes('orderprice') ||
-    lk.includes('bill')
-  ) {
-    return 'orderAmount';
-  }
-
-  // 6. Area Name (area, thana, zone, location, city, district, subdistrict)
-  if (['area', 'areaname', 'thana', 'zone', 'subdistrict', 'upazila', 'city', 'district', 'location', 'division', 'state'].includes(lk)) return 'area';
-
-  // 7. Age
+  // 23. Age
   if (['age', 'years', 'userage', 'customerage'].includes(lk)) return 'age';
 
-  // 8. Gender
-  if (['gender', 'sex'].includes(lk)) return 'gender';
-
-  // 9. Order Count (count, orders, totalorders, ordercount, qty, quantity, items)
-  if (
-    lk.includes('ordercount') ||
-    lk.includes('orders') ||
-    lk.includes('totalorders') ||
-    lk.includes('count') ||
-    lk.includes('matchedordercount') ||
-    lk.includes('qty') ||
-    lk.includes('quantity') ||
-    lk.includes('frequency')
-  ) {
-    return 'orderCount';
-  }
-
-  // 10. Sample value heuristic inspection
+  // Sample inspection fallback
   for (const v of sampleValues) {
     if (v === null || v === undefined) continue;
     const s = String(v).trim();
     if (!s) continue;
 
-    // Check for Email
     if (s.includes('@') && s.includes('.') && s.length >= 6) {
       return 'email';
     }
 
-    // Check for Phone number (10 to 15 digits)
     const cleanPhone = s.replace(/[\s\+\-\(\)]/g, '');
     if (/^\d{10,15}$/.test(cleanPhone)) {
       if (
