@@ -162,25 +162,35 @@ export async function POST(request: NextRequest) {
 
     const matchingRecords = await RecordModel.find(query).lean();
 
-    // Map records to clean, formula-injection-safe CSV columns
-    const csvData = matchingRecords.map((rec: any) => ({
-      ID: sanitizeCsvField(rec._id.toString()),
-      Name: sanitizeCsvField(rec.name),
-      Phone: sanitizeCsvField(rec.phone),
-      Email: sanitizeCsvField(rec.email),
-      'Tags / Segments': sanitizeCsvField(rec.tags && rec.tags.length > 0 ? rec.tags.join(', ') : rec.category || ''),
-      Age: rec.age || 0,
-      Gender: sanitizeCsvField(rec.gender),
-      'Avatar Type': sanitizeCsvField(rec.avatarType || 'With Avatar'),
-      'Avatar URL': sanitizeCsvField(rec.avatarUrl || ''),
-      'Active Days': rec.activeDays || 0,
-      'Last Online': rec.lastActive ? new Date(rec.lastActive).toISOString().split('T')[0] : '',
-      Location: sanitizeCsvField(rec.location),
-      Area: sanitizeCsvField(rec.area || ''),
-      Address: sanitizeCsvField(rec.address || ''),
-      Status: sanitizeCsvField(rec.status),
-      'Created At': rec.createdAt ? new Date(rec.createdAt).toISOString().split('T')[0] : '',
-    }));
+    // Map records to clean, formula-injection-safe CSV columns including dynamic customFields
+    const csvData = matchingRecords.map((rec: any) => {
+      const baseRow: Record<string, any> = {
+        'Phone / Mobile': sanitizeCsvField(rec.phone),
+        'Customer Name': sanitizeCsvField(rec.name),
+        'Canonical Address': sanitizeCsvField(rec.address || ''),
+        Gender: sanitizeCsvField(rec.gender),
+        Email: sanitizeCsvField(rec.email),
+        Age: rec.age || '',
+        'Order Amount (BDT)': rec.orderAmount || 0,
+        'Order Count': rec.orderCount || 0,
+        Location: sanitizeCsvField(rec.location || ''),
+        Area: sanitizeCsvField(rec.area || ''),
+        Status: sanitizeCsvField(rec.status || 'Active'),
+        'Tags / Segments': sanitizeCsvField(rec.tags && rec.tags.length > 0 ? rec.tags.join(', ') : rec.category || ''),
+      };
+
+      // Dynamically attach all custom attributes uploaded by the user
+      if (rec.customFields && typeof rec.customFields === 'object') {
+        Object.entries(rec.customFields).forEach(([k, v]) => {
+          if (v !== null && v !== undefined && k !== 'Tags / Labels') {
+            baseRow[k] = sanitizeCsvField(v);
+          }
+        });
+      }
+
+      baseRow['Created At'] = rec.createdAt ? new Date(rec.createdAt).toISOString().split('T')[0] : '';
+      return baseRow;
+    });
 
     const csvString = Papa.unparse(csvData);
     const filename = `filtered-data-${matchingRecords.length}.csv`;
