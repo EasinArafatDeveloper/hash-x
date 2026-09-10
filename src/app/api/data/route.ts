@@ -39,8 +39,9 @@ export async function GET(request: NextRequest) {
     const avatarTypeWise = searchParams.get('avatarTypeWise') === 'true';
     const tagWise = searchParams.get('tagWise') === 'true';
 
-    const sortBy = searchParams.get('sortBy') || 'createdAt';
-    const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
+    const sortBy = searchParams.get('sortBy') || searchParams.get('sort') || 'createdAt';
+    const sortOrderParam = searchParams.get('sortOrder') || searchParams.get('order') || 'desc';
+    const sortOrder = sortOrderParam === 'asc' ? 1 : -1;
 
     // Build dynamic query
     const query: any = {};

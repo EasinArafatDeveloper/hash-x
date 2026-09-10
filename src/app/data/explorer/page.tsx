@@ -2,7 +2,8 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { FilterToolbar } from '@/components/explorer/FilterToolbar';
 import { ActiveFilterChips } from '@/components/explorer/ActiveFilterChips';
 import { CardView } from '@/components/explorer/CardView';
@@ -52,7 +53,8 @@ const DEFAULT_FILTERS: FilterQueryState = {
 
 type ViewMode = 'cards' | 'table';
 
-export default function DataExplorerPage() {
+function DataExplorerContent() {
+  const searchParams = useSearchParams();
   const [filters, setFilters] = useState<FilterQueryState>(DEFAULT_FILTERS);
   const [data, setData] = useState<PaginationResponse<IRecord> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,6 +68,66 @@ export default function DataExplorerPage() {
   const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Synchronize filters from URL Query Params (e.g. when linked from AI Copilot or saved bookmarks)
+  useEffect(() => {
+    if (!searchParams) return;
+
+    const newFilters: Partial<FilterQueryState> = {};
+    const search = searchParams.get('search');
+    const datasetId = searchParams.get('datasetId');
+    const tag = searchParams.get('tag');
+    const gender = searchParams.get('gender');
+    const minAge = searchParams.get('minAge');
+    const maxAge = searchParams.get('maxAge');
+    const avatarType = searchParams.get('avatarType');
+    const numberStartsWith = searchParams.get('numberStartsWith');
+    const maxActiveDays = searchParams.get('maxActiveDays');
+    const lastOnlineFrom = searchParams.get('lastOnlineFrom');
+    const lastOnlineTo = searchParams.get('lastOnlineTo');
+    const minOrderAmount = searchParams.get('minOrderAmount');
+    const maxOrderAmount = searchParams.get('maxOrderAmount');
+    const minOrderCount = searchParams.get('minOrderCount');
+    const maxOrderCount = searchParams.get('maxOrderCount');
+    const merchant = searchParams.get('merchant');
+    const sortBy = searchParams.get('sortBy') || searchParams.get('sort');
+    const sortOrderParam = searchParams.get('sortOrder') || searchParams.get('order');
+    const sortOrder = (sortOrderParam === 'asc' ? 'asc' : sortOrderParam === 'desc' ? 'desc' : undefined);
+    const limit = searchParams.get('limit');
+    const page = searchParams.get('page');
+    const viewModeParam = searchParams.get('viewMode') as ViewMode | null;
+    const aiQueryText = searchParams.get('aiQueryText') || searchParams.get('q');
+
+    if (search !== null) newFilters.search = search;
+    if (datasetId !== null) newFilters.datasetId = datasetId;
+    if (tag !== null) newFilters.tag = tag;
+    if (gender !== null) newFilters.gender = gender;
+    if (minAge !== null) newFilters.minAge = minAge;
+    if (maxAge !== null) newFilters.maxAge = maxAge;
+    if (avatarType !== null) newFilters.avatarType = avatarType;
+    if (numberStartsWith !== null) newFilters.numberStartsWith = numberStartsWith;
+    if (maxActiveDays !== null) newFilters.maxActiveDays = maxActiveDays;
+    if (lastOnlineFrom !== null) newFilters.lastOnlineFrom = lastOnlineFrom;
+    if (lastOnlineTo !== null) newFilters.lastOnlineTo = lastOnlineTo;
+    if (minOrderAmount !== null) newFilters.minOrderAmount = minOrderAmount;
+    if (maxOrderAmount !== null) newFilters.maxOrderAmount = maxOrderAmount;
+    if (minOrderCount !== null) newFilters.minOrderCount = minOrderCount;
+    if (maxOrderCount !== null) newFilters.maxOrderCount = maxOrderCount;
+    if (merchant !== null) newFilters.merchant = merchant;
+    if (sortBy) newFilters.sortBy = sortBy;
+    if (sortOrder) newFilters.sortOrder = sortOrder;
+    if (limit !== null && !isNaN(parseInt(limit, 10))) newFilters.limit = parseInt(limit, 10);
+    if (page !== null && !isNaN(parseInt(page, 10))) newFilters.page = parseInt(page, 10);
+    if (viewModeParam !== null && (viewModeParam === 'cards' || viewModeParam === 'table')) setViewMode(viewModeParam);
+    if (aiQueryText) newFilters.aiQueryText = aiQueryText;
+
+    if (Object.keys(newFilters).length > 0) {
+      setFilters((prev) => ({
+        ...prev,
+        ...newFilters,
+      }));
+    }
+  }, [searchParams]);
 
   // Fetch available tags for AI suggestion engine
   useEffect(() => {
@@ -551,3 +613,21 @@ export default function DataExplorerPage() {
     </div>
   );
 }
+
+export default function DataExplorerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 rounded-full border-3 border-purple-600 border-t-transparent animate-spin" />
+            <span className="text-xs font-semibold text-gray-500">Loading Data Explorer...</span>
+          </div>
+        </div>
+      }
+    >
+      <DataExplorerContent />
+    </Suspense>
+  );
+}
+
