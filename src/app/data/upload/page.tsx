@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { DropZone } from '@/components/upload/DropZone';
 import { UploadProgress, StreamLogEntry } from '@/components/upload/UploadProgress';
 import { UploadSummaryModal } from '@/components/upload/UploadSummaryModal';
+import { AIAuditPreviewModal } from '@/components/upload/AIAuditPreviewModal';
 import { UploadHistory } from '@/components/upload/UploadHistory';
 import { toast } from 'sonner';
 import { FileText, AlertCircle, RefreshCw } from 'lucide-react';
+import { AIAuditSummary } from '@/lib/deepseek';
 
 type UploadStage = 'idle' | 'uploading' | 'done' | 'error';
 
@@ -17,6 +19,18 @@ export default function UploadDataPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+
+  // AI Pre-Flight Audit States
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [isAuditLoading, setIsAuditLoading] = useState(false);
+  const [auditSummary, setAuditSummary] = useState<AIAuditSummary | null>(null);
+  const [pendingUploadData, setPendingUploadData] = useState<{
+    filename: string;
+    rows: any[];
+    fileSize: string;
+    tags?: string[] | string;
+    columnMapping?: Record<string, string>;
+  } | null>(null);
 
   // Streaming Progress States
   const [currentFilename, setCurrentFilename] = useState('');
@@ -82,6 +96,50 @@ export default function UploadDataPage() {
     tags?: string[] | string,
     columnMapping?: Record<string, string>
   ) => {
+    const uploadPayload = {
+      filename,
+      rows,
+      fileSize,
+      tags,
+      columnMapping,
+    };
+    setPendingUploadData(uploadPayload);
+    setIsAuditModalOpen(true);
+    setIsAuditLoading(true);
+    setAuditSummary(null);
+
+    try {
+      // Send sample (first 40 rows) to DeepSeek AI Audit API
+      const sampleRows = rows.slice(0, 40);
+      const auditRes = await fetch('/api/ai/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sampleRows,
+          columnMapping,
+        }),
+      });
+
+      if (auditRes.ok) {
+        const data = await auditRes.json();
+        if (data.audit) {
+          setAuditSummary(data.audit);
+        }
+      }
+    } catch (auditErr) {
+      console.warn('AI Pre-Flight audit error (fallback available):', auditErr);
+    } finally {
+      setIsAuditLoading(false);
+    }
+  };
+
+  const executeStreamingIngestion = async (overrideData?: typeof pendingUploadData) => {
+    const targetData = overrideData || pendingUploadData;
+    if (!targetData) return;
+
+    setIsAuditModalOpen(false);
+
+    const { filename, rows, fileSize, tags, columnMapping } = targetData;
     const startTime = Date.now();
     setUploadStartTime(startTime);
     setUploadStage('uploading');
@@ -106,7 +164,7 @@ export default function UploadDataPage() {
 
     // Initial Telemetry Logs
     addLog('info', `🚀 Starting High-Speed Stream Ingestion for "${filename}"`, `Size: ${fileSize} | Rows: ${rows.length.toLocaleString()}`);
-    addLog('info', `📋 Schema analyzed: ${Object.keys(rows[0] || {}).length} detected columns`, `Custom mapping applied`);
+    addLog('info', `📋 Schema analyzed: ${Object.keys(rows[0] || {}).length} detected columns`, `DeepSeek AI verified custom mapping`);
     addLog('info', `🛰️ Initializing session with MongoDB Atlas (/api/data/upload/init)...`);
 
     try {
@@ -409,6 +467,16 @@ export default function UploadDataPage() {
           onReset={handleReset}
         />
       )}
+
+      {/* DeepSeek AI Pre-Flight Audit & Decision Matrix Modal */}
+      <AIAuditPreviewModal
+        isOpen={isAuditModalOpen}
+        onClose={() => setIsAuditModalOpen(false)}
+        onConfirm={() => executeStreamingIngestion()}
+        auditSummary={auditSummary}
+        isLoading={isAuditLoading}
+        totalRowsInFile={pendingUploadData?.rows?.length || 0}
+      />
     </div>
   );
 }

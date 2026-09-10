@@ -27,6 +27,7 @@ import {
   LocateFixed,
   BarChart3,
   Tag,
+  RefreshCw,
 } from 'lucide-react';
 
 export interface ColumnMappingItem {
@@ -248,6 +249,9 @@ export function ColumnMappingStudio({
   isOpen,
   onToggleOpen,
 }: ColumnMappingStudioProps) {
+  const [isAiMappingLoading, setIsAiMappingLoading] = React.useState(false);
+  const [aiRecommendations, setAiRecommendations] = React.useState<Record<string, { targetField: string; confidence: number; reasoning: string }>>({});
+
   const handleFieldSelect = (columnName: string, targetField: string) => {
     onMappingChange({
       ...mapping,
@@ -298,6 +302,39 @@ export function ColumnMappingStudio({
     onMappingChange(autoMap);
   };
 
+  const handleDeepSeekAutoMap = async () => {
+    setIsAiMappingLoading(true);
+    try {
+      const res = await fetch('/api/ai/mapping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          columnNames,
+          sampleRows: sampleRows.slice(0, 5),
+        }),
+      });
+
+      if (!res.ok) throw new Error('AI Mapping API call failed');
+
+      const data = await res.json();
+      if (data.mappings) {
+        setAiRecommendations(data.mappings);
+        const updated: Record<string, string> = { ...mapping };
+        Object.entries(data.mappings).forEach(([col, rec]: any) => {
+          if (rec.targetField) {
+            updated[col] = rec.targetField;
+          }
+        });
+        onMappingChange(updated);
+      }
+    } catch (err) {
+      console.warn('DeepSeek AI Auto-Map exception, fallback to rule-based:', err);
+      handleResetToAuto();
+    } finally {
+      setIsAiMappingLoading(false);
+    }
+  };
+
   const phoneMappedColumn = columnNames.find((col) => mapping[col] === 'phone');
   const skippedColumnsCount = columnNames.filter((col) => mapping[col] === 'skip').length;
   const activeMappedCount = columnNames.length - skippedColumnsCount;
@@ -329,7 +366,7 @@ export function ColumnMappingStudio({
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               {isOpen
-                ? 'Review column connections. Use the 🚫 Skip button next to any column to ignore it instantly.'
+                ? 'Review column connections. Use DeepSeek AI Auto-Map for semantic matching or 🚫 Skip to ignore.'
                 : `Smart mapping active (${activeMappedCount} columns importing, ${skippedColumnsCount} skipped). Click to customize.`}
             </p>
           </div>
@@ -379,11 +416,27 @@ export function ColumnMappingStudio({
             <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
               <Info className="w-4 h-4 text-brand-500 shrink-0" />
               <span className="font-medium">
-                Use the <strong>🚫 Skip</strong> button next to any dropdown to ignore that column during import.
+                Use DeepSeek AI for smart semantic recognition, or <strong>🚫 Skip</strong> to ignore columns.
               </span>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap self-start sm:self-center">
+              {/* DeepSeek AI Auto-Map Button */}
+              <button
+                type="button"
+                onClick={handleDeepSeekAutoMap}
+                disabled={isAiMappingLoading}
+                title="Use DeepSeek AI to semantically map messy column headers"
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-brand-600 text-white hover:from-purple-700 hover:to-brand-700 text-[11px] font-extrabold flex items-center gap-1.5 shadow-md shadow-purple-500/20 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              >
+                {isAiMappingLoading ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                <span>{isAiMappingLoading ? 'AI Mapping...' : '✨ DeepSeek AI Auto-Map'}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleSkipAllNonKeys}
@@ -407,11 +460,11 @@ export function ColumnMappingStudio({
               <button
                 type="button"
                 onClick={handleResetToAuto}
-                title="Reset all column mappings to smart auto-detect"
+                title="Reset all column mappings to rule-based auto-detect"
                 className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-900 hover:bg-brand-50 text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer active:scale-95"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span>Reset Auto-Detect</span>
+                <span>Reset Rules</span>
               </button>
             </div>
           </div>
@@ -473,11 +526,19 @@ export function ColumnMappingStudio({
                             >
                               {colName}
                             </span>
-                            {isSkipped && (
+                            {isSkipped ? (
                               <span className="text-[10px] text-rose-500 dark:text-rose-400 font-bold uppercase tracking-wider">
                                 🚫 Skipped (Will Not Import)
                               </span>
-                            )}
+                            ) : aiRecommendations[colName] ? (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-extrabold text-purple-600 dark:text-purple-400"
+                                title={aiRecommendations[colName].reasoning}
+                              >
+                                <Sparkles className="w-2.5 h-2.5" />
+                                {aiRecommendations[colName].confidence}% DeepSeek Match
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       </td>
