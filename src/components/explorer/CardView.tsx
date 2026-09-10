@@ -34,6 +34,23 @@ const STATUS_BADGES: Record<string, { bg: string; text: string; dot: string }> =
   },
 };
 
+function cleanVal(v: any): string {
+  if (v === null || v === undefined) return '';
+  let s = String(v).trim();
+  if (!s || s === '[]' || s === '[""]' || s === "['']" || s === 'null' || s === 'undefined') return '';
+  if (s.startsWith('[') && s.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(s.replace(/'/g, '"'));
+      if (Array.isArray(parsed)) {
+        return parsed.map((x) => String(x || '').trim()).filter(Boolean).join(', ');
+      }
+    } catch {
+      return s.replace(/^\[\s*["']?/, '').replace(/["']?\s*\]$/, '').replace(/["']/g, '').trim();
+    }
+  }
+  return s;
+}
+
 function UserAvatar({ record }: { record: IRecord }) {
   const [imgError, setImgError] = useState(false);
   const avatarUrl =
@@ -192,7 +209,7 @@ export function CardView({ records, onSelectRecord, isLoading }: CardViewProps) 
                     <MapPin className="w-3 h-3 text-gray-400" /> Location
                   </span>
                   <p className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-                    {record.location || record.area || 'Not specified'}
+                    {cleanVal(record.location) || cleanVal(record.customFields?.['Matched City']) || cleanVal(record.area) || 'Not specified'}
                   </p>
                 </div>
               </div>

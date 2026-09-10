@@ -8,6 +8,8 @@ export interface IRecord {
   location: string;
   area: string;
   address: string;
+  orderAmount?: number;
+  orderCount?: number;
   status: 'Active' | 'Inactive' | 'Pending' | 'Suspended';
   lastActive: string | Date;
   activeDays: number;

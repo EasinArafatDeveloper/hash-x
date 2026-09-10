@@ -33,6 +33,26 @@ export interface RecordUpdateResult {
 }
 
 /**
+ * Cleans string representation of arrays (e.g. '[]' -> '', '["keraniganj"]' -> 'keraniganj')
+ */
+export function cleanArrayString(val: any): string {
+  if (val === null || val === undefined) return '';
+  let s = String(val).trim();
+  if (!s || s === '[]' || s === '[""]' || s === "['']" || s === 'null' || s === 'undefined') return '';
+  if (s.startsWith('[') && s.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(s.replace(/'/g, '"'));
+      if (Array.isArray(parsed)) {
+        return parsed.map((x) => String(x || '').trim()).filter(Boolean).join(', ');
+      }
+    } catch {
+      return s.replace(/^\[\s*["']?/, '').replace(/["']?\s*\]$/, '').replace(/["']/g, '').trim();
+    }
+  }
+  return s;
+}
+
+/**
  * Parses an incoming file row according to custom mapping or heuristic auto-detection.
  * Strictly respects 'skip' and empty values: only valid, non-empty, non-skipped values
  * are added to providedFields / providedCustomFields.
@@ -99,8 +119,9 @@ export function parseRowData(
         providedCustomFields['gender'] = g;
         providedCustomFields['Gender'] = g;
       } else if (targetField === 'whatsapp_status') {
-        providedCustomFields['whatsapp_status'] = strVal;
-        providedCustomFields['WhatsApp Status'] = strVal;
+        const cleanStatus = cleanArrayString(strVal) || strVal;
+        providedCustomFields['whatsapp_status'] = cleanStatus;
+        providedCustomFields['WhatsApp Status'] = cleanStatus;
       } else if (targetField === 'matched_order_count') {
         const num = parseInt(strVal.replace(/[^0-9.-]+/g, ''), 10);
         if (!isNaN(num)) {
@@ -164,44 +185,54 @@ export function parseRowData(
           providedCustomFields['lifetime_unique_merchant_count'] = strVal;
         }
       } else if (targetField === 'primary_merchant') {
-        providedCustomFields['primary_merchant'] = strVal;
-        providedCustomFields['Primary Merchant'] = strVal;
+        const cleanMerchant = cleanArrayString(strVal) || strVal;
+        providedCustomFields['primary_merchant'] = cleanMerchant;
+        providedCustomFields['Primary Merchant'] = cleanMerchant;
       } else if (targetField === 'matched_district_filters') {
-        providedCustomFields['matched_district_filters'] = strVal;
-        providedCustomFields['Matched District'] = strVal;
-        if (!providedFields.location) providedFields.location = strVal;
+        const cleanDistrict = cleanArrayString(strVal);
+        providedCustomFields['matched_district_filters'] = cleanDistrict;
+        providedCustomFields['Matched District'] = cleanDistrict;
+        if (cleanDistrict && !providedFields.location) providedFields.location = cleanDistrict;
       } else if (targetField === 'matched_city_filters') {
-        providedCustomFields['matched_city_filters'] = strVal;
-        providedCustomFields['Matched City'] = strVal;
-        if (!providedFields.location) providedFields.location = strVal;
+        const cleanCity = cleanArrayString(strVal);
+        providedCustomFields['matched_city_filters'] = cleanCity;
+        providedCustomFields['Matched City'] = cleanCity;
+        if (cleanCity && (!providedFields.location || providedFields.location === '[]')) providedFields.location = cleanCity;
       } else if (targetField === 'matched_area_filters' || targetField === 'area') {
-        providedCustomFields['matched_area_filters'] = strVal;
-        providedCustomFields['Matched Area'] = strVal;
-        providedFields.area = strVal;
+        const cleanArea = cleanArrayString(strVal);
+        providedCustomFields['matched_area_filters'] = cleanArea;
+        providedCustomFields['Matched Area'] = cleanArea;
+        if (cleanArea) providedFields.area = cleanArea;
       } else if (targetField === 'matched_block_road_filters') {
-        providedCustomFields['matched_block_road_filters'] = strVal;
-        providedCustomFields['Matched Block / Road'] = strVal;
+        const cleanBlock = cleanArrayString(strVal);
+        providedCustomFields['matched_block_road_filters'] = cleanBlock;
+        providedCustomFields['Matched Block / Road'] = cleanBlock;
       } else if (targetField === 'inferred_primary_area') {
-        providedCustomFields['inferred_primary_area'] = strVal;
-        providedCustomFields['Inferred Primary Area'] = strVal;
-        if (!providedFields.area) providedFields.area = strVal;
+        const cleanInferred = cleanArrayString(strVal);
+        providedCustomFields['inferred_primary_area'] = cleanInferred;
+        providedCustomFields['Inferred Primary Area'] = cleanInferred;
+        if (cleanInferred && (!providedFields.area || providedFields.area === '[]')) providedFields.area = cleanInferred;
       } else if (targetField === 'lifetime_frequency_segment') {
-        providedCustomFields['lifetime_frequency_segment'] = strVal;
-        providedCustomFields['Frequency Segment'] = strVal;
+        const cleanFreq = cleanArrayString(strVal) || strVal;
+        providedCustomFields['lifetime_frequency_segment'] = cleanFreq;
+        providedCustomFields['Frequency Segment'] = cleanFreq;
       } else if (targetField === 'lifetime_value_segment') {
-        providedCustomFields['lifetime_value_segment'] = strVal;
-        providedCustomFields['Value Segment'] = strVal;
+        const cleanVal = cleanArrayString(strVal) || strVal;
+        providedCustomFields['lifetime_value_segment'] = cleanVal;
+        providedCustomFields['Value Segment'] = cleanVal;
       } else if (targetField === 'lifetime_primary_category') {
-        providedFields.category = strVal;
-        providedCustomFields['lifetime_primary_category'] = strVal;
-        providedCustomFields['Primary Category'] = strVal;
+        const cleanCat = cleanArrayString(strVal) || strVal;
+        providedFields.category = cleanCat;
+        providedCustomFields['lifetime_primary_category'] = cleanCat;
+        providedCustomFields['Primary Category'] = cleanCat;
       } else if (targetField === 'email') {
         providedFields.email = strVal;
       } else if (targetField === 'age') {
         const num = parseInt(strVal, 10);
         if (!isNaN(num)) providedFields.age = num;
       } else if (targetField === 'location') {
-        providedFields.location = strVal;
+        const cleanLoc = cleanArrayString(strVal) || strVal;
+        providedFields.location = cleanLoc;
       } else if (targetField === 'avatarUrl') {
         if (strVal.startsWith('http://') || strVal.startsWith('https://')) {
           providedFields.avatarUrl = strVal;
@@ -214,11 +245,11 @@ export function parseRowData(
         providedFields.avatarType = strVal;
       } else if (targetField === 'tags') {
         strVal.split(',').forEach((t) => {
-          const ct = t.trim();
+          const ct = cleanArrayString(t).trim();
           if (ct && !providedTags.includes(ct)) providedTags.push(ct);
         });
       } else if (targetField === 'category') {
-        providedFields.category = strVal;
+        providedFields.category = cleanArrayString(strVal) || strVal;
       } else if (targetField === 'status') {
         providedFields.status = ['Active', 'Inactive', 'Pending', 'Suspended'].includes(strVal) ? strVal : 'Active';
       } else if (targetField === 'activeDays') {
@@ -283,8 +314,9 @@ export function parseRowData(
         providedCustomFields['gender'] = g;
         providedCustomFields['Gender'] = g;
       } else if (lowerKey === 'whatsappstatus' || lowerKey === 'whatsapp') {
-        providedCustomFields['whatsapp_status'] = strVal;
-        providedCustomFields['WhatsApp Status'] = strVal;
+        const cleanStatus = cleanArrayString(strVal) || strVal;
+        providedCustomFields['whatsapp_status'] = cleanStatus;
+        providedCustomFields['WhatsApp Status'] = cleanStatus;
       } else if (lowerKey === 'matchedordercount') {
         const num = parseInt(strVal.replace(/[^0-9.-]+/g, ''), 10);
         if (!isNaN(num)) {
@@ -354,37 +386,46 @@ export function parseRowData(
           providedCustomFields['lifetime_unique_merchant_count'] = strVal;
         }
       } else if (lowerKey === 'primarymerchant' || lowerKey === 'merchant') {
-        providedCustomFields['primary_merchant'] = strVal;
-        providedCustomFields['Primary Merchant'] = strVal;
+        const cleanMerchant = cleanArrayString(strVal) || strVal;
+        providedCustomFields['primary_merchant'] = cleanMerchant;
+        providedCustomFields['Primary Merchant'] = cleanMerchant;
       } else if (lowerKey === 'matcheddistrictfilters' || lowerKey === 'district') {
-        providedCustomFields['matched_district_filters'] = strVal;
-        providedCustomFields['Matched District'] = strVal;
-        if (!providedFields.location) providedFields.location = strVal;
+        const cleanDistrict = cleanArrayString(strVal);
+        providedCustomFields['matched_district_filters'] = cleanDistrict;
+        providedCustomFields['Matched District'] = cleanDistrict;
+        if (cleanDistrict && !providedFields.location) providedFields.location = cleanDistrict;
       } else if (lowerKey === 'matchedcityfilters' || lowerKey === 'city') {
-        providedCustomFields['matched_city_filters'] = strVal;
-        providedCustomFields['Matched City'] = strVal;
-        if (!providedFields.location) providedFields.location = strVal;
+        const cleanCity = cleanArrayString(strVal);
+        providedCustomFields['matched_city_filters'] = cleanCity;
+        providedCustomFields['Matched City'] = cleanCity;
+        if (cleanCity && (!providedFields.location || providedFields.location === '[]')) providedFields.location = cleanCity;
       } else if (lowerKey === 'matchedareafilters' || lowerKey === 'area' || lowerKey === 'thana' || lowerKey === 'zone') {
-        providedCustomFields['matched_area_filters'] = strVal;
-        providedCustomFields['Matched Area'] = strVal;
-        providedFields.area = strVal;
+        const cleanArea = cleanArrayString(strVal);
+        providedCustomFields['matched_area_filters'] = cleanArea;
+        providedCustomFields['Matched Area'] = cleanArea;
+        if (cleanArea) providedFields.area = cleanArea;
       } else if (lowerKey === 'matchedblockroadfilters' || lowerKey === 'blockroad') {
-        providedCustomFields['matched_block_road_filters'] = strVal;
-        providedCustomFields['Matched Block / Road'] = strVal;
+        const cleanBlock = cleanArrayString(strVal);
+        providedCustomFields['matched_block_road_filters'] = cleanBlock;
+        providedCustomFields['Matched Block / Road'] = cleanBlock;
       } else if (lowerKey === 'inferredprimaryarea') {
-        providedCustomFields['inferred_primary_area'] = strVal;
-        providedCustomFields['Inferred Primary Area'] = strVal;
-        if (!providedFields.area) providedFields.area = strVal;
+        const cleanInferred = cleanArrayString(strVal);
+        providedCustomFields['inferred_primary_area'] = cleanInferred;
+        providedCustomFields['Inferred Primary Area'] = cleanInferred;
+        if (cleanInferred && (!providedFields.area || providedFields.area === '[]')) providedFields.area = cleanInferred;
       } else if (lowerKey === 'lifetimefrequencysegment' || lowerKey === 'frequencysegment') {
-        providedCustomFields['lifetime_frequency_segment'] = strVal;
-        providedCustomFields['Frequency Segment'] = strVal;
+        const cleanFreq = cleanArrayString(strVal) || strVal;
+        providedCustomFields['lifetime_frequency_segment'] = cleanFreq;
+        providedCustomFields['Frequency Segment'] = cleanFreq;
       } else if (lowerKey === 'lifetimevaluesegment' || lowerKey === 'valuesegment') {
-        providedCustomFields['lifetime_value_segment'] = strVal;
-        providedCustomFields['Value Segment'] = strVal;
+        const cleanVal = cleanArrayString(strVal) || strVal;
+        providedCustomFields['lifetime_value_segment'] = cleanVal;
+        providedCustomFields['Value Segment'] = cleanVal;
       } else if (lowerKey === 'lifetimeprimarycategory' || lowerKey === 'primarycategory') {
-        providedFields.category = strVal;
-        providedCustomFields['lifetime_primary_category'] = strVal;
-        providedCustomFields['Primary Category'] = strVal;
+        const cleanCat = cleanArrayString(strVal) || strVal;
+        providedFields.category = cleanCat;
+        providedCustomFields['lifetime_primary_category'] = cleanCat;
+        providedCustomFields['Primary Category'] = cleanCat;
       } else if (lowerKey === 'email' || lowerKey === 'mail' || lowerKey === 'emailaddress') {
         providedFields.email = strVal;
       } else if (lowerKey === 'age' || lowerKey === 'years') {
@@ -420,16 +461,16 @@ export function parseRowData(
         const parsedDate = new Date(val);
         if (!isNaN(parsedDate.getTime())) providedFields.lastActive = parsedDate;
       } else if (lowerKey === 'location' || lowerKey === 'division' || lowerKey === 'state' || lowerKey === 'country') {
-        providedFields.location = strVal;
+        providedFields.location = cleanArrayString(strVal) || strVal;
       } else if (lowerKey === 'status' || lowerKey === 'state') {
         providedFields.status = ['Active', 'Inactive', 'Pending', 'Suspended'].includes(strVal) ? strVal : 'Active';
       } else if (lowerKey === 'tag' || lowerKey === 'tags' || lowerKey === 'label' || lowerKey === 'labels' || lowerKey === 'badge') {
         strVal.split(',').forEach((t) => {
-          const ct = t.trim();
+          const ct = cleanArrayString(t).trim();
           if (ct && !providedTags.includes(ct)) providedTags.push(ct);
         });
       } else if (lowerKey === 'category' || lowerKey === 'group' || lowerKey === 'segment') {
-        providedFields.category = strVal;
+        providedFields.category = cleanArrayString(strVal) || strVal;
       } else {
         providedCustomFields[key] = val;
       }
