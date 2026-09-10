@@ -33,6 +33,7 @@ import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { ColumnMappingStudio, getAutoSuggestedField } from './ColumnMappingStudio';
 import { computeSmartTagsFromRows, AISmartTag } from '@/lib/deepseek';
+import { AISmartTagDetailModal } from './AISmartTagDetailModal';
 
 interface DropZoneProps {
   onFileParsed: (
@@ -360,6 +361,8 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
   // DeepSeek AI Smart Tag Discovery State
   const [discoveredSmartTags, setDiscoveredSmartTags] = useState<AISmartTag[]>([]);
   const [isAiTagsLoading, setIsAiTagsLoading] = useState(false);
+  const [activeDetailTag, setActiveDetailTag] = useState<AISmartTag | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   // Custom Column Mapping State
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
@@ -1141,41 +1144,71 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                 </div>
 
                 {/* Smart Tags Interactive Badges */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
                   {discoveredSmartTags.map((st) => {
                     const isSelected = selectedTags.includes(st.tag);
                     return (
                       <div
                         key={st.id || st.tag}
-                        onClick={() => handleTogglePresetTag(st.tag)}
-                        className={`p-2.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                        className={`p-3 rounded-2xl border transition-all flex flex-col justify-between gap-2.5 ${
                           isSelected
-                            ? 'bg-purple-50/90 dark:bg-purple-950/40 border-purple-400 dark:border-purple-700 ring-2 ring-purple-500/20 shadow-xs'
-                            : 'bg-white dark:bg-slate-800/80 border-gray-200/80 dark:border-slate-700/80 hover:border-purple-300 hover:bg-purple-50/40'
+                            ? 'bg-purple-50/95 dark:bg-purple-950/40 border-purple-400 dark:border-purple-700 ring-2 ring-purple-500/20 shadow-xs'
+                            : 'bg-white dark:bg-slate-800/90 border-gray-200/90 dark:border-slate-700/90 hover:border-purple-300 hover:bg-purple-50/30 shadow-xs'
                         }`}
                       >
+                        {/* Card Header: Label & Select Toggle */}
                         <div className="flex items-center justify-between gap-1.5">
                           <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
                             {st.label}
                           </span>
-                          <span
-                            className={`p-1 rounded-md text-[10px] font-bold ${
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePresetTag(st.tag)}
+                            className={`p-1.5 rounded-lg text-xs font-bold transition-all active:scale-90 cursor-pointer ${
                               isSelected
-                                ? 'bg-purple-600 text-white'
-                                : 'bg-gray-100 dark:bg-slate-700 text-gray-500'
+                                ? 'bg-purple-600 text-white shadow-xs'
+                                : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-purple-100 hover:text-purple-700'
                             }`}
+                            title={isSelected ? 'Remove tag' : 'Select tag for batch'}
                           >
-                            {isSelected ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                            {isSelected ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+
+                        {/* Middle: Count & Detection Criteria */}
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="font-bold text-purple-700 dark:text-purple-300 font-mono text-[11px] shrink-0">
+                            {st.count.toLocaleString()} rows ({st.percentage}%)
+                          </span>
+                          <span
+                            className="px-2 py-0.5 rounded-md text-[10px] font-mono font-medium bg-purple-100/70 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 truncate max-w-[140px]"
+                            title={st.detectionRule || st.reason}
+                          >
+                            {st.detectionRule || 'AI Logic'}
                           </span>
                         </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
-                          <span className="font-semibold text-purple-700 dark:text-purple-300 font-mono">
-                            {st.count.toLocaleString()} rows ({st.percentage}%)
-                          </span>
-                          <span className="text-[10px] text-gray-400 truncate max-w-[120px]" title={st.reason}>
-                            {st.reason.slice(0, 30)}...
-                          </span>
+                        {/* Bottom: View AI Logic & Samples Button */}
+                        <div className="pt-2 border-t border-gray-100 dark:border-slate-700/50 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveDetailTag(st);
+                              setIsDetailModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 transition-colors cursor-pointer group"
+                          >
+                            <Sparkles className="w-3 h-3 group-hover:rotate-12 transition-transform text-purple-500" />
+                            <span>🔍 AI Logic & Samples</span>
+                          </button>
+
+                          {isSelected ? (
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                              <CheckCircle2 className="w-3 h-3" /> Selected
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-gray-400 font-medium">Click + to add</span>
+                          )}
                         </div>
                       </div>
                     );
@@ -1183,8 +1216,8 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                 </div>
 
                 {/* Explanatory Precision Footer */}
-                <div className="p-2 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 flex items-center gap-2 text-[10px] text-purple-800 dark:text-purple-300">
-                  <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-purple-600 dark:text-purple-400" />
+                <div className="p-2.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 flex items-center gap-2 text-[11px] text-purple-800 dark:text-purple-300">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400" />
                   <span>
                     <strong>Smart Row-Level Precision:</strong> Only matching individual rows receive conditional tags (e.g. only records with active WhatsApp receive <em>'WhatsApp Active'</em>, spenders ≥ ৳10k receive <em>'VIP Client'</em>).
                   </span>
@@ -1302,6 +1335,18 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
           </div>
         </div>
       )}
+
+      {/* DeepSeek AI Smart Tag Detail & Sample Records Inspector Modal */}
+      <AISmartTagDetailModal
+        tag={activeDetailTag}
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setActiveDetailTag(null);
+        }}
+        isSelected={activeDetailTag ? selectedTags.includes(activeDetailTag.tag) : false}
+        onToggleSelect={handleTogglePresetTag}
+      />
     </div>
   );
 }

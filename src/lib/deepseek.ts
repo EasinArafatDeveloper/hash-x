@@ -83,6 +83,12 @@ export interface AIAuditSummary {
   anomaliesDetected: string[];
 }
 
+export interface AISmartTagSample {
+  phone: string;
+  name?: string;
+  matchedValue: string;
+}
+
 export interface AISmartTag {
   id: string;
   tag: string;
@@ -90,6 +96,10 @@ export interface AISmartTag {
   count: number;
   percentage: number;
   reason: string;
+  detectionRule: string;
+  analyzedColumns: string[];
+  explanationBn: string;
+  sampleMatchingRows?: AISmartTagSample[];
   category: 'channel' | 'spend' | 'engagement' | 'geo' | 'demographic' | 'merchant' | 'custom';
   isAiDiscovered?: boolean;
 }
@@ -469,16 +479,38 @@ export function computeSmartTagsFromRows(
     return '';
   };
 
+  const getPhoneAndName = (row: any): { phone: string; name: string } => {
+    const phone = getVal(row, 'phone', ['mobile', 'cell', 'number', 'contact']) || 'N/A';
+    const name = getVal(row, 'name', ['customer_name', 'fullname', 'buyer']) || 'Customer';
+    return { phone, name };
+  };
+
   let waActiveCount = 0;
+  const waSamples: AISmartTagSample[] = [];
+
   let vipCount = 0;
+  const vipSamples: AISmartTagSample[] = [];
+
   let frequentBuyerCount = 0;
+  const frequentSamples: AISmartTagSample[] = [];
+
   let corporateCount = 0;
+  const corporateSamples: AISmartTagSample[] = [];
+
   let femaleCount = 0;
+  const femaleSamples: AISmartTagSample[] = [];
+
   let maleCount = 0;
+  const maleSamples: AISmartTagSample[] = [];
 
   const zoneCounts: Record<string, number> = {};
+  const zoneSamples: Record<string, AISmartTagSample[]> = {};
+
   const merchantCounts: Record<string, number> = {};
+  const merchantSamples: Record<string, AISmartTagSample[]> = {};
+
   const categoryCounts: Record<string, number> = {};
+  const categorySamples: Record<string, AISmartTagSample[]> = {};
 
   const knownZones = [
     { key: 'dhaka', name: 'Dhaka Zone', icon: '📍' },
@@ -501,10 +533,15 @@ export function computeSmartTagsFromRows(
   ];
 
   for (const r of rows) {
+    const { phone, name } = getPhoneAndName(r);
+
     // 1. WhatsApp Status
     const waVal = getVal(r, 'whatsapp_status', ['whatsapp', 'wastatus', 'wpstatus', 'whatsappstatus']).toLowerCase();
     if (waVal.includes('active') || waVal === 'yes' || waVal === 'true' || waVal === 'valid' || waVal === '1') {
       waActiveCount++;
+      if (waSamples.length < 3) {
+        waSamples.push({ phone, name, matchedValue: `WhatsApp: ${waVal || 'Active'}` });
+      }
     }
 
     // 2. VIP / High Spend
@@ -519,6 +556,10 @@ export function computeSmartTagsFromRows(
     const valueSegment = getVal(r, 'lifetime_value_segment', ['valuesegment', 'tier']).toLowerCase();
     if (numSpend >= 10000 || valueSegment.includes('vip') || valueSegment.includes('high')) {
       vipCount++;
+      if (vipSamples.length < 3) {
+        const displayVal = numSpend > 0 ? `৳${numSpend.toLocaleString()} BDT` : valueSegment || 'VIP Tier';
+        vipSamples.push({ phone, name, matchedValue: `Spend: ${displayVal}` });
+      }
     }
 
     // 3. Frequent Buyer / Hot Leads
@@ -527,35 +568,53 @@ export function computeSmartTagsFromRows(
     const freqSegment = getVal(r, 'lifetime_frequency_segment', ['frequencysegment']).toLowerCase();
     if (numOrders >= 3 || freqSegment.includes('frequent') || freqSegment.includes('loyal')) {
       frequentBuyerCount++;
+      if (frequentSamples.length < 3) {
+        const displayVal = numOrders > 0 ? `${numOrders} Orders` : freqSegment || 'Frequent';
+        frequentSamples.push({ phone, name, matchedValue: `Orders: ${displayVal}` });
+      }
     }
 
     // 4. Corporate Lead
     const emailVal = getVal(r, 'email', ['emailaddress']).toLowerCase();
     if (emailVal && !emailVal.includes('@gmail.') && !emailVal.includes('@yahoo.') && !emailVal.includes('@hotmail.') && !emailVal.includes('@outlook.')) {
       corporateCount++;
+      if (corporateSamples.length < 3) {
+        corporateSamples.push({ phone, name, matchedValue: `Email: ${emailVal}` });
+      }
     }
 
     // 5. Gender Demographics
     const genderVal = getVal(r, 'gender', ['sex']).toLowerCase();
     if (genderVal.startsWith('f') || genderVal.includes('female') || genderVal.includes('woman')) {
       femaleCount++;
+      if (femaleSamples.length < 3) {
+        femaleSamples.push({ phone, name, matchedValue: 'Gender: Female' });
+      }
     } else if (genderVal.startsWith('m') || genderVal.includes('male') || genderVal.includes('man')) {
       maleCount++;
+      if (maleSamples.length < 3) {
+        maleSamples.push({ phone, name, matchedValue: 'Gender: Male' });
+      }
     }
 
     // 6. Geographic Zones
-    const geoText = [
-      getVal(r, 'matched_district_filters', ['district']),
-      getVal(r, 'matched_city_filters', ['city']),
-      getVal(r, 'matched_area_filters', ['area', 'thana']),
-      getVal(r, 'inferred_primary_area', ['primaryarea']),
-      getVal(r, 'address', ['canonical_address', 'fulladdress']),
-      getVal(r, 'location', []),
-    ].join(' ').toLowerCase();
+    const addressStr = getVal(r, 'address', ['canonical_address', 'fulladdress']);
+    const districtStr = getVal(r, 'matched_district_filters', ['district']);
+    const cityStr = getVal(r, 'matched_city_filters', ['city']);
+    const areaStr = getVal(r, 'matched_area_filters', ['area', 'thana']);
+    const geoText = [districtStr, cityStr, areaStr, addressStr].join(' ').toLowerCase();
 
     for (const z of knownZones) {
       if (geoText.includes(z.key)) {
         zoneCounts[z.name] = (zoneCounts[z.name] || 0) + 1;
+        if (!zoneSamples[z.name]) zoneSamples[z.name] = [];
+        if (zoneSamples[z.name].length < 3) {
+          zoneSamples[z.name].push({
+            phone,
+            name,
+            matchedValue: addressStr || districtStr || cityStr || z.name,
+          });
+        }
       }
     }
 
@@ -563,12 +622,20 @@ export function computeSmartTagsFromRows(
     const merchant = getVal(r, 'primary_merchant', ['merchant', 'store', 'shop']);
     if (merchant && merchant.length > 2 && merchant !== '[]') {
       merchantCounts[merchant] = (merchantCounts[merchant] || 0) + 1;
+      if (!merchantSamples[merchant]) merchantSamples[merchant] = [];
+      if (merchantSamples[merchant].length < 3) {
+        merchantSamples[merchant].push({ phone, name, matchedValue: `Store: ${merchant}` });
+      }
     }
 
     // 8. Category
     const category = getVal(r, 'lifetime_primary_category', ['category', 'primarycategory']);
     if (category && category.length > 2 && category !== '[]') {
       categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+      if (!categorySamples[category]) categorySamples[category] = [];
+      if (categorySamples[category].length < 3) {
+        categorySamples[category].push({ phone, name, matchedValue: `Category: ${category}` });
+      }
     }
   }
 
@@ -584,6 +651,10 @@ export function computeSmartTagsFromRows(
       count: waActiveCount,
       percentage: pct,
       reason: `${waActiveCount.toLocaleString()} of ${total.toLocaleString()} (${pct}%) records verified as Active on WhatsApp`,
+      detectionRule: 'whatsapp_status = "Active" | "Yes" | "Valid"',
+      analyzedColumns: ['whatsapp_status', 'wa_status'],
+      explanationBn: `ফাইলের "whatsapp_status" ফিল্ডে ${waActiveCount} টি নম্বরে সচল হোয়াটসঅ্যাপ উপস্থিতি নিশ্চিত হয়েছে। এই নম্বরে সরাসরি মেসেজিং ক্যাম্পেইন করা যাবে।`,
+      sampleMatchingRows: waSamples,
       category: 'channel',
     });
   }
@@ -598,6 +669,10 @@ export function computeSmartTagsFromRows(
       count: vipCount,
       percentage: pct,
       reason: `${vipCount.toLocaleString()} high-value records (Spend ≥ ৳10,000 / VIP tier)`,
+      detectionRule: 'lifetime_net_order_amount_bdt >= ৳10,000 OR lifetime_value_segment = "vip"',
+      analyzedColumns: ['lifetime_net_order_amount_bdt', 'lifetime_value_segment'],
+      explanationBn: `এই গ্রাহকদের মোট লাইফটাইম নেট অর্ডার স্পেন্ড ৳১০,০০০ বা তার বেশি অথবা এরা VIP সেগমেন্টের অন্তর্ভুক্ত। প্রিমিয়াম অফারের জন্য উপযুক্ত।`,
+      sampleMatchingRows: vipSamples,
       category: 'spend',
     });
   }
@@ -612,6 +687,10 @@ export function computeSmartTagsFromRows(
       count: frequentBuyerCount,
       percentage: pct,
       reason: `${frequentBuyerCount.toLocaleString()} repeat buyers (3+ orders / Frequent buyer)`,
+      detectionRule: 'lifetime_order_count >= 3 OR lifetime_frequency_segment = "frequent_buyer"',
+      analyzedColumns: ['lifetime_order_count', 'lifetime_frequency_segment'],
+      explanationBn: `এই গ্রাহকেরা ৩ বা ততোধিক বার কেনাকাটা করেছেন এবং এদের রিটার্ন পার্চেজ রেট অত্যন্ত বেশি।`,
+      sampleMatchingRows: frequentSamples,
       category: 'engagement',
     });
   }
@@ -626,6 +705,10 @@ export function computeSmartTagsFromRows(
       count: corporateCount,
       percentage: pct,
       reason: `${corporateCount.toLocaleString()} records with company / custom domain emails`,
+      detectionRule: 'email domain != @gmail / @yahoo / @hotmail / @outlook',
+      analyzedColumns: ['email'],
+      explanationBn: `করপোরেট বা প্রাতিষ্ঠানিক ডোমেইনের ইমেইল অ্যাড্রেস পাওয়া গেছে। B2B বা করপোরেট লিডের জন্য সেরা।`,
+      sampleMatchingRows: corporateSamples,
       category: 'demographic',
     });
   }
@@ -640,6 +723,10 @@ export function computeSmartTagsFromRows(
       count: femaleCount,
       percentage: pct,
       reason: `${femaleCount.toLocaleString()} female shoppers identified in dataset`,
+      detectionRule: 'gender = "Female" / "Woman"',
+      analyzedColumns: ['gender'],
+      explanationBn: `গ্রাহকের জেন্ডার ফিল্ডে "Female" পাওয়া গেছে। নারী কেন্দ্রিক প্রডাক্ট বা অফারের জন্য পারফেক্ট।`,
+      sampleMatchingRows: femaleSamples,
       category: 'demographic',
     });
   }
@@ -659,6 +746,10 @@ export function computeSmartTagsFromRows(
       count,
       percentage: pct,
       reason: `${count.toLocaleString()} (${pct}%) records located in ${zoneName}`,
+      detectionRule: `Address / District / City contains "${zoneName}"`,
+      analyzedColumns: ['canonical_address', 'matched_district_filters', 'matched_city_filters'],
+      explanationBn: `গ্রাহকদের ডেলিভারি ঠিকানা বা ডিস্ট্রিক্ট ফিল্টারে "${zoneName}" ক্লাস্টার পাওয়া গেছে। লোকাল ডেলিভারি টার্গেটিংয়ের জন্য উপযোগী।`,
+      sampleMatchingRows: zoneSamples[zoneName] || [],
       category: 'geo',
     });
   }
@@ -678,6 +769,10 @@ export function computeSmartTagsFromRows(
       count,
       percentage: pct,
       reason: `${count.toLocaleString()} orders placed with ${merchantName}`,
+      detectionRule: `primary_merchant = "${merchantName}"`,
+      analyzedColumns: ['primary_merchant'],
+      explanationBn: `এই গ্রাহকদের পছন্দের প্রধান মার্চেন্ট বা শপ হলো "${merchantName}"।`,
+      sampleMatchingRows: merchantSamples[merchantName] || [],
       category: 'merchant',
     });
   }
@@ -697,6 +792,10 @@ export function computeSmartTagsFromRows(
       count,
       percentage: pct,
       reason: `${count.toLocaleString()} records categorized as ${categoryName}`,
+      detectionRule: `lifetime_primary_category = "${categoryName}"`,
+      analyzedColumns: ['lifetime_primary_category'],
+      explanationBn: `গ্রাহকদের কেনাকাটার প্রধান ক্যাটাগরি হলো "${categoryName}"। ক্যাটাগরি ভিত্তিক রিমার্কেটিংয়ের জন্য আদর্শ।`,
+      sampleMatchingRows: categorySamples[categoryName] || [],
       category: 'custom',
     });
   }
@@ -737,7 +836,10 @@ OUTPUT FORMAT (JSON):
     {
       "tag": "Clean Tag Name",
       "label": "Emoji + Tag Name",
-      "reason": "Brief explanation why this tag was discovered"
+      "reason": "Brief explanation why this tag was discovered",
+      "detectionRule": "Rule condition or criteria evaluated",
+      "analyzedColumns": ["col1", "col2"],
+      "explanationBn": "Bangla explanation of the tag criteria"
     }
   ]
 }`;
@@ -774,6 +876,14 @@ OUTPUT FORMAT (JSON):
                 count: Math.round(totalRows * 0.3) || 1,
                 percentage: 30,
                 reason: t.reason || 'AI Discovered segmentation tag',
+                detectionRule: t.detectionRule || 'AI Semantic pattern detection on sample records',
+                analyzedColumns: Array.isArray(t.analyzedColumns) ? t.analyzedColumns : ['custom_fields'],
+                explanationBn: t.explanationBn || `${t.tag} সেগমেন্টের গ্রাহকদের জন্য AI দ্বারা বিশেষায়িত ট্যাগ।`,
+                sampleMatchingRows: sampleRows.slice(0, 2).map((r) => ({
+                  phone: String(r.phone || Object.values(r)[0] || '01***'),
+                  name: String(r.name || r.customer_name || 'Customer'),
+                  matchedValue: `AI Match: ${t.tag}`,
+                })),
                 category: 'custom',
                 isAiDiscovered: true,
               });
