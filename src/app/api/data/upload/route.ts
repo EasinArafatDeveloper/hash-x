@@ -4,6 +4,7 @@ import RecordModel from '@/lib/models/Record';
 import DatasetModel from '@/lib/models/Dataset';
 import ActivityLogModel from '@/lib/models/ActivityLog';
 import { getSessionUser } from '@/lib/auth';
+import { parseRowData, computeRecordUpdates, buildNewRecord } from '@/lib/data-ingest';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,510 +43,59 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    let validRecords: any[] = [];
+    let parsedRecords: ReturnType<typeof parseRowData>[] = [];
     let skippedCount = 0;
 
-    const hasCustomMapping =
-      columnMapping &&
-      typeof columnMapping === 'object' &&
-      Object.keys(columnMapping).length > 0;
-
-    rows.forEach((row, idx) => {
+    rows.forEach((row) => {
       const values = Object.values(row).filter((v) => v !== null && v !== undefined && String(v).trim() !== '');
       if (values.length === 0) {
         skippedCount++;
         return;
       }
 
-      const normalizedRow: any = {
-        name: '',
-        phone: '',
-        email: '',
-        age: 0,
-        gender: 'Other',
-        location: '',
-        area: '',
-        address: '',
-        orderAmount: 0,
-        orderCount: 0,
-        status: 'Active',
-        activeDays: 0,
-        avatarType: 'Without Avatar',
-        avatarUrl: '',
-        tags: [],
-        category: '',
-        lastActive: new Date(),
-        customFields: {},
-      };
-
-      if (hasCustomMapping) {
-        // Explicit Custom Mapping from user
-        Object.keys(row).forEach((key) => {
-          const targetField = columnMapping[key];
-          const val = row[key];
-          if (val === null || val === undefined || String(val).trim() === '') return;
-
-          if (targetField === 'skip') {
-            return;
-          }
-
-          if (targetField === 'phone') {
-            normalizedRow.phone = String(val).trim();
-          } else if (targetField === 'name') {
-            normalizedRow.name = String(val).trim();
-          } else if (targetField === 'address') {
-            normalizedRow.address = String(val).trim();
-          } else if (targetField === 'gender') {
-            const gStr = String(val).trim().toLowerCase();
-            if (gStr.startsWith('m')) normalizedRow.gender = 'Male';
-            else if (gStr.startsWith('f')) normalizedRow.gender = 'Female';
-            else normalizedRow.gender = 'Other';
-            normalizedRow.customFields['gender'] = normalizedRow.gender;
-          } else if (targetField === 'whatsapp_status') {
-            normalizedRow.customFields['whatsapp_status'] = String(val).trim();
-            normalizedRow.customFields['WhatsApp Status'] = String(val).trim();
-          } else if (targetField === 'matched_order_count') {
-            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
-            if (!isNaN(num)) {
-              normalizedRow.customFields['matched_order_count'] = num;
-              normalizedRow.customFields['Matched Order Count'] = num;
-              if (!normalizedRow.orderCount) normalizedRow.orderCount = num;
-            } else {
-              normalizedRow.customFields['matched_order_count'] = val;
-            }
-          } else if (targetField === 'lifetime_order_count' || targetField === 'orderCount') {
-            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
-            if (!isNaN(num)) {
-              normalizedRow.orderCount = num;
-              normalizedRow.customFields['lifetime_order_count'] = num;
-              normalizedRow.customFields['Lifetime Order Count'] = num;
-              normalizedRow.customFields['Order Count'] = num;
-            } else {
-              normalizedRow.customFields['lifetime_order_count'] = val;
-            }
-          } else if (targetField === 'matched_net_order_amount_bdt') {
-            const num = parseFloat(String(val).replace(/[^0-9.-]+/g, ''));
-            if (!isNaN(num)) {
-              normalizedRow.customFields['matched_net_order_amount_bdt'] = num;
-              normalizedRow.customFields['Matched Order Amount BDT'] = num;
-              if (!normalizedRow.orderAmount) normalizedRow.orderAmount = num;
-            } else {
-              normalizedRow.customFields['matched_net_order_amount_bdt'] = val;
-            }
-          } else if (targetField === 'lifetime_net_order_amount_bdt' || targetField === 'orderAmount') {
-            const num = parseFloat(String(val).replace(/[^0-9.-]+/g, ''));
-            if (!isNaN(num)) {
-              normalizedRow.orderAmount = num;
-              normalizedRow.customFields['lifetime_net_order_amount_bdt'] = num;
-              normalizedRow.customFields['Lifetime Order Amount BDT'] = num;
-              normalizedRow.customFields['Order Amount'] = num;
-            } else {
-              normalizedRow.customFields['lifetime_net_order_amount_bdt'] = val;
-            }
-          } else if (targetField === 'prepaid_order_count') {
-            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
-            if (!isNaN(num)) {
-              normalizedRow.customFields['prepaid_order_count'] = num;
-              normalizedRow.customFields['Prepaid Order Count'] = num;
-            } else {
-              normalizedRow.customFields['prepaid_order_count'] = val;
-            }
-          } else if (targetField === 'matched_unique_merchant_count') {
-            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
-            if (!isNaN(num)) {
-              normalizedRow.customFields['matched_unique_merchant_count'] = num;
-              normalizedRow.customFields['Matched Unique Merchant Count'] = num;
-            } else {
-              normalizedRow.customFields['matched_unique_merchant_count'] = val;
-            }
-          } else if (targetField === 'lifetime_unique_merchant_count') {
-            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
-            if (!isNaN(num)) {
-              normalizedRow.customFields['lifetime_unique_merchant_count'] = num;
-              normalizedRow.customFields['Lifetime Unique Merchant Count'] = num;
-            } else {
-              normalizedRow.customFields['lifetime_unique_merchant_count'] = val;
-            }
-          } else if (targetField === 'primary_merchant') {
-            normalizedRow.customFields['primary_merchant'] = String(val).trim();
-            normalizedRow.customFields['Primary Merchant'] = String(val).trim();
-          } else if (targetField === 'matched_district_filters') {
-            normalizedRow.customFields['matched_district_filters'] = String(val).trim();
-            normalizedRow.customFields['Matched District'] = String(val).trim();
-            if (!normalizedRow.location) normalizedRow.location = String(val).trim();
-          } else if (targetField === 'matched_city_filters') {
-            normalizedRow.customFields['matched_city_filters'] = String(val).trim();
-            normalizedRow.customFields['Matched City'] = String(val).trim();
-            if (!normalizedRow.location) normalizedRow.location = String(val).trim();
-          } else if (targetField === 'matched_area_filters' || targetField === 'area') {
-            normalizedRow.customFields['matched_area_filters'] = String(val).trim();
-            normalizedRow.customFields['Matched Area'] = String(val).trim();
-            normalizedRow.area = String(val).trim();
-          } else if (targetField === 'matched_block_road_filters') {
-            normalizedRow.customFields['matched_block_road_filters'] = String(val).trim();
-            normalizedRow.customFields['Matched Block / Road'] = String(val).trim();
-          } else if (targetField === 'inferred_primary_area') {
-            normalizedRow.customFields['inferred_primary_area'] = String(val).trim();
-            normalizedRow.customFields['Inferred Primary Area'] = String(val).trim();
-            if (!normalizedRow.area) normalizedRow.area = String(val).trim();
-          } else if (targetField === 'lifetime_frequency_segment') {
-            normalizedRow.customFields['lifetime_frequency_segment'] = String(val).trim();
-            normalizedRow.customFields['Frequency Segment'] = String(val).trim();
-          } else if (targetField === 'lifetime_value_segment') {
-            normalizedRow.customFields['lifetime_value_segment'] = String(val).trim();
-            normalizedRow.customFields['Value Segment'] = String(val).trim();
-          } else if (targetField === 'lifetime_primary_category') {
-            normalizedRow.category = String(val).trim();
-            normalizedRow.customFields['lifetime_primary_category'] = String(val).trim();
-            normalizedRow.customFields['Primary Category'] = String(val).trim();
-          } else if (targetField === 'email') {
-            normalizedRow.email = String(val).trim();
-          } else if (targetField === 'age') {
-            const num = parseInt(String(val), 10);
-            if (!isNaN(num)) normalizedRow.age = num;
-          } else if (targetField === 'avatarUrl') {
-            const avatarVal = String(val).trim();
-            if (avatarVal.startsWith('http://') || avatarVal.startsWith('https://')) {
-              normalizedRow.avatarUrl = avatarVal;
-              normalizedRow.avatarOriginalUrl = avatarVal;
-              normalizedRow.avatarType = 'With Avatar';
-            } else if (avatarVal) {
-              normalizedRow.avatarType = avatarVal;
-            }
-          } else if (targetField === 'avatarType') {
-            normalizedRow.avatarType = String(val).trim();
-          } else if (targetField === 'tags') {
-            String(val).split(',').forEach((t) => {
-              const ct = t.trim();
-              if (ct && !normalizedRow.tags.includes(ct)) normalizedRow.tags.push(ct);
-            });
-          } else if (targetField === 'category') {
-            normalizedRow.category = String(val).trim();
-          } else if (targetField === 'status') {
-            const sVal = String(val).trim();
-            normalizedRow.status = ['Active', 'Inactive', 'Pending', 'Suspended'].includes(sVal) ? sVal : 'Active';
-          } else if (targetField === 'activeDays') {
-            const num = parseInt(String(val), 10);
-            if (!isNaN(num)) normalizedRow.activeDays = num;
-          } else if (targetField === 'lastActive') {
-            const parsedDate = new Date(val);
-            if (!isNaN(parsedDate.getTime())) normalizedRow.lastActive = parsedDate;
-          } else {
-            normalizedRow.customFields[key] = val;
-          }
-        });
-      } else {
-        // Automatic heuristic mapping
-        Object.keys(row).forEach((key) => {
-          const lowerKey = key.trim().toLowerCase().replace(/[\s_\.-]+/g, '');
-          const val = row[key];
-
-          if (
-            lowerKey === 'name' ||
-            lowerKey === 'customername' ||
-            lowerKey === 'fullname' ||
-            lowerKey === 'username' ||
-            lowerKey === 'nickname' ||
-            lowerKey === 'nick' ||
-            lowerKey === 'contactname' ||
-            lowerKey === 'person' ||
-            lowerKey === 'title'
-          ) {
-            const nameStr = String(val || '').trim();
-            if (nameStr && !normalizedRow.name) {
-              normalizedRow.name = nameStr;
-            }
-          } else if (
-            lowerKey === 'phone' ||
-            lowerKey === 'mobile' ||
-            lowerKey === 'number' ||
-            lowerKey === 'contact' ||
-            lowerKey === 'cell' ||
-            lowerKey === 'phonenumber' ||
-            lowerKey === 'tel' ||
-            lowerKey === 'msisdn'
-          ) {
-            normalizedRow.phone = String(val || '').trim();
-          } else if (
-            lowerKey === 'canonicaladdress' ||
-            lowerKey === 'address' ||
-            lowerKey === 'fulladdress'
-          ) {
-            normalizedRow.address = String(val || '').trim();
-          } else if (
-            lowerKey === 'gender' ||
-            lowerKey === 'sex'
-          ) {
-            const gStr = String(val || '').trim().toLowerCase();
-            if (gStr.startsWith('m')) normalizedRow.gender = 'Male';
-            else if (gStr.startsWith('f')) normalizedRow.gender = 'Female';
-            else normalizedRow.gender = 'Other';
-            normalizedRow.customFields['gender'] = normalizedRow.gender;
-          } else if (lowerKey === 'whatsappstatus' || lowerKey === 'whatsapp') {
-            normalizedRow.customFields['whatsapp_status'] = String(val).trim();
-            normalizedRow.customFields['WhatsApp Status'] = String(val).trim();
-          } else if (lowerKey === 'matchedordercount') {
-            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
-            if (!isNaN(num)) {
-              normalizedRow.customFields['matched_order_count'] = num;
-              normalizedRow.customFields['Matched Order Count'] = num;
-              if (!normalizedRow.orderCount) normalizedRow.orderCount = num;
-            } else {
-              normalizedRow.customFields['matched_order_count'] = val;
-            }
-          } else if (lowerKey === 'lifetimeordercount' || lowerKey === 'ordercount' || lowerKey === 'totalorders') {
-            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
-            if (!isNaN(num)) {
-              normalizedRow.orderCount = num;
-              normalizedRow.customFields['lifetime_order_count'] = num;
-              normalizedRow.customFields['Lifetime Order Count'] = num;
-              normalizedRow.customFields['Order Count'] = num;
-            } else {
-              normalizedRow.customFields['lifetime_order_count'] = val;
-            }
-          } else if (lowerKey === 'matchednetorderamountbdt' || lowerKey === 'matchedorderamount') {
-            const num = parseFloat(String(val).replace(/[^0-9.-]+/g, ''));
-            if (!isNaN(num)) {
-              normalizedRow.customFields['matched_net_order_amount_bdt'] = num;
-              normalizedRow.customFields['Matched Order Amount BDT'] = num;
-              if (!normalizedRow.orderAmount) normalizedRow.orderAmount = num;
-            } else {
-              normalizedRow.customFields['matched_net_order_amount_bdt'] = val;
-            }
-          } else if (lowerKey === 'lifetimenetorderamountbdt' || lowerKey === 'lifetimeorderamount' || lowerKey === 'orderamount' || lowerKey === 'amount' || lowerKey === 'totalamount') {
-            const num = parseFloat(String(val).replace(/[^0-9.-]+/g, ''));
-            if (!isNaN(num)) {
-              normalizedRow.orderAmount = num;
-              normalizedRow.customFields['lifetime_net_order_amount_bdt'] = num;
-              normalizedRow.customFields['Lifetime Order Amount BDT'] = num;
-              normalizedRow.customFields['Order Amount'] = num;
-            } else {
-              normalizedRow.customFields['lifetime_net_order_amount_bdt'] = val;
-            }
-          } else if (lowerKey === 'prepaidordercount' || lowerKey === 'prepaid') {
-            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
-            if (!isNaN(num)) {
-              normalizedRow.customFields['prepaid_order_count'] = num;
-              normalizedRow.customFields['Prepaid Order Count'] = num;
-            } else {
-              normalizedRow.customFields['prepaid_order_count'] = val;
-            }
-          } else if (lowerKey === 'matcheduniquemerchantcount') {
-            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
-            if (!isNaN(num)) {
-              normalizedRow.customFields['matched_unique_merchant_count'] = num;
-              normalizedRow.customFields['Matched Unique Merchant Count'] = num;
-            } else {
-              normalizedRow.customFields['matched_unique_merchant_count'] = val;
-            }
-          } else if (lowerKey === 'lifetimeuniquemerchantcount') {
-            const num = parseInt(String(val).replace(/[^0-9.-]+/g, ''), 10);
-            if (!isNaN(num)) {
-              normalizedRow.customFields['lifetime_unique_merchant_count'] = num;
-              normalizedRow.customFields['Lifetime Unique Merchant Count'] = num;
-            } else {
-              normalizedRow.customFields['lifetime_unique_merchant_count'] = val;
-            }
-          } else if (lowerKey === 'primarymerchant' || lowerKey === 'merchant') {
-            normalizedRow.customFields['primary_merchant'] = String(val).trim();
-            normalizedRow.customFields['Primary Merchant'] = String(val).trim();
-          } else if (lowerKey === 'matcheddistrictfilters' || lowerKey === 'district') {
-            normalizedRow.customFields['matched_district_filters'] = String(val).trim();
-            normalizedRow.customFields['Matched District'] = String(val).trim();
-            if (!normalizedRow.location) normalizedRow.location = String(val).trim();
-          } else if (lowerKey === 'matchedcityfilters' || lowerKey === 'city') {
-            normalizedRow.customFields['matched_city_filters'] = String(val).trim();
-            normalizedRow.customFields['Matched City'] = String(val).trim();
-            if (!normalizedRow.location) normalizedRow.location = String(val).trim();
-          } else if (lowerKey === 'matchedareafilters' || lowerKey === 'area' || lowerKey === 'thana' || lowerKey === 'zone') {
-            normalizedRow.customFields['matched_area_filters'] = String(val).trim();
-            normalizedRow.customFields['Matched Area'] = String(val).trim();
-            normalizedRow.area = String(val).trim();
-          } else if (lowerKey === 'matchedblockroadfilters' || lowerKey === 'blockroad') {
-            normalizedRow.customFields['matched_block_road_filters'] = String(val).trim();
-            normalizedRow.customFields['Matched Block / Road'] = String(val).trim();
-          } else if (lowerKey === 'inferredprimaryarea') {
-            normalizedRow.customFields['inferred_primary_area'] = String(val).trim();
-            normalizedRow.customFields['Inferred Primary Area'] = String(val).trim();
-            if (!normalizedRow.area) normalizedRow.area = String(val).trim();
-          } else if (lowerKey === 'lifetimefrequencysegment' || lowerKey === 'frequencysegment') {
-            normalizedRow.customFields['lifetime_frequency_segment'] = String(val).trim();
-            normalizedRow.customFields['Frequency Segment'] = String(val).trim();
-          } else if (lowerKey === 'lifetimevaluesegment' || lowerKey === 'valuesegment') {
-            normalizedRow.customFields['lifetime_value_segment'] = String(val).trim();
-            normalizedRow.customFields['Value Segment'] = String(val).trim();
-          } else if (lowerKey === 'lifetimeprimarycategory' || lowerKey === 'primarycategory') {
-            normalizedRow.category = String(val).trim();
-            normalizedRow.customFields['lifetime_primary_category'] = String(val).trim();
-            normalizedRow.customFields['Primary Category'] = String(val).trim();
-          } else if (
-            lowerKey === 'email' ||
-            lowerKey === 'mail' ||
-            lowerKey === 'emailaddress'
-          ) {
-            normalizedRow.email = String(val || '').trim();
-          } else if (
-            lowerKey === 'age' ||
-            lowerKey === 'years'
-          ) {
-            const numAge = parseInt(val, 10);
-            if (!isNaN(numAge)) normalizedRow.age = numAge;
-          } else if (
-            lowerKey === 'avatartype' ||
-            lowerKey === 'avatar' ||
-            lowerKey === 'avatarurl' ||
-            lowerKey === 'photo' ||
-            lowerKey === 'image' ||
-            lowerKey === 'picture' ||
-            lowerKey === 'userphoto'
-          ) {
-            const avatarVal = String(val || '').trim();
-            if (avatarVal.startsWith('http://') || avatarVal.startsWith('https://')) {
-              normalizedRow.avatarUrl = avatarVal;
-              normalizedRow.avatarOriginalUrl = avatarVal;
-              normalizedRow.avatarType = 'With Avatar';
-            } else if (avatarVal) {
-              normalizedRow.avatarType = avatarVal;
-            }
-          } else if (
-            lowerKey === 'activedays' ||
-            lowerKey === 'days' ||
-            lowerKey === 'active' ||
-            lowerKey === 'activeday'
-          ) {
-            const numDays = parseInt(val, 10);
-            if (!isNaN(numDays)) normalizedRow.activeDays = numDays;
-          } else if (
-            lowerKey === 'lastonline' ||
-            lowerKey === 'lastonlinetime' ||
-            lowerKey === 'lastactive' ||
-            lowerKey === 'online' ||
-            lowerKey === 'date' ||
-            lowerKey === 'timestamp'
-          ) {
-            const parsedDate = new Date(val);
-            if (!isNaN(parsedDate.getTime())) normalizedRow.lastActive = parsedDate;
-          } else if (
-            lowerKey === 'location' ||
-            lowerKey === 'division' ||
-            lowerKey === 'state' ||
-            lowerKey === 'country'
-          ) {
-            normalizedRow.location = String(val || '').trim();
-          } else if (
-            lowerKey === 'status' ||
-            lowerKey === 'state'
-          ) {
-            const sVal = String(val || '').trim();
-            normalizedRow.status = ['Active', 'Inactive', 'Pending', 'Suspended'].includes(sVal) ? sVal : 'Active';
-          } else if (
-            lowerKey === 'tag' ||
-            lowerKey === 'tags' ||
-            lowerKey === 'label' ||
-            lowerKey === 'labels' ||
-            lowerKey === 'badge'
-          ) {
-            const tagVal = String(val || '').trim();
-            if (tagVal) {
-              tagVal.split(',').forEach((t) => {
-                const ct = t.trim();
-                if (ct && !normalizedRow.tags.includes(ct)) normalizedRow.tags.push(ct);
-              });
-            }
-          } else if (
-            lowerKey === 'category' ||
-            lowerKey === 'group' ||
-            lowerKey === 'segment'
-          ) {
-            normalizedRow.category = String(val || '').trim();
-          } else {
-            normalizedRow.customFields[key] = val;
-          }
-        });
-      }
-
-      // Single column auto-detection
-      if (!normalizedRow.phone) {
-        for (const v of values) {
-          const cleanStr = String(v).replace(/[\s\+\-\(\)]/g, '');
-          if (cleanStr.length >= 7 && /^\d+$/.test(cleanStr)) {
-            normalizedRow.phone = String(v).trim();
-            break;
-          }
-        }
-      }
-
-      // Apply batch custom tags and category
-      if (rawBatchTags.length > 0) {
-        rawBatchTags.forEach((tag) => {
-          if (!normalizedRow.tags.includes(tag)) {
-            normalizedRow.tags.push(tag);
-          }
-        });
-        if (!normalizedRow.category) {
-          normalizedRow.category = customCategory ? customCategory.trim() : rawBatchTags[0];
-        }
-        normalizedRow.customFields['Tags / Labels'] = normalizedRow.tags.join(', ');
-      }
-      if (customAttributes && typeof customAttributes === 'object') {
-        Object.assign(normalizedRow.customFields, customAttributes);
-      }
-
-      // Name fallback
-      if (!normalizedRow.name) {
-        if (row.nickname || row.Nickname || row.NickName || row.nick) {
-          normalizedRow.name = String(row.nickname || row.Nickname || row.NickName || row.nick).trim();
-        } else if (normalizedRow.phone) {
-          normalizedRow.name = `User (${normalizedRow.phone})`;
-        } else if (values[0]) {
-          normalizedRow.name = String(values[0]).trim();
-        } else {
-          normalizedRow.name = `Record #${idx + 1}`;
-        }
-      }
-
-      // Check any other columns for image URLs
-      if (!normalizedRow.avatarUrl) {
-        Object.values(row).forEach((v) => {
-          const str = String(v || '').trim();
-          if (str.startsWith('http://') || str.startsWith('https://')) {
-            normalizedRow.avatarUrl = str;
-            normalizedRow.avatarOriginalUrl = str;
-            normalizedRow.avatarType = 'With Avatar';
-          }
-        });
-      }
-
-      validRecords.push(normalizedRow);
+      const parsed = parseRowData(row, columnMapping, rawBatchTags, customCategory, customAttributes);
+      parsedRecords.push(parsed);
     });
 
-    if (validRecords.length === 0) {
+    if (parsedRecords.length === 0) {
       return NextResponse.json(
         { error: 'No valid data records found in uploaded file', skippedCount },
         { status: 400 }
       );
     }
 
-    // --- SMART UPSERT & MERGE LOGIC ---
+    // --- SMART UPSERT & MERGE ENGINE ---
     // 1. Gather all phone numbers & emails to look up existing records in one fast batch
-    const incomingPhones = validRecords.map((r) => r.phone).filter(Boolean);
-    const incomingEmails = validRecords.map((r) => r.email).filter(Boolean);
+    const incomingPhones = parsedRecords.map((r) => r.phone).filter(Boolean);
+    const incomingEmails = parsedRecords.map((r) => r.email).filter(Boolean);
 
-    const lookupConditions: any[] = [];
-    if (incomingPhones.length > 0) lookupConditions.push({ phone: { $in: incomingPhones } });
-    if (incomingEmails.length > 0) lookupConditions.push({ email: { $in: incomingEmails } });
+    const uniquePhones = Array.from(new Set(incomingPhones));
+    const uniqueEmails = Array.from(new Set(incomingEmails));
 
-    let existingDocs: any[] = [];
-    if (lookupConditions.length > 0) {
-      existingDocs = await RecordModel.find({ $or: lookupConditions }).lean();
-    }
+    const projection =
+      '_id phone email name age gender avatarUrl avatarType location area address activeDays lastActive tags category customFields';
+
+    const [phoneDocs, emailDocs] = await Promise.all([
+      uniquePhones.length > 0
+        ? RecordModel.find({ phone: { $in: uniquePhones } })
+            .select(projection)
+            .lean()
+        : Promise.resolve([]),
+      uniqueEmails.length > 0
+        ? RecordModel.find({ email: { $in: uniqueEmails } })
+            .select(projection)
+            .lean()
+        : Promise.resolve([]),
+    ]);
 
     // Index existing docs by phone and by email for O(1) matching
     const phoneMap = new Map<string, any>();
     const emailMap = new Map<string, any>();
 
-    existingDocs.forEach((doc) => {
+    phoneDocs.forEach((doc: any) => {
       if (doc.phone) phoneMap.set(doc.phone, doc);
+    });
+    emailDocs.forEach((doc: any) => {
       if (doc.email) emailMap.set(doc.email, doc);
     });
 
@@ -578,10 +128,7 @@ export async function POST(request: NextRequest) {
       changes: Array<{ field: string; from: string; to: string }>;
     }> = [];
 
-    // Track processed IDs in this batch to prevent duplicate updates within the same file
-    const matchedDocIds = new Set<string>();
-
-    // Create Dataset record first so we have the datasetId
+    // Create Dataset record first
     const totalFieldsCount = Object.keys(rows[0] || {}).length || 18;
     const session = await getSessionUser();
     const uploaderName = session?.name || 'Administrator';
@@ -605,156 +152,49 @@ export async function POST(request: NextRequest) {
 
     const datasetId = dataset._id.toString();
 
-    validRecords.forEach((incoming, idx) => {
+    parsedRecords.forEach((incoming, idx) => {
       const rowNum = idx + 1;
-      // Find matching existing record: first by phone, then by email
-      const matched = (incoming.phone ? phoneMap.get(incoming.phone) : null) ||
-                      (incoming.email ? emailMap.get(incoming.email) : null);
+      // Match by unique Mobile Number first, then email fallback
+      const matched =
+        (incoming.phone ? phoneMap.get(incoming.phone) : null) ||
+        (incoming.email ? emailMap.get(incoming.email) : null);
 
-      if (matched && !matchedDocIds.has(matched._id.toString())) {
-        matchedDocIds.add(matched._id.toString());
+      if (matched) {
+        // SMART PARTIAL UPDATE
+        const { hasChanges, updateFields, changedList, diffs } = computeRecordUpdates(incoming, matched);
 
-        const updateFields: any = {};
-        const changedList: string[] = [];
-        const diffs: Array<{ field: string; from: string; to: string }> = [];
-
-        // Merge / Fill missing email
-        if ((!matched.email || matched.email === '') && incoming.email) {
-          updateFields.email = incoming.email;
-          changedList.push('Email');
-          diffs.push({ field: 'Email', from: matched.email || '(Empty)', to: incoming.email });
-          fieldUpdatesSummary.emailUpdated++;
-        }
-
-        // Merge / Improve Name if previous was empty or generic 'User (..)'
-        if (incoming.name && (!matched.name || matched.name.startsWith('User (')) && !incoming.name.startsWith('User (')) {
-          updateFields.name = incoming.name;
-          changedList.push('Name');
-          diffs.push({ field: 'Name', from: matched.name || '(Empty)', to: incoming.name });
-          fieldUpdatesSummary.nameUpdated++;
-        }
-
-        // Merge / Fill missing Phone
-        if ((!matched.phone || matched.phone === '') && incoming.phone) {
-          updateFields.phone = incoming.phone;
-          changedList.push('Phone');
-          diffs.push({ field: 'Phone', from: matched.phone || '(Empty)', to: incoming.phone });
-          fieldUpdatesSummary.phoneUpdated++;
-        }
-
-        // Merge / Fill missing Age
-        if ((!matched.age || matched.age === 0) && incoming.age > 0) {
-          updateFields.age = incoming.age;
-          changedList.push('Age');
-          diffs.push({ field: 'Age', from: String(matched.age || 0), to: String(incoming.age) });
-          fieldUpdatesSummary.ageUpdated++;
-        }
-
-        // Merge / Fill missing Gender
-        if ((!matched.gender || matched.gender === 'Other') && incoming.gender && incoming.gender !== 'Other') {
-          updateFields.gender = incoming.gender;
-          changedList.push('Gender');
-          diffs.push({ field: 'Gender', from: matched.gender || 'Other', to: incoming.gender });
-          fieldUpdatesSummary.genderUpdated++;
-        }
-
-        // Merge / Fill missing Avatar URL / Type
-        if ((!matched.avatarUrl || matched.avatarUrl === '') && incoming.avatarUrl) {
-          updateFields.avatarUrl = incoming.avatarUrl;
-          updateFields.avatarType = 'With Avatar';
-          changedList.push('Avatar Photo');
-          diffs.push({ field: 'Avatar Photo', from: '(No Photo)', to: incoming.avatarUrl });
-          fieldUpdatesSummary.avatarUpdated++;
-        }
-
-        // Merge / Fill missing Location / Area / Address
-        if ((!matched.location || matched.location === '') && incoming.location) {
-          updateFields.location = incoming.location;
-          changedList.push('Location');
-          diffs.push({ field: 'Location', from: matched.location || '(Empty)', to: incoming.location });
-          fieldUpdatesSummary.locationUpdated++;
-        }
-        if ((!matched.area || matched.area === '') && incoming.area) {
-          updateFields.area = incoming.area;
-          changedList.push('Area');
-          diffs.push({ field: 'Area', from: matched.area || '(Empty)', to: incoming.area });
-        }
-        if ((!matched.address || matched.address === '') && incoming.address) {
-          updateFields.address = incoming.address;
-          changedList.push('Address');
-          diffs.push({ field: 'Address', from: matched.address || '(Empty)', to: incoming.address });
-        }
-
-        // Update Active Days if new has higher/newer count
-        if (incoming.activeDays > 0 && (!matched.activeDays || incoming.activeDays > matched.activeDays)) {
-          updateFields.activeDays = incoming.activeDays;
-          changedList.push('Active Days');
-          diffs.push({ field: 'Active Days', from: String(matched.activeDays || 0), to: String(incoming.activeDays) });
-          fieldUpdatesSummary.activeDaysUpdated++;
-        }
-
-        // Update Last Online if incoming has newer date
-        if (incoming.lastActive) {
-          const incomingDate = new Date(incoming.lastActive);
-          const existingDate = matched.lastActive ? new Date(matched.lastActive) : new Date(0);
-          if (incomingDate > existingDate) {
-            updateFields.lastActive = incomingDate;
-            changedList.push('Last Online');
-            diffs.push({
-              field: 'Last Online',
-              from: matched.lastActive ? new Date(matched.lastActive).toISOString().split('T')[0] : '(None)',
-              to: incomingDate.toISOString().split('T')[0],
+        if (hasChanges && Object.keys(updateFields).length > 0) {
+          if (matched._id) {
+            bulkUpdateOps.push({
+              updateOne: {
+                filter: { _id: matched._id },
+                update: { $set: updateFields },
+              },
             });
-            fieldUpdatesSummary.lastActiveUpdated++;
           }
-        }
 
-        // Merge Tags / Labels into existing matched record
-        if (incoming.tags && incoming.tags.length > 0) {
-          const currentTags: string[] = Array.isArray(matched.tags) ? matched.tags : [];
-          const newTagsToAdd = incoming.tags.filter((t: string) => !currentTags.includes(t));
-          if (newTagsToAdd.length > 0) {
-            updateFields.tags = [...currentTags, ...newTagsToAdd];
-            changedList.push(`Tag: ${newTagsToAdd.join(', ')}`);
-            diffs.push({
-              field: 'Tag / Label',
-              from: currentTags.length > 0 ? currentTags.join(', ') : '(None)',
-              to: newTagsToAdd.join(', '),
-            });
-            fieldUpdatesSummary.tagsUpdated += newTagsToAdd.length;
-          }
-        }
+          // Update summary counters
+          if (updateFields.email) fieldUpdatesSummary.emailUpdated++;
+          if (updateFields.name) fieldUpdatesSummary.nameUpdated++;
+          if (updateFields.phone) fieldUpdatesSummary.phoneUpdated++;
+          if (updateFields.age) fieldUpdatesSummary.ageUpdated++;
+          if (updateFields.gender) fieldUpdatesSummary.genderUpdated++;
+          if (updateFields.location || updateFields.area || updateFields.address) fieldUpdatesSummary.locationUpdated++;
+          if (updateFields.avatarUrl) fieldUpdatesSummary.avatarUpdated++;
+          if (updateFields.tags) fieldUpdatesSummary.tagsUpdated++;
+          if (updateFields.activeDays) fieldUpdatesSummary.activeDaysUpdated++;
+          if (updateFields.lastActive) fieldUpdatesSummary.lastActiveUpdated++;
+          if (updateFields.customFields) fieldUpdatesSummary.customFieldsUpdated++;
 
-        // Merge Category if missing
-        if ((!matched.category || matched.category === '') && incoming.category) {
-          updateFields.category = incoming.category;
-          changedList.push('Category');
-          diffs.push({ field: 'Category', from: '(None)', to: incoming.category });
-        }
-
-        // Merge Custom Fields without overwriting existing custom keys
-        const incomingCustomKeys = Object.keys(incoming.customFields || {});
-        if (incomingCustomKeys.length > 0) {
-          const mergedCustom = { ...(matched.customFields || {}), ...(incoming.customFields || {}) };
-          updateFields.customFields = mergedCustom;
-          changedList.push('Custom Attributes');
-          fieldUpdatesSummary.customFieldsUpdated += incomingCustomKeys.length;
-        }
-
-        if (Object.keys(updateFields).length > 0) {
-          bulkUpdateOps.push({
-            updateOne: {
-              filter: { _id: matched._id },
-              update: { $set: updateFields },
-            },
-          });
+          // Update local in-memory object for intra-file duplicate merges
+          Object.assign(matched, updateFields);
           updatedCount++;
 
           if (auditSample.length < 300) {
             auditSample.push({
               rowNumber: rowNum,
-              identifier: incoming.phone || incoming.email || incoming.name,
-              name: incoming.name || matched.name,
+              identifier: incoming.phone || incoming.email || incoming.providedFields.name || 'Record',
+              name: incoming.providedFields.name || matched.name,
               status: 'updated',
               updatedFields: changedList,
               changes: diffs,
@@ -765,8 +205,8 @@ export async function POST(request: NextRequest) {
           if (auditSample.length < 300) {
             auditSample.push({
               rowNumber: rowNum,
-              identifier: incoming.phone || incoming.email || incoming.name,
-              name: incoming.name || matched.name,
+              identifier: incoming.phone || incoming.email || incoming.providedFields.name || 'Record',
+              name: incoming.providedFields.name || matched.name,
               status: 'unchanged',
               updatedFields: [],
               changes: [],
@@ -774,22 +214,26 @@ export async function POST(request: NextRequest) {
           }
         }
       } else {
-        // Brand new record - tag with datasetId
-        incoming.datasetId = datasetId;
-        newRecordsToInsert.push(incoming);
+        // BRAND NEW RECORD
+        const newRecord = buildNewRecord(incoming, datasetId, rowNum);
+        newRecordsToInsert.push(newRecord);
+
+        // Register in local lookup maps so intra-batch duplicates merge into this record
+        if (newRecord.phone) phoneMap.set(newRecord.phone, newRecord);
+        if (newRecord.email) emailMap.set(newRecord.email, newRecord);
         newCount++;
 
         if (auditSample.length < 300) {
           auditSample.push({
             rowNumber: rowNum,
-            identifier: incoming.phone || incoming.email || incoming.name,
-            name: incoming.name,
+            identifier: incoming.phone || incoming.email || newRecord.name,
+            name: newRecord.name,
             status: 'new',
             updatedFields: ['New Contact Added'],
             changes: [
               { field: 'Contact Phone', from: '(None)', to: incoming.phone || 'N/A' },
-              { field: 'Gender / Age', from: '(None)', to: `${incoming.gender || 'N/A'} / ${incoming.age || 'N/A'}` },
-              { field: 'Location', from: '(None)', to: incoming.location || 'N/A' },
+              { field: 'Gender / Age', from: '(None)', to: `${newRecord.gender || 'N/A'} / ${newRecord.age || 'N/A'}` },
+              { field: 'Location', from: '(None)', to: newRecord.location || newRecord.address || 'N/A' },
             ],
           });
         }
@@ -825,75 +269,10 @@ export async function POST(request: NextRequest) {
     // Log Activity
     await ActivityLogModel.create({
       action: 'File Uploaded',
-      description: `Uploaded "${filename || 'file'}" with ${validRecords.length.toLocaleString()} rows (${newCount.toLocaleString()} new, ${updatedCount.toLocaleString()} merged, ${unchangedCount.toLocaleString()} duplicate)${skippedCount > 0 ? ` [${skippedCount} empty rows skipped]` : ''}`,
+      description: `Uploaded "${filename || 'file'}" with ${parsedRecords.length.toLocaleString()} rows (${newCount.toLocaleString()} new, ${updatedCount.toLocaleString()} merged, ${unchangedCount.toLocaleString()} duplicate)${skippedCount > 0 ? ` [${skippedCount} empty rows skipped]` : ''}`,
       user: uploaderName,
       type: 'upload',
     });
-
-    // Trigger background auto-archival for any new external avatar URLs
-    (async () => {
-      try {
-        const pendingDocs = await RecordModel.find({
-          $and: [
-            {
-              $or: [
-                { avatarUrl: { $regex: '^https?://', $options: 'i' } },
-                { avatarOriginalUrl: { $regex: '^https?://', $options: 'i' } },
-              ],
-            },
-            {
-              $or: [
-                { avatarBase64: { $exists: false } },
-                { avatarBase64: '' },
-                { avatarBase64: null },
-              ],
-            },
-          ],
-        })
-          .limit(80)
-          .select('_id avatarUrl avatarOriginalUrl');
-
-        if (pendingDocs.length > 0) {
-          const bulkOps: any[] = [];
-          await Promise.all(
-            pendingDocs.map(async (doc) => {
-              const u = doc.avatarOriginalUrl || doc.avatarUrl;
-              if (!u || !u.startsWith('http')) return;
-              try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 6000);
-                const resp = await fetch(u, {
-                  signal: controller.signal,
-                  headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-                });
-                clearTimeout(timeoutId);
-                if (resp.ok) {
-                  const arr = await resp.arrayBuffer();
-                  const buf = Buffer.from(arr);
-                  const ct = resp.headers.get('content-type') || 'image/jpeg';
-                  bulkOps.push({
-                    updateOne: {
-                      filter: { _id: doc._id },
-                      update: {
-                        $set: {
-                          avatarBase64: `data:${ct};base64,${buf.toString('base64')}`,
-                          avatarOriginalUrl: u,
-                        },
-                      },
-                    },
-                  });
-                }
-              } catch {}
-            })
-          );
-          if (bulkOps.length > 0) {
-            await RecordModel.bulkWrite(bulkOps);
-          }
-        }
-      } catch (err) {
-        console.error('Background auto-archiver error:', err);
-      }
-    })();
 
     return NextResponse.json({
       success: true,

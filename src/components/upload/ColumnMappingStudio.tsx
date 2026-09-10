@@ -360,12 +360,26 @@ export function ColumnMappingStudio({
       {/* Expanded Mapping Table & Controls */}
       {isOpen && (
         <div className="p-4 sm:p-6 space-y-4 border-t border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-in fade-in duration-200">
-          {/* Top Quick Actions Toolbar */}
+          {/* Top Quick Actions Toolbar & Smart Upsert Notice */}
+          <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-xs flex items-start gap-3">
+            <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 shrink-0 mt-0.5">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div className="space-y-0.5">
+              <span className="font-bold text-emerald-900 dark:text-emerald-200 block text-[11.5px]">
+                ⚡ Smart Upsert / Incremental Update System
+              </span>
+              <p className="text-emerald-800 dark:text-emerald-300 text-[11px] leading-relaxed">
+                Records are matched by <strong>Mobile Number (phone)</strong>. Only mapped columns with non-empty values update existing contacts. <strong>🚫 Skip</strong> keeps existing database data 100% unchanged. New phone numbers create new contacts with zero duplicate entries.
+              </p>
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 text-xs">
             <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-              <Sparkles className="w-4 h-4 text-brand-500 shrink-0" />
+              <Info className="w-4 h-4 text-brand-500 shrink-0" />
               <span className="font-medium">
-                Click the <strong>🚫 Skip</strong> button next to any dropdown to ignore that column with 1 click.
+                Use the <strong>🚫 Skip</strong> button next to any dropdown to ignore that column during import.
               </span>
             </div>
 
