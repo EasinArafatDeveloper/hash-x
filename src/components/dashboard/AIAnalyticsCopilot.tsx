@@ -20,6 +20,11 @@ import {
   ExternalLink,
   ChevronRight,
   MessageSquare,
+  Download,
+  SlidersHorizontal,
+  Table,
+  CheckCircle2,
+  Copy,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -29,6 +34,9 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  exportPayload?: any;
+  exportLabel?: string;
+  explorerPath?: string;
   keyMetrics?: Array<{ label: string; value: string; subtext?: string }>;
   suggestedActions?: Array<{ label: string; path: string }>;
   followUpQuestions?: string[];
@@ -37,14 +45,14 @@ interface Message {
 
 const STARTER_PROMPTS = [
   {
-    icon: '📊',
-    title: 'জেন্ডার ও স্পেন্ড সামারি',
-    prompt: 'আমাদের ডাটার জেন্ডার ব্রেকডাউন এবং মোট লাইফটাইম খরচের সামারি বলো',
-  },
-  {
     icon: '👑',
     title: 'টপ ৫ VIP কাস্টমার',
     prompt: 'টপ ৫ জন সর্বোচ্চ স্পেন্ড করা VIP কাস্টমার কারা এবং তাদের অর্ডার হিস্ট্রি কী?',
+  },
+  {
+    icon: '📊',
+    title: 'জেন্ডার ও স্পেন্ড সামারি',
+    prompt: 'আমাদের ডাটার জেন্ডার ব্রেকডাউন এবং মোট লাইফটাইম খরচের সামারি বলো',
   },
   {
     icon: '📍',
@@ -100,11 +108,11 @@ export function AIAnalyticsCopilot({
     {
       id: 'welcome-msg',
       role: 'assistant',
-      content: `👋 **হ্যালো! আমি Morpheus AI Analytics Copilot.**\n\nআপনার ডাটাবেজের **${totalRecords.toLocaleString()} টি রিয়েল-টাইম রেকর্ডের** সম্পূর্ণ তথ্য আমার কাছে লাইভ সংযুক্ত আছে।\n\nআপনি বাংলায় বা ইংরেজিতে যেকোনো প্রশ্ন করতে পারেন—যেমন: *টপ স্পেন্ডার কারা, কোন এলাকার সেলস বেশি, ফিমেল ক্রেতার সংখ্যা কত, বা হোয়াটসঅ্যাপ সক্রিয় ইউজারদের ডেটা ফিল্টার করা।*`,
+      content: `👋 **হ্যালো! আমি Morpheus AI Analytics Copilot.**\n\nআপনার ডাটাবেজের **${totalRecords.toLocaleString()} টি রিয়েল-টাইম রেকর্ডের** সম্পূর্ণ তথ্য আমার কাছে লাইভ সংযুক্ত আছে।\n\nআপনি বাংলায় বা ইংরেজিতে যেকোনো প্রশ্ন করতে পারেন—আমি সাথে সাথে অ্যানালাইসিস করে আপনাকে **সর্ট করা ডাটা**, **সরাসরি CSV ডাউনলোড ফাইল** এবং **Data Explorer এ দেখার লিংক** তৈরি করে দেব!`,
       followUpQuestions: [
-        'আমাদের ডাটার জেন্ডার ও স্পেন্ড হিসাব কেমন?',
         'টপ ৫ জন সর্বোচ্চ খরচ করা VIP কাস্টমার কারা?',
-        'কোন এলাকায় সবচেয়ে বেশি অর্ডার ডেলিভারি হয়েছে?',
+        'আমাদের ডাটার জেন্ডার ও স্পেন্ড হিসাব কেমন?',
+        'কেরানীগঞ্জ ও ঢাকার কাস্টমারদের সেলস কত?',
       ],
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
@@ -154,6 +162,9 @@ export function AIAnalyticsCopilot({
           id: `ai-${Date.now()}`,
           role: 'assistant',
           content: data.result.reply || 'Here is the analysis based on your live dataset.',
+          exportPayload: data.result.exportPayload,
+          exportLabel: data.result.exportLabel,
+          explorerPath: data.result.explorerPath,
           keyMetrics: data.result.keyMetrics,
           suggestedActions: data.result.suggestedActions,
           followUpQuestions: data.result.followUpQuestions,
@@ -177,6 +188,33 @@ export function AIAnalyticsCopilot({
       ]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDownloadCSV = (payload: any, filenameLabel?: string) => {
+    const toastId = toast.loading(`Preparing high-speed download for ${filenameLabel || 'dataset'}...`);
+    try {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/api/export';
+      form.style.display = 'none';
+
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'payload';
+      input.value = JSON.stringify(payload || {});
+      form.appendChild(input);
+
+      document.body.appendChild(form);
+      form.submit();
+      form.remove();
+
+      setTimeout(() => {
+        toast.success(`Download started! CSV file saved successfully.`, { id: toastId });
+      }, 1200);
+    } catch (err: any) {
+      console.error('Export download error:', err);
+      toast.error('Failed to download CSV', { id: toastId });
     }
   };
 
@@ -241,8 +279,8 @@ export function AIAnalyticsCopilot({
               transition={{ type: 'spring', damping: 25, stiffness: 280 }}
               className={`pointer-events-auto w-full sm:rounded-3xl bg-white dark:bg-slate-900 border border-purple-200/80 dark:border-purple-900/60 shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ${
                 isExpanded
-                  ? 'sm:w-[700px] h-[95vh] sm:h-[85vh]'
-                  : 'sm:w-[460px] h-[85vh] sm:h-[650px]'
+                  ? 'sm:w-[760px] h-[95vh] sm:h-[88vh]'
+                  : 'sm:w-[500px] h-[88vh] sm:h-[680px]'
               }`}
             >
               {/* Header */}
@@ -311,17 +349,59 @@ export function AIAnalyticsCopilot({
                       </div>
                     )}
 
-                    <div className={`space-y-2.5 max-w-[85%] ${msg.role === 'user' ? 'items-end' : ''}`}>
-                      {/* Message Bubble */}
+                    <div className={`space-y-3 max-w-[92%] ${msg.role === 'user' ? 'items-end' : 'w-full'}`}>
+                      {/* Message Bubble with Rich Markdown and Table Rendering */}
                       <div
-                        className={`p-3.5 rounded-2xl text-xs sm:text-[13px] leading-relaxed shadow-xs ${
+                        className={`p-4 rounded-2xl text-xs sm:text-[13px] leading-relaxed shadow-xs ${
                           msg.role === 'user'
                             ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium rounded-tr-xs'
-                            : 'bg-white dark:bg-slate-850 text-gray-800 dark:text-gray-100 border border-gray-200/80 dark:border-slate-800 rounded-tl-xs whitespace-pre-wrap'
+                            : 'bg-white dark:bg-slate-850 text-gray-800 dark:text-gray-100 border border-gray-200/80 dark:border-slate-800 rounded-tl-xs space-y-3'
                         }`}
                       >
-                        {msg.content}
+                        {msg.role === 'user' ? (
+                          msg.content
+                        ) : (
+                          <FormattedMarkdownContent content={msg.content} />
+                        )}
                       </div>
+
+                      {/* Prominent Action Bar: CSV Download & Data Explorer View */}
+                      {msg.role === 'assistant' && (msg.exportPayload || msg.explorerPath) && (
+                        <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-900/10 via-indigo-900/5 to-emerald-900/10 dark:from-purple-950/50 dark:via-indigo-950/30 dark:to-slate-900 border border-purple-200 dark:border-purple-800/60 shadow-xs space-y-2">
+                          <span className="block text-[10px] font-extrabold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
+                            ⚡ ডেটা অ্যাকশন & এক্সপোর্ট (Instant 1-Click Action):
+                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* 1. Download Sorted CSV Button */}
+                            {msg.exportPayload && (
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadCSV(msg.exportPayload, msg.exportLabel)}
+                                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>{msg.exportLabel || '📥 Download Sorted CSV'}</span>
+                              </button>
+                            )}
+
+                            {/* 2. View in Data Explorer Button */}
+                            {msg.explorerPath && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsOpen(false);
+                                  router.push(msg.explorerPath || '/data/explorer');
+                                }}
+                                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-md shadow-purple-600/20 active:scale-95 cursor-pointer"
+                              >
+                                <SlidersHorizontal className="w-3.5 h-3.5" />
+                                <span>🔍 Data Explorer এ সর্ট করা ডেটা দেখুন</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Embedded Mini Metric Badges (if any) */}
                       {msg.keyMetrics && msg.keyMetrics.length > 0 && (
@@ -347,29 +427,9 @@ export function AIAnalyticsCopilot({
                         </div>
                       )}
 
-                      {/* Action Shortcuts (e.g. View in Data Explorer) */}
-                      {msg.suggestedActions && msg.suggestedActions.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {msg.suggestedActions.map((act, aIdx) => (
-                            <button
-                              key={aIdx}
-                              type="button"
-                              onClick={() => {
-                                setIsOpen(false);
-                                router.push(act.path);
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold transition-all shadow-xs cursor-pointer active:scale-95"
-                            >
-                              <span>{act.label}</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
                       {/* Suggested Follow-up Questions */}
                       {msg.followUpQuestions && msg.followUpQuestions.length > 0 && (
-                        <div className="space-y-1.5 pt-1.5">
+                        <div className="space-y-1.5 pt-1">
                           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
                             <Lightbulb className="w-3 h-3 text-amber-500" /> সম্পর্কিত প্রশ্ন:
                           </span>
@@ -411,7 +471,7 @@ export function AIAnalyticsCopilot({
                     className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 p-3 rounded-2xl bg-white dark:bg-slate-850 border border-purple-200 dark:border-purple-900/40 w-fit"
                   >
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span className="font-semibold">AI অ্যানালিটিক্স প্রসেস করছে...</span>
+                    <span className="font-semibold">AI অ্যানালিটিক্স ও ফাইল তৈরি করছে...</span>
                   </motion.div>
                 )}
 
@@ -475,5 +535,180 @@ export function AIAnalyticsCopilot({
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+/**
+ * Rich Formatter for Markdown Text and Tables inside AI Bubble
+ */
+function FormattedMarkdownContent({ content }: { content: string }) {
+  if (!content) return null;
+
+  // Split lines
+  const lines = content.split('\n');
+  const renderedElements: React.ReactNode[] = [];
+
+  let tableBuffer: string[] = [];
+  let inTable = false;
+
+  const flushTable = (key: string) => {
+    if (tableBuffer.length > 0) {
+      renderedElements.push(<MarkdownTable key={key} tableLines={[...tableBuffer]} />);
+      tableBuffer = [];
+      inTable = false;
+    }
+  };
+
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+
+    // Table line detection
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      inTable = true;
+      tableBuffer.push(trimmed);
+      return;
+    }
+
+    if (inTable && !trimmed.startsWith('|')) {
+      flushTable(`table-${idx}`);
+    }
+
+    // Headings
+    if (trimmed.startsWith('### ')) {
+      renderedElements.push(
+        <h4 key={idx} className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider pt-2">
+          {formatInlineMarkdown(trimmed.replace('### ', ''))}
+        </h4>
+      );
+      return;
+    }
+
+    if (trimmed.startsWith('## ')) {
+      renderedElements.push(
+        <h3 key={idx} className="text-sm font-black text-gray-900 dark:text-white pt-2 border-b border-gray-100 dark:border-slate-800 pb-1">
+          {formatInlineMarkdown(trimmed.replace('## ', ''))}
+        </h3>
+      );
+      return;
+    }
+
+    // Bullets
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      renderedElements.push(
+        <div key={idx} className="flex items-start gap-2 pl-1 py-0.5">
+          <span className="text-purple-500 font-bold">•</span>
+          <span className="text-gray-800 dark:text-gray-200">
+            {formatInlineMarkdown(trimmed.replace(/^[-*]\s+/, ''))}
+          </span>
+        </div>
+      );
+      return;
+    }
+
+    // Dividers
+    if (trimmed === '---') {
+      renderedElements.push(<hr key={idx} className="border-gray-200 dark:border-slate-800 my-2" />);
+      return;
+    }
+
+    // Blockquotes
+    if (trimmed.startsWith('> ')) {
+      renderedElements.push(
+        <div key={idx} className="p-2.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border-l-3 border-purple-500 text-xs text-purple-900 dark:text-purple-200 italic my-1">
+          {formatInlineMarkdown(trimmed.replace('> ', ''))}
+        </div>
+      );
+      return;
+    }
+
+    // Normal paragraph
+    if (trimmed) {
+      renderedElements.push(
+        <p key={idx} className="text-gray-800 dark:text-gray-200 leading-relaxed">
+          {formatInlineMarkdown(trimmed)}
+        </p>
+      );
+    }
+  });
+
+  if (inTable) {
+    flushTable('table-end');
+  }
+
+  return <div className="space-y-2">{renderedElements}</div>;
+}
+
+/**
+ * Parses inline markdown bold, code, and currencies
+ */
+function formatInlineMarkdown(text: string): React.ReactNode {
+  if (!text) return '';
+
+  // Match bold **text**
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      const boldText = part.slice(2, -2);
+      const isAmount = boldText.includes('৳') || boldText.includes('BDT') || boldText.includes('লাখ');
+      return (
+        <strong
+          key={i}
+          className={isAmount ? 'font-black text-emerald-600 dark:text-emerald-400' : 'font-bold text-gray-900 dark:text-white'}
+        >
+          {boldText}
+        </strong>
+      );
+    }
+    return part;
+  });
+}
+
+/**
+ * Rich Interactive Markdown Table Component with clean styling
+ */
+function MarkdownTable({ tableLines }: { tableLines: string[] }) {
+  if (tableLines.length < 2) return null;
+
+  // Filter out divider line (e.g. |---|---|)
+  const rows = tableLines.filter((l) => !l.replace(/[\s|:-]/g, '').length === false);
+  if (rows.length === 0) return null;
+
+  const headerCells = rows[0]
+    .split('|')
+    .slice(1, -1)
+    .map((c) => c.trim());
+  const bodyRows = rows.slice(1).map((r) =>
+    r
+      .split('|')
+      .slice(1, -1)
+      .map((c) => c.trim())
+  );
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-purple-200/80 dark:border-slate-700 my-2.5 shadow-2xs">
+      <table className="w-full text-left text-[11px] border-collapse bg-white dark:bg-slate-900">
+        <thead>
+          <tr className="bg-purple-100/70 dark:bg-purple-950/60 border-b border-purple-200 dark:border-slate-700">
+            {headerCells.map((h, hIdx) => (
+              <th key={hIdx} className="px-3 py-2 font-black text-purple-950 dark:text-purple-200 uppercase tracking-wider whitespace-nowrap">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+          {bodyRows.map((row, rIdx) => (
+            <tr key={rIdx} className="hover:bg-purple-50/50 dark:hover:bg-slate-800/60 transition-colors">
+              {row.map((cell, cIdx) => (
+                <td key={cIdx} className="px-3 py-2 text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">
+                  {formatInlineMarkdown(cell)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

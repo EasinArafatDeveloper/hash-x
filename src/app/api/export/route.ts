@@ -42,6 +42,10 @@ async function handleExportLogic(body: any) {
     minOrderCount,
     maxOrderCount,
     merchant,
+    sortBy,
+    sortOrder,
+    limit,
+    customFilename,
     nameWise,
     numberWise,
     genderWise,
@@ -203,7 +207,10 @@ async function handleExportLogic(body: any) {
 
   // Fast total count using indexed query
   const totalCount = await RecordModel.countDocuments(query);
-  const filename = `morpheus-data-${totalCount}.csv`;
+  const effectiveCount = limit && !isNaN(parseInt(String(limit), 10)) ? Math.min(totalCount, parseInt(String(limit), 10)) : totalCount;
+  const filename = customFilename
+    ? `${String(customFilename).replace(/[^a-zA-Z0-9_\-\.]/g, '_')}.csv`
+    : `morpheus-data-${effectiveCount}.csv`;
 
   const appliedFiltersList: string[] = [];
   if (search) appliedFiltersList.push(`Search: "${search}"`);
@@ -215,6 +222,8 @@ async function handleExportLogic(body: any) {
   if (merchant && merchant !== 'All') appliedFiltersList.push(`Merchant: ${merchant}`);
   if (minOrderAmount || maxOrderAmount) appliedFiltersList.push(`Spend: ৳${minOrderAmount || '0'}–৳${maxOrderAmount || '∞'}`);
   if (minOrderCount || maxOrderCount) appliedFiltersList.push(`Orders: ${minOrderCount || '0'}–${maxOrderCount || '∞'}`);
+  if (sortBy) appliedFiltersList.push(`Sorted by: ${sortBy} (${sortOrder || 'desc'})`);
+  if (limit) appliedFiltersList.push(`Limit: ${limit}`);
   if (maxActiveDays) appliedFiltersList.push(`Active Days ≤ ${maxActiveDays}`);
   if (lastOnlineFrom || lastOnlineTo)
     appliedFiltersList.push(`Online: ${lastOnlineFrom || 'start'} to ${lastOnlineTo || 'now'}`);
@@ -225,14 +234,14 @@ async function handleExportLogic(body: any) {
   // Log download history & activity asynchronously
   DownloadHistoryModel.create({
     filename,
-    recordCount: totalCount,
+    recordCount: effectiveCount,
     filtersApplied: filtersAppliedSummary,
     status: 'Ready',
   }).catch(() => {});
 
   ActivityLogModel.create({
     action: 'CSV Exported',
-    description: `Exported ${totalCount.toLocaleString()} matching records (${filtersAppliedSummary})`,
+    description: `Exported ${effectiveCount.toLocaleString()} matching records (${filtersAppliedSummary})`,
     user: currentUser,
     type: 'export',
   }).catch(() => {});
@@ -279,7 +288,19 @@ async function handleExportLogic(body: any) {
         // Send UTF-8 BOM for Excel Unicode support + Header Row
         controller.enqueue(encoder.encode('\uFEFF' + headers.map(escapeCsvCell).join(',') + '\r\n'));
 
-        const cursor = RecordModel.find(query).select('-__v').lean().cursor({ batchSize: 3500 });
+        let queryBuilder = RecordModel.find(query).select('-__v').lean();
+        if (sortBy) {
+          const sortDirection = sortOrder === 'asc' ? 1 : -1;
+          queryBuilder = queryBuilder.sort({ [sortBy]: sortDirection });
+        } else {
+          queryBuilder = queryBuilder.sort({ createdAt: -1 });
+        }
+
+        if (limit && !isNaN(parseInt(String(limit), 10))) {
+          queryBuilder = queryBuilder.limit(parseInt(String(limit), 10));
+        }
+
+        const cursor = queryBuilder.cursor({ batchSize: 3500 });
         let buffer = '';
 
         for await (const doc of cursor) {

@@ -131,18 +131,34 @@ ${JSON.stringify(liveStatsSummary, null, 2)}
 INSTRUCTIONS:
 1. Always respond in the SAME language the user speaks (Bengali, English, or Banglish). If the user asks in Bengali or Banglish, provide a warm, professional, natural Bengali response with clear formatting.
 2. Be precise and quote accurate numbers from the live database facts above.
-3. Structure your response clearly using emojis, bold numbers (e.g. **৳২৪,৫০০ BDT**), bullet points, and clean mini-tables when comparing data.
-4. When relevant, provide "suggestedActions" that allow the user to jump directly to the Data Explorer or filter with 1 click.
+3. Structure your response clearly using emojis, bold numbers (e.g. **৳২৪,৫০০ BDT**), bullet points, and clean Markdown tables when comparing or listing top customers/merchants.
+4. ALWAYS provide "exportPayload", "exportLabel", and "explorerPath" so the user can immediately:
+   - Click "Download CSV" to download the exact sorted/filtered CSV of the results.
+   - Click "View in Data Explorer" to view the sorted/filtered results on the Data Explorer page.
 5. Provide 2-3 smart "followUpQuestions" related to the query.
 
 OUTPUT ONLY JSON:
 {
-  "reply": "Markdown formatted rich response in Bengali/English with facts, breakdown, and insights.",
+  "reply": "Markdown formatted rich response in Bengali/English with facts, breakdown, and insights. (Include markdown tables for lists)",
+  "exportPayload": {
+    "search": "Keraniganj",
+    "tag": "VIP Client",
+    "gender": "Female" | "Male" | "All",
+    "minOrderAmount": "10000",
+    "minOrderCount": "3",
+    "merchant": "BeautyBaaz",
+    "sortBy": "orderAmount" | "orderCount" | "createdAt" | "lastActive",
+    "sortOrder": "desc" | "asc",
+    "limit": 5,
+    "customFilename": "Top_5_VIP_Spenders"
+  },
+  "exportLabel": "Download Top 5 VIP Spenders CSV (5 rows)",
+  "explorerPath": "/data/explorer?sortBy=orderAmount&sortOrder=desc",
   "keyMetrics": [
     { "label": "Short Metric Name", "value": "Formatted Value", "subtext": "Brief detail" }
   ],
   "suggestedActions": [
-    { "label": "Action Button Label (e.g. 🔍 View Keraniganj VIPs)", "path": "/data/explorer?search=Keraniganj&minOrderAmount=10000" }
+    { "label": "Action Button Label", "path": "/data/explorer?sortBy=orderAmount&sortOrder=desc" }
   ],
   "followUpQuestions": [
     "Next related question 1?",
@@ -191,9 +207,13 @@ OUTPUT ONLY JSON:
         if (content) {
           try {
             const parsed = JSON.parse(content);
+
+            // Ensure exportPayload and explorerPath exist
+            const sanitized = ensureExportAndExplorerPaths(parsed, lastMessage);
+
             return NextResponse.json({
               success: true,
-              result: parsed,
+              result: sanitized,
               liveStats: liveStatsSummary,
             });
           } catch (pErr) {
@@ -220,6 +240,43 @@ OUTPUT ONLY JSON:
       { status: 500 }
     );
   }
+}
+
+function ensureExportAndExplorerPaths(parsed: any, question: string) {
+  const q = question.toLowerCase();
+  const res = { ...parsed };
+
+  if (!res.exportPayload) {
+    const isSpenderQuery = q.includes('spend') || q.includes('টপ') || q.includes('vip') || q.includes('খরচ');
+    const isFemaleQuery = q.includes('female') || q.includes('নারী') || q.includes('ফিমেল');
+    const isKeraniganj = q.includes('keraniganj') || q.includes('কেরানীগঞ্জ');
+
+    res.exportPayload = {
+      search: isKeraniganj ? 'Keraniganj' : '',
+      gender: isFemaleQuery ? 'Female' : undefined,
+      sortBy: isSpenderQuery ? 'orderAmount' : 'createdAt',
+      sortOrder: 'desc',
+      limit: q.includes('৫') || q.includes('5') ? 5 : q.includes('১০') || q.includes('10') ? 10 : undefined,
+      customFilename: isSpenderQuery ? 'Top_VIP_Spenders' : 'Filtered_Dataset',
+    };
+  }
+
+  if (!res.exportLabel) {
+    res.exportLabel = `Download Sorted CSV (${res.exportPayload.limit ? `${res.exportPayload.limit} rows` : 'Matching'})`;
+  }
+
+  if (!res.explorerPath) {
+    const params = new URLSearchParams();
+    if (res.exportPayload.search) params.set('search', res.exportPayload.search);
+    if (res.exportPayload.gender) params.set('gender', res.exportPayload.gender);
+    if (res.exportPayload.tag) params.set('tag', res.exportPayload.tag);
+    if (res.exportPayload.minOrderAmount) params.set('minOrderAmount', String(res.exportPayload.minOrderAmount));
+    if (res.exportPayload.sortBy) params.set('sortBy', res.exportPayload.sortBy);
+    if (res.exportPayload.sortOrder) params.set('sortOrder', res.exportPayload.sortOrder);
+    res.explorerPath = `/data/explorer?${params.toString()}`;
+  }
+
+  return res;
 }
 
 function generateFallbackAnalyticsReply(question: string, stats: any) {
