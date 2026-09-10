@@ -10,6 +10,7 @@ import { TableView } from '@/components/explorer/TableView';
 import { RecordDetailDrawer } from '@/components/explorer/RecordDetailDrawer';
 import { ShareLinkModal } from '@/components/explorer/ShareLinkModal';
 import { Pagination } from '@/components/explorer/Pagination';
+import { AIQueryAssistant } from '@/components/explorer/AIQueryAssistant';
 import { FilterQueryState, IRecord, PaginationResponse } from '@/types';
 import { LayoutGrid, Table2, Database, Bookmark, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,6 +28,14 @@ const DEFAULT_FILTERS: FilterQueryState = {
   maxActiveDays: '',
   lastOnlineFrom: '',
   lastOnlineTo: '',
+  minOrderAmount: '',
+  maxOrderAmount: '',
+  minOrderCount: '',
+  maxOrderCount: '',
+  merchant: '',
+  aiQueryText: '',
+  aiSequenceSteps: [],
+  aiSummaryBn: '',
   nameWise: false,
   numberWise: false,
   tagWise: false,
@@ -54,8 +63,21 @@ export default function DataExplorerPage() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [filterName, setFilterName] = useState('');
   const [isSavingFilter, setIsSavingFilter] = useState(false);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Fetch available tags for AI suggestion engine
+  useEffect(() => {
+    fetch('/api/data/tags', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : { tags: [] }))
+      .then((json) => {
+        if (json.tags && Array.isArray(json.tags)) {
+          setAvailableTags(json.tags.map((t: any) => t.name || t));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchData = useCallback(async (currentFilters: FilterQueryState) => {
     if (abortControllerRef.current) {
@@ -77,6 +99,12 @@ export default function DataExplorerPage() {
       if (currentFilters.maxActiveDays) params.set('maxActiveDays', String(currentFilters.maxActiveDays));
       if (currentFilters.lastOnlineFrom) params.set('lastOnlineFrom', currentFilters.lastOnlineFrom);
       if (currentFilters.lastOnlineTo) params.set('lastOnlineTo', currentFilters.lastOnlineTo);
+
+      if (currentFilters.minOrderAmount) params.set('minOrderAmount', String(currentFilters.minOrderAmount));
+      if (currentFilters.maxOrderAmount) params.set('maxOrderAmount', String(currentFilters.maxOrderAmount));
+      if (currentFilters.minOrderCount) params.set('minOrderCount', String(currentFilters.minOrderCount));
+      if (currentFilters.maxOrderCount) params.set('maxOrderCount', String(currentFilters.maxOrderCount));
+      if (currentFilters.merchant && currentFilters.merchant !== 'All') params.set('merchant', currentFilters.merchant);
 
       if (currentFilters.nameWise) params.set('nameWise', 'true');
       if (currentFilters.numberWise) params.set('numberWise', 'true');
@@ -122,6 +150,11 @@ export default function DataExplorerPage() {
     filters.maxActiveDays,
     filters.lastOnlineFrom,
     filters.lastOnlineTo,
+    filters.minOrderAmount,
+    filters.maxOrderAmount,
+    filters.minOrderCount,
+    filters.maxOrderCount,
+    filters.merchant,
     filters.nameWise,
     filters.numberWise,
     filters.tagWise,
@@ -138,6 +171,37 @@ export default function DataExplorerPage() {
 
   const handleApplyFilters = useCallback((updated: Partial<FilterQueryState>) => {
     setFilters((prev) => ({ ...prev, ...updated, page: 1 }));
+  }, []);
+
+  const handleApplyAiFilter = useCallback((aiFilters: Partial<FilterQueryState>) => {
+    setFilters((prev) => ({
+      ...prev,
+      ...aiFilters,
+      page: 1,
+    }));
+  }, []);
+
+  const handleClearAiFilter = useCallback(() => {
+    setFilters((prev) => ({
+      ...prev,
+      search: '',
+      tag: 'All',
+      gender: 'All',
+      numberStartsWith: '',
+      minOrderAmount: '',
+      maxOrderAmount: '',
+      minOrderCount: '',
+      maxOrderCount: '',
+      merchant: '',
+      maxActiveDays: '',
+      minAge: '',
+      maxAge: '',
+      aiQueryText: '',
+      aiSequenceSteps: [],
+      aiSummaryBn: '',
+      page: 1,
+    }));
+    toast.info('Cleared AI filter sequence');
   }, []);
 
   const handleResetFilters = useCallback(() => {
@@ -159,6 +223,11 @@ export default function DataExplorerPage() {
         maxActiveDays: key === 'maxActiveDays' ? '' : prev.maxActiveDays,
         lastOnlineFrom: key === 'lastOnlineFrom' ? '' : prev.lastOnlineFrom,
         lastOnlineTo: key === 'lastOnlineTo' || key === 'lastOnlineFrom' ? '' : prev.lastOnlineTo,
+        merchant: key === 'merchant' ? '' : prev.merchant,
+        minOrderAmount: key === 'minOrderAmount' ? '' : prev.minOrderAmount,
+        maxOrderAmount: key === 'maxOrderAmount' ? '' : prev.maxOrderAmount,
+        minOrderCount: key === 'minOrderCount' ? '' : prev.minOrderCount,
+        maxOrderCount: key === 'maxOrderCount' ? '' : prev.maxOrderCount,
         page: 1,
       };
       return { ...prev, ...resetValues };
@@ -192,6 +261,11 @@ export default function DataExplorerPage() {
         maxActiveDays: filters.maxActiveDays,
         lastOnlineFrom: filters.lastOnlineFrom,
         lastOnlineTo: filters.lastOnlineTo,
+        minOrderAmount: filters.minOrderAmount,
+        maxOrderAmount: filters.maxOrderAmount,
+        minOrderCount: filters.minOrderCount,
+        maxOrderCount: filters.maxOrderCount,
+        merchant: filters.merchant,
         nameWise: filters.nameWise,
         numberWise: filters.numberWise,
         tagWise: filters.tagWise,
@@ -317,6 +391,17 @@ export default function DataExplorerPage() {
           </button>
         </div>
       </div>
+
+      {/* DeepSeek AI Natural Language Query & Sequence Assistant */}
+      <AIQueryAssistant
+        onApplyAiFilter={handleApplyAiFilter}
+        onClearAiFilter={handleClearAiFilter}
+        activeAiQueryText={filters.aiQueryText}
+        activeSequenceSteps={filters.aiSequenceSteps}
+        activeSummaryBn={filters.aiSummaryBn}
+        availableTags={availableTags}
+        totalMatchingRecords={filteredRecords}
+      />
 
       {/* Smart Omnibar & Advanced Filtering Studio */}
       <FilterToolbar

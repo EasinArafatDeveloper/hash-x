@@ -42,6 +42,22 @@ export function ActiveFilterChips({ filters, onRemoveFilter, onClearAll }: Activ
     activeChips.push({ key: 'minAge', label: `Age: ${min}–${max}` });
   }
 
+  if (filters.merchant && filters.merchant !== 'All') {
+    activeChips.push({ key: 'merchant', label: `🏪 Merchant: ${filters.merchant}` });
+  }
+
+  if (filters.minOrderAmount || filters.maxOrderAmount) {
+    const min = filters.minOrderAmount ? `৳${Number(filters.minOrderAmount).toLocaleString()}` : '৳0';
+    const max = filters.maxOrderAmount ? `৳${Number(filters.maxOrderAmount).toLocaleString()}` : '৳∞';
+    activeChips.push({ key: 'minOrderAmount', label: `Spend: ${min}–${max}` });
+  }
+
+  if (filters.minOrderCount || filters.maxOrderCount) {
+    const min = filters.minOrderCount || '0';
+    const max = filters.maxOrderCount || '∞';
+    activeChips.push({ key: 'minOrderCount', label: `Orders: ${min}–${max}` });
+  }
+
   if (filters.numberStartsWith) {
     activeChips.push({ key: 'numberStartsWith', label: `Starts with: ${filters.numberStartsWith}` });
   }

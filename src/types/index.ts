@@ -129,6 +129,14 @@ export interface FilterQueryState {
   status?: string;
   location?: string;
   tag?: string;
+  minOrderAmount?: number | string;
+  maxOrderAmount?: number | string;
+  minOrderCount?: number | string;
+  maxOrderCount?: number | string;
+  merchant?: string;
+  aiQueryText?: string;
+  aiSequenceSteps?: string[];
+  aiSummaryBn?: string;
   // Search-wise target checkboxes
   nameWise?: boolean;
   numberWise?: boolean;

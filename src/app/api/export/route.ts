@@ -37,6 +37,11 @@ async function handleExportLogic(body: any) {
     maxActiveDays,
     lastOnlineFrom,
     lastOnlineTo,
+    minOrderAmount,
+    maxOrderAmount,
+    minOrderCount,
+    maxOrderCount,
+    merchant,
     nameWise,
     numberWise,
     genderWise,
@@ -84,6 +89,9 @@ async function handleExportLogic(body: any) {
         targetedConditions.push({ tags: searchRegex });
         targetedConditions.push({ category: searchRegex });
         targetedConditions.push({ 'customFields.Tag / Label': searchRegex });
+        targetedConditions.push({ 'customFields.Tags / Labels': searchRegex });
+        targetedConditions.push({ 'customFields.tag': searchRegex });
+        targetedConditions.push({ 'customFields.tags': searchRegex });
       }
       if (targetedConditions.length > 0) {
         query.$or = targetedConditions;
@@ -95,11 +103,20 @@ async function handleExportLogic(body: any) {
         { email: searchRegex },
         { location: searchRegex },
         { area: searchRegex },
+        { address: searchRegex },
         { tags: searchRegex },
         { category: searchRegex },
         { 'customFields.nickname': searchRegex },
         { 'customFields.customer_name': searchRegex },
+        { 'customFields.canonical_address': searchRegex },
+        { 'customFields.primary_merchant': searchRegex },
+        { 'customFields.matched_district_filters': searchRegex },
+        { 'customFields.matched_city_filters': searchRegex },
+        { 'customFields.matched_area_filters': searchRegex },
         { 'customFields.Tag / Label': searchRegex },
+        { 'customFields.Tags / Labels': searchRegex },
+        { 'customFields.tag': searchRegex },
+        { 'customFields.tags': searchRegex },
       ];
 
       if (cleanPhoneSearch && /\d/.test(cleanPhoneSearch)) {
@@ -126,6 +143,27 @@ async function handleExportLogic(body: any) {
       ],
     });
   }
+
+  // Merchant filter
+  if (merchant && merchant !== 'All') {
+    const mRegex = new RegExp(String(merchant).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    query['customFields.primary_merchant'] = mRegex;
+  }
+
+  // Spend / Order Amount range filter
+  if (minOrderAmount || maxOrderAmount) {
+    query.orderAmount = {};
+    if (minOrderAmount && !isNaN(parseFloat(String(minOrderAmount)))) query.orderAmount.$gte = parseFloat(String(minOrderAmount));
+    if (maxOrderAmount && !isNaN(parseFloat(String(maxOrderAmount)))) query.orderAmount.$lte = parseFloat(String(maxOrderAmount));
+  }
+
+  // Order count range filter
+  if (minOrderCount || maxOrderCount) {
+    query.orderCount = {};
+    if (minOrderCount && !isNaN(parseInt(String(minOrderCount), 10))) query.orderCount.$gte = parseInt(String(minOrderCount), 10);
+    if (maxOrderCount && !isNaN(parseInt(String(maxOrderCount), 10))) query.orderCount.$lte = parseInt(String(maxOrderCount), 10);
+  }
+
   if (gender && gender !== 'All') query.gender = gender;
   if (avatarType && avatarType !== 'All') query.avatarType = avatarType;
 
@@ -174,6 +212,9 @@ async function handleExportLogic(body: any) {
   if (avatarType && avatarType !== 'All') appliedFiltersList.push(`Avatar: ${avatarType}`);
   if (minAge || maxAge) appliedFiltersList.push(`Age: ${minAge || 18}-${maxAge || 65}`);
   if (numberStartsWith) appliedFiltersList.push(`Prefix: ${numberStartsWith}`);
+  if (merchant && merchant !== 'All') appliedFiltersList.push(`Merchant: ${merchant}`);
+  if (minOrderAmount || maxOrderAmount) appliedFiltersList.push(`Spend: ৳${minOrderAmount || '0'}–৳${maxOrderAmount || '∞'}`);
+  if (minOrderCount || maxOrderCount) appliedFiltersList.push(`Orders: ${minOrderCount || '0'}–${maxOrderCount || '∞'}`);
   if (maxActiveDays) appliedFiltersList.push(`Active Days ≤ ${maxActiveDays}`);
   if (lastOnlineFrom || lastOnlineTo)
     appliedFiltersList.push(`Online: ${lastOnlineFrom || 'start'} to ${lastOnlineTo || 'now'}`);

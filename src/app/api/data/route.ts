@@ -89,16 +89,22 @@ export async function GET(request: NextRequest) {
           query.$or = targetedConditions;
         }
       } else {
-        // Universal Smart Omnisearch: Searches across Name, Phone, Email, Location, Nickname, and Tags simultaneously
+        // Universal Smart Omnisearch: Searches across Name, Phone, Email, Location, Address, Merchant, and Tags
         const orConditions: any[] = [
           { name: searchRegex },
           { phone: searchRegex },
           { email: searchRegex },
           { location: searchRegex },
           { area: searchRegex },
+          { address: searchRegex },
           { tags: searchRegex },
           { category: searchRegex },
           { 'customFields.nickname': searchRegex },
+          { 'customFields.canonical_address': searchRegex },
+          { 'customFields.primary_merchant': searchRegex },
+          { 'customFields.matched_district_filters': searchRegex },
+          { 'customFields.matched_city_filters': searchRegex },
+          { 'customFields.matched_area_filters': searchRegex },
           { 'customFields.Tag / Label': searchRegex },
           { 'customFields.Tags / Labels': searchRegex },
           { 'customFields.tag': searchRegex },
@@ -132,6 +138,31 @@ export async function GET(request: NextRequest) {
           { 'customFields.tags': tagRegex },
         ],
       });
+    }
+
+    // 1.7. Merchant filter
+    const merchant = searchParams.get('merchant');
+    if (merchant && merchant !== 'All') {
+      const mRegex = new RegExp(merchant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      query['customFields.primary_merchant'] = mRegex;
+    }
+
+    // 1.8. Spend / Order Amount range filter
+    const minOrderAmount = searchParams.get('minOrderAmount');
+    const maxOrderAmount = searchParams.get('maxOrderAmount');
+    if (minOrderAmount || maxOrderAmount) {
+      query.orderAmount = {};
+      if (minOrderAmount && !isNaN(parseFloat(minOrderAmount))) query.orderAmount.$gte = parseFloat(minOrderAmount);
+      if (maxOrderAmount && !isNaN(parseFloat(maxOrderAmount))) query.orderAmount.$lte = parseFloat(maxOrderAmount);
+    }
+
+    // 1.9. Order count range filter
+    const minOrderCount = searchParams.get('minOrderCount');
+    const maxOrderCount = searchParams.get('maxOrderCount');
+    if (minOrderCount || maxOrderCount) {
+      query.orderCount = {};
+      if (minOrderCount && !isNaN(parseInt(minOrderCount, 10))) query.orderCount.$gte = parseInt(minOrderCount, 10);
+      if (maxOrderCount && !isNaN(parseInt(maxOrderCount, 10))) query.orderCount.$lte = parseInt(maxOrderCount, 10);
     }
 
     // 2. Gender filter

@@ -128,13 +128,27 @@ export function CardView({ records, onSelectRecord, isLoading }: CardViewProps) 
         const badge = STATUS_BADGES[record.status] || STATUS_BADGES.Active;
         const hasAvatar = !!(record.avatarUrl || (record.avatarType && record.avatarType !== 'Without Avatar' && !record.avatarType.startsWith('http')));
 
+        const cf = record.customFields || {};
+        const spend =
+          record.orderAmount ||
+          parseFloat(String(cf.lifetime_net_order_amount_bdt || cf.matched_net_order_amount_bdt || cf['Lifetime Order Amount BDT'] || '0').replace(/[^0-9.-]+/g, '')) ||
+          0;
+        const orders =
+          record.orderCount ||
+          parseInt(String(cf.lifetime_order_count || cf.matched_order_count || cf['Lifetime Order Count'] || '0').replace(/[^0-9.-]+/g, ''), 10) ||
+          0;
+        const merchant = cleanVal(cf.primary_merchant || cf['Primary Merchant'] || '');
+        const address =
+          record.address ||
+          cleanVal(cf.canonical_address || cf['Canonical Address'] || cf['full_address'] || record.location || record.area || '');
+
         return (
           <motion.div
             key={record._id}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: (idx % 12) * 0.03 }}
-            className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800/80 shadow-card hover:shadow-cardHover transition-all duration-200 flex flex-col justify-between group"
+            className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800/80 shadow-card hover:shadow-cardHover transition-all duration-200 flex flex-col justify-between group hover:border-purple-300 dark:hover:border-purple-800"
           >
             <div>
               {/* Card Top Row: Avatar Image & Status Badge */}
@@ -142,7 +156,7 @@ export function CardView({ records, onSelectRecord, isLoading }: CardViewProps) 
                 <div className="flex items-center space-x-3 min-w-0">
                   <UserAvatar record={record} />
                   <div className="min-w-0 flex-1">
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                       {record.name}
                     </h4>
                     <p className="text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1 font-mono">
@@ -157,59 +171,93 @@ export function CardView({ records, onSelectRecord, isLoading }: CardViewProps) 
                 </span>
               </div>
 
-              {/* Tag Badges (e.g. iPhone User, WhatsApp Active, VIP) */}
-              {((record.tags && record.tags.length > 0) || record.category) && (
+              {/* Commercial Metrics Banner (Spend & Orders) */}
+              {(spend > 0 || orders > 0 || merchant) && (
+                <div className="mt-3 p-2.5 rounded-2xl bg-gradient-to-r from-emerald-50/90 to-teal-50/60 dark:from-emerald-950/30 dark:to-teal-950/20 border border-emerald-200/70 dark:border-emerald-900/50 flex items-center justify-between gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 block tracking-wider">
+                      Lifetime Spend
+                    </span>
+                    <span className="font-extrabold text-emerald-800 dark:text-emerald-200 font-mono text-xs">
+                      {spend > 0 ? `৳${spend.toLocaleString()} BDT` : 'N/A'}
+                    </span>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase font-bold text-teal-700 dark:text-teal-400 block tracking-wider">
+                      Orders Placed
+                    </span>
+                    <span className="font-bold text-teal-800 dark:text-teal-200 text-xs">
+                      {orders > 0 ? `${orders} orders` : '1 order'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Tag Badges */}
+              {((record.tags && record.tags.length > 0) || record.category || merchant) && (
                 <div className="flex flex-wrap gap-1 mt-2.5">
                   {record.tags && record.tags.length > 0 ? (
-                    record.tags.map((tag, tIdx) => (
-                      <span
-                        key={tIdx}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200/80 dark:border-brand-900/60"
-                      >
-                        <Tag className="w-2.5 h-2.5 text-brand-500" />
-                        {tag}
-                      </span>
-                    ))
+                    record.tags.map((tag, tIdx) => {
+                      const isVip = tag.toLowerCase().includes('vip');
+                      const isWa = tag.toLowerCase().includes('whatsapp');
+                      const isHot = tag.toLowerCase().includes('hot') || tag.toLowerCase().includes('frequent');
+                      const isGeo = tag.toLowerCase().includes('zone') || tag.toLowerCase().includes('area');
+
+                      return (
+                        <span
+                          key={tIdx}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
+                            isVip
+                              ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                              : isWa
+                              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                              : isHot
+                              ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                              : isGeo
+                              ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                              : 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200/80 dark:border-purple-900/60'
+                          }`}
+                        >
+                          <Tag className="w-2.5 h-2.5 opacity-75" />
+                          {tag}
+                        </span>
+                      );
+                    })
                   ) : record.category ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200/80 dark:border-brand-900/60">
-                      <Tag className="w-2.5 h-2.5 text-brand-500" />
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/80 dark:border-purple-900/60">
+                      <Tag className="w-2.5 h-2.5 text-purple-500" />
                       {record.category}
                     </span>
                   ) : null}
+
+                  {merchant && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      🏪 {merchant}
+                    </span>
+                  )}
                 </div>
               )}
 
               {/* Data Grid Section */}
-              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
+              <div className="mt-3.5 pt-3 border-t border-gray-100 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <span className="text-gray-400 dark:text-gray-500 font-medium">Age</span>
-                  <p className="font-semibold text-gray-800 dark:text-gray-200">
-                    {record.age > 0 ? `${record.age} yrs` : 'N/A'}
-                  </p>
+                  <span className="text-gray-400 dark:text-gray-500 font-medium text-[11px]">Gender</span>
+                  <p className="font-semibold text-gray-800 dark:text-gray-200">{record.gender || 'Other'}</p>
                 </div>
                 <div>
-                  <span className="text-gray-400 dark:text-gray-500 font-medium">Gender</span>
-                  <p className="font-semibold text-gray-800 dark:text-gray-200">{record.gender}</p>
-                </div>
-                <div>
-                  <span className="text-gray-400 dark:text-gray-500 font-medium">Avatar</span>
+                  <span className="text-gray-400 dark:text-gray-500 font-medium text-[11px]">Avatar Photo</span>
                   <p className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${hasAvatar ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                     {hasAvatar ? 'With Photo' : 'No Photo'}
                   </p>
                 </div>
-                <div>
-                  <span className="text-gray-400 dark:text-gray-500 font-medium">Active Days</span>
-                  <p className="font-semibold text-gray-800 dark:text-gray-200">
-                    {record.activeDays > 0 ? `≤ ${record.activeDays}d` : '0d'}
-                  </p>
-                </div>
                 <div className="col-span-2 mt-0.5">
-                  <span className="text-gray-400 dark:text-gray-500 font-medium flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-gray-400" /> Location
+                  <span className="text-gray-400 dark:text-gray-500 font-medium text-[11px] flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-gray-400" /> Location / Address
                   </span>
-                  <p className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-                    {cleanVal(record.location) || cleanVal(record.customFields?.['Matched City']) || cleanVal(record.area) || 'Not specified'}
+                  <p className="font-semibold text-gray-800 dark:text-gray-200 truncate text-[11px]" title={address}>
+                    {address || cleanVal(record.location) || 'Not specified'}
                   </p>
                 </div>
               </div>
@@ -219,12 +267,12 @@ export function CardView({ records, onSelectRecord, isLoading }: CardViewProps) 
             <div className="mt-4 pt-3 flex items-center justify-between text-xs border-t border-gray-50 dark:border-slate-800/50">
               <span className="text-[11px] text-gray-400 flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-gray-400" />
-                {record.lastActive ? new Date(record.lastActive).toLocaleDateString() : 'Active'}
+                {record.createdAt ? new Date(record.createdAt).toLocaleDateString() : 'Recent'}
               </span>
               <button
                 type="button"
                 onClick={() => onSelectRecord(record)}
-                className="inline-flex items-center gap-1 font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
+                className="inline-flex items-center gap-1 font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors cursor-pointer"
               >
                 View Details <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </button>
