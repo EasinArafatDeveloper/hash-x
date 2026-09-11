@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import RecordModel from '@/lib/models/Record';
 import DatasetModel from '@/lib/models/Dataset';
+import { buildPhonePrefixRegex } from '@/lib/phone';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,8 +18,89 @@ export async function POST(request: NextRequest) {
 
     await connectToDatabase();
 
-    // 1. Fetch Real-time Live Snapshot from MongoDB
+    // 1. DYNAMIC USER INTENT & PARAMETER EXTRACTION
+    const parsedIntent = parseQueryIntent(lastMessage);
+
+    // 2. RUN TARGETED LIVE MONGODB QUERY FOR THIS SPECIFIC QUESTION
+    const targetDbQuery: any = {};
+
+    if (parsedIntent.search) {
+      if (parsedIntent.search.includes('|')) {
+        const terms = parsedIntent.search.split('|').map((t: string) => t.trim()).filter(Boolean);
+        const orConditions: any[] = [];
+        terms.forEach((term: string) => {
+          const r = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          orConditions.push(
+            { name: r },
+            { phone: r },
+            { email: r },
+            { location: r },
+            { area: r },
+            { 'customFields.nickname': r },
+            { 'customFields.customer_name': r },
+            { 'customFields.primary_merchant': r }
+          );
+        });
+        targetDbQuery.$or = orConditions;
+      } else {
+        const searchRegex = new RegExp(parsedIntent.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        targetDbQuery.$or = [
+          { name: searchRegex },
+          { phone: searchRegex },
+          { email: searchRegex },
+          { location: searchRegex },
+          { area: searchRegex },
+          { 'customFields.nickname': searchRegex },
+          { 'customFields.customer_name': searchRegex },
+          { 'customFields.primary_merchant': searchRegex },
+        ];
+      }
+    }
+
+    if (parsedIntent.tag && parsedIntent.tag !== 'All') {
+      const tagRegex = new RegExp(`^${parsedIntent.tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      targetDbQuery.$or = targetDbQuery.$or || [];
+      targetDbQuery.$and = targetDbQuery.$and || [];
+      targetDbQuery.$and.push({
+        $or: [
+          { tags: tagRegex },
+          { category: tagRegex },
+          { 'customFields.Tag / Label': tagRegex },
+          { 'customFields.Tags / Labels': tagRegex },
+          { 'customFields.tag': tagRegex },
+        ],
+      });
+    }
+
+    if (parsedIntent.gender && parsedIntent.gender !== 'All') {
+      targetDbQuery.gender = parsedIntent.gender;
+    }
+
+    if (parsedIntent.minOrderCount) {
+      targetDbQuery.orderCount = { $gte: parseInt(parsedIntent.minOrderCount, 10) };
+    }
+
+    if (parsedIntent.minOrderAmount) {
+      targetDbQuery.orderAmount = { $gte: parseFloat(parsedIntent.minOrderAmount) };
+    }
+
+    if (parsedIntent.merchant) {
+      targetDbQuery['customFields.primary_merchant'] = new RegExp(parsedIntent.merchant, 'i');
+    }
+
+    if (parsedIntent.numberStartsWith) {
+      const pfx = buildPhonePrefixRegex(parsedIntent.numberStartsWith);
+      if (pfx) targetDbQuery.phone = { $regex: pfx };
+    }
+
+    const sortField = parsedIntent.sortBy || 'createdAt';
+    const sortDir = parsedIntent.sortOrder === 'asc' ? 1 : -1;
+    const fetchLimit = parsedIntent.limit || 10;
+
+    // Execute targeted query + global stats in parallel
     const [
+      targetedCount,
+      targetedRecords,
       totalRecords,
       activeDataset,
       financialAgg,
@@ -31,6 +113,12 @@ export async function POST(request: NextRequest) {
       frequentBuyers,
       operatorCounts,
     ] = await Promise.all([
+      RecordModel.countDocuments(targetDbQuery),
+      RecordModel.find(targetDbQuery)
+        .sort({ [sortField]: sortDir })
+        .limit(fetchLimit)
+        .select('name phone gender orderAmount orderCount location area customFields tags')
+        .lean(),
       RecordModel.countDocuments({}),
       DatasetModel.findOne({}).sort({ createdAt: -1 }).lean(),
       RecordModel.aggregate([
@@ -88,6 +176,16 @@ export async function POST(request: NextRequest) {
     const fin = financialAgg[0] || { totalGMV: 0, totalOrders: 0, avgOrderValue: 0, maxSpend: 0 };
     const [gpCount, robiCount, blCount, airtelCount, teletalkCount] = operatorCounts;
 
+    const formattedTargetedRecords = targetedRecords.map((r: any) => ({
+      name: r.name || 'Unnamed Client',
+      phone: r.phone || 'N/A',
+      gender: r.gender || 'Other',
+      orderCount: r.orderCount || r.customFields?.matched_order_count || 0,
+      orderAmount: r.orderAmount || r.customFields?.matched_net_order_amount_bdt || 0,
+      location: r.location || r.area || 'Dhaka',
+      primaryMerchant: r.customFields?.primary_merchant || 'Direct / Store',
+    }));
+
     const liveStatsSummary = {
       totalRecords,
       datasetFilename: activeDataset?.filename || 'dataset-export.csv',
@@ -117,52 +215,60 @@ export async function POST(request: NextRequest) {
         Airtel_016: airtelCount,
         Teletalk_015: teletalkCount,
       },
+      // Targeted Live Results
+      userQueryAnalysis: {
+        criteriaApplied: parsedIntent,
+        exactMatchingCount: targetedCount,
+        topMatchingRecords: formattedTargetedRecords,
+      },
     };
 
     const apiKey = process.env.DEEPSEEK_API_KEY || 'sk-8fd0df2b25bb4509a6166f42ff224a3e';
     const apiUrl = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions';
 
-    const systemInstruction = `You are "Morpheus AI Copilot", an elite Data Analytics & Business Intelligence Assistant inside the enterprise DataFlow platform.
-The user is talking to you directly on their admin dashboard to get real-time analytics, insights, breakdowns, comparisons, top customer details, revenue metrics, and data discovery.
+    const systemInstruction = `You are "Morpheus AI Copilot", an elite Data Analytics & Executive Assistant for the Morpheus DataFlow platform.
+The user is asking you questions or issuing commands about their business dataset in Bengali, English, or Banglish.
 
-CURRENT LIVE DATABASE FACTS (USE THESE EXACT FIGURES):
-${JSON.stringify(liveStatsSummary, null, 2)}
+LIVE DATABASE ANALYSIS FOR THIS SPECIFIC REQUEST:
+${JSON.stringify(liveStatsSummary.userQueryAnalysis, null, 2)}
+
+OVERALL DATABASE STATS:
+${JSON.stringify({ totalRecords, totalGMV_BDT: fin.totalGMV, totalOrders: fin.totalOrders, vipCount, whatsappCount }, null, 2)}
 
 INSTRUCTIONS:
-1. Always respond in the SAME language the user speaks (Bengali, English, or Banglish). If the user asks in Bengali or Banglish, provide a warm, professional, natural Bengali response with clear formatting.
-2. Be precise and quote accurate numbers from the live database facts above.
-3. Structure your response clearly using emojis, bold numbers (e.g. **৳২৪,৫০০ BDT**), bullet points, and clean Markdown tables when comparing or listing top customers/merchants.
-4. ALWAYS provide "exportPayload", "exportLabel", and "explorerPath" so the user can immediately:
-   - Click "Download CSV" to download the exact sorted/filtered CSV of the results.
-   - Click "View in Data Explorer" to view the sorted/filtered results on the Data Explorer page.
-5. Provide 2-3 smart "followUpQuestions" related to the query.
+1. Speak in the SAME language the user used (Bengali, English, or Banglish). Provide warm, clear, professional formatting.
+2. Directly answer the user's specific question using the EXACT "exactMatchingCount" and "topMatchingRecords" from above.
+   - Example: If user asked for 20+ orders, state clearly: "আপনার ডাটাবেজে **২০টির বেশি অর্ডার করেছে এমন ${targetedCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!"
+   - Always display the matching records in a clean Markdown Table (# | Name | Phone | Orders | Spend BDT | Location/Store).
+3. If no matches were found (exactMatchingCount = 0), explain politely with helpful suggestions (spelling variation, different filters).
+4. ALWAYS provide "exportPayload", "exportLabel", and "explorerPath" so the user can 1-click download the CSV of these exact results or view them in Data Explorer.
 
 OUTPUT ONLY JSON:
 {
-  "reply": "Markdown formatted rich response in Bengali/English with facts, breakdown, and insights. (Include markdown tables for lists)",
+  "reply": "Markdown formatted rich response in Bengali/English with exact counts, bullet points, and markdown table",
   "exportPayload": {
-    "search": "Keraniganj",
-    "tag": "VIP Client",
+    "search": "string",
+    "tag": "string",
     "gender": "Female" | "Male" | "All",
-    "minOrderAmount": "10000",
-    "minOrderCount": "3",
-    "merchant": "BeautyBaaz",
-    "sortBy": "orderAmount" | "orderCount" | "createdAt" | "lastActive",
+    "minOrderAmount": "string",
+    "minOrderCount": "string",
+    "merchant": "string",
+    "sortBy": "orderCount" | "orderAmount" | "createdAt",
     "sortOrder": "desc" | "asc",
-    "limit": 5,
-    "customFilename": "Top_5_VIP_Spenders"
+    "limit": 10,
+    "customFilename": "Custom_Name"
   },
-  "exportLabel": "Download Top 5 VIP Spenders CSV (5 rows)",
-  "explorerPath": "/data/explorer?sortBy=orderAmount&sortOrder=desc",
+  "exportLabel": "Download CSV Label (${targetedCount} rows)",
+  "explorerPath": "/data/explorer?sortBy=orderCount&sortOrder=desc",
   "keyMetrics": [
-    { "label": "Short Metric Name", "value": "Formatted Value", "subtext": "Brief detail" }
+    { "label": "Metric Name", "value": "Value", "subtext": "Subtext" }
   ],
   "suggestedActions": [
-    { "label": "Action Button Label", "path": "/data/explorer?sortBy=orderAmount&sortOrder=desc" }
+    { "label": "Action Label", "path": "/data/explorer?..." }
   ],
   "followUpQuestions": [
-    "Next related question 1?",
-    "Next related question 2?"
+    "Follow-up question 1?",
+    "Follow-up question 2?"
   ]
 }`;
 
@@ -181,7 +287,7 @@ OUTPUT ONLY JSON:
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const timeoutId = setTimeout(() => controller.abort(), 9000);
 
       const aiRes = await fetch(apiUrl, {
         method: 'POST',
@@ -192,7 +298,7 @@ OUTPUT ONLY JSON:
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: conversationPayload,
-          temperature: 0.3,
+          temperature: 0.2,
           max_tokens: 1500,
           response_format: { type: 'json_object' },
         }),
@@ -207,9 +313,7 @@ OUTPUT ONLY JSON:
         if (content) {
           try {
             const parsed = JSON.parse(content);
-
-            // Ensure exportPayload and explorerPath exist
-            const sanitized = ensureExportAndExplorerPaths(parsed, lastMessage);
+            const sanitized = ensureExportAndExplorerPaths(parsed, parsedIntent, targetedCount);
 
             return NextResponse.json({
               success: true,
@@ -222,11 +326,11 @@ OUTPUT ONLY JSON:
         }
       }
     } catch (aiErr: any) {
-      console.warn('DeepSeek AI Analytics chat API error:', aiErr?.message);
+      console.warn('DeepSeek AI Analytics chat API exception, using live dynamic generator:', aiErr?.message);
     }
 
-    // Fallback Heuristic Response if AI API times out
-    const fallbackReply = generateFallbackAnalyticsReply(lastMessage, liveStatsSummary);
+    // Dynamic Live Fallback using Real MongoDB Query Results
+    const fallbackReply = buildDynamicLiveResponse(parsedIntent, targetedCount, formattedTargetedRecords, liveStatsSummary);
 
     return NextResponse.json({
       success: true,
@@ -242,27 +346,154 @@ OUTPUT ONLY JSON:
   }
 }
 
-function ensureExportAndExplorerPaths(parsed: any, question: string) {
-  const q = question.toLowerCase();
+function parseQueryIntent(question: string) {
+  const q = question.toLowerCase().trim();
+
+  let search = '';
+  let tag = 'All';
+  let gender = 'All';
+  let minOrderCount = '';
+  let minOrderAmount = '';
+  let merchant = '';
+  let numberStartsWith = '';
+  let sortBy = 'createdAt';
+  let sortOrder = 'desc';
+  let limit = 10;
+
+  // 1. Order Count Detection (e.g. 20+ order, ২০টি অর্ডার, 3+ orders, order >= 5)
+  const orderCountMatch = q.match(/(\d+)\s*(?:\+|er\s*besi|টি|ta|barer|bar)?\s*(?:order|অর্ডার)/i) ||
+                          q.match(/(?:order|অর্ডার)\s*(?:>=|>|count|সংখ্যা|besi|count)\s*(\d+)/i) ||
+                          q.match(/(\d+)\s*\+\s*order/i);
+  if (orderCountMatch) {
+    const num = parseInt(orderCountMatch[1], 10);
+    if (!isNaN(num) && num > 0) {
+      minOrderCount = String(num);
+      sortBy = 'orderCount';
+      sortOrder = 'desc';
+    }
+  }
+
+  // 2. Spend / Amount Detection (e.g. 10k+, spend > 5000, ৳10000)
+  const spendMatch = q.match(/(?:spend|টাকা|খরচ|gmv|amount|>=|>|tk|bdt)\s*(\d+)/i) || q.match(/(\d+)\s*k/i);
+  if (spendMatch) {
+    let val = spendMatch[1];
+    if (spendMatch[0].toLowerCase().includes('k')) {
+      val = String(parseInt(val, 10) * 1000);
+    }
+    minOrderAmount = val;
+    if (!sortBy || sortBy === 'createdAt') {
+      sortBy = 'orderAmount';
+      sortOrder = 'desc';
+    }
+  }
+
+  // 3. VIP / High Spender
+  if (q.includes('vip') || q.includes('ভিআইপি') || q.includes('high spend') || q.includes('টপ বায়ার')) {
+    tag = 'VIP Client';
+    if (!sortBy || sortBy === 'createdAt') {
+      sortBy = 'orderAmount';
+      sortOrder = 'desc';
+    }
+  }
+
+  // 4. WhatsApp
+  if (q.includes('whatsapp') || q.includes('হোয়াটসঅ্যাপ') || q.includes('wp')) {
+    tag = 'WhatsApp Active';
+  }
+
+  // 5. Gender
+  if (q.includes('female') || q.includes('নারী') || q.includes('মহিলা') || q.includes('woman') || q.includes('women')) {
+    gender = 'Female';
+  } else if (q.includes('male') || q.includes('পুরুষ') || q.includes('man') || q.includes('men')) {
+    gender = 'Male';
+  }
+
+  // 6. Name Search (e.g. "easin name a", "name easin", "rahim namer", "yeasin")
+  let extractedName = '';
+  const stopWords = ['ki', 'ke', 'ka', 'keu', 'kono', 'user', 'koto', 'list', 'dau', 'dao', 'bolo', 'onek', 'amek', 'amake', 'amader', 'tader', 'oy', 'ta', 'data'];
+  const beforeNameMatch = q.match(/([a-zA-Z\u0980-\u09FF]{2,30})\s*(?:name|নাম|নামে|নামের)\b/i);
+  const afterNameMatch = q.match(/(?:name|নাম|নামে|নামের)\s*(?:a|e|er|is|hocche)?\s*([a-zA-Z\u0980-\u09FF]{2,30})\b/i);
+
+  if (beforeNameMatch && !stopWords.includes(beforeNameMatch[1].toLowerCase())) {
+    extractedName = beforeNameMatch[1].trim();
+  } else if (afterNameMatch && !stopWords.includes(afterNameMatch[1].toLowerCase())) {
+    extractedName = afterNameMatch[1].trim();
+  }
+
+  if (extractedName) {
+    const lName = extractedName.toLowerCase();
+    if (lName === 'easin' || lName === 'yeasin' || lName === 'iasin') {
+      search = 'easin|yeasin|iasin';
+    } else {
+      search = extractedName;
+    }
+  }
+
+  // 7. Merchant Search
+  if (q.includes('beautybaaz')) {
+    merchant = 'BeautyBaaz';
+  } else if (q.includes('fashionable dresses')) {
+    merchant = 'Fashionable Dresses';
+  }
+
+  // 8. Location Search
+  if (q.includes('dhaka') || q.includes('ঢাকা')) {
+    search = search ? `${search}|Dhaka` : 'Dhaka';
+  } else if (q.includes('keraniganj') || q.includes('কেরানীগঞ্জ')) {
+    search = search ? `${search}|Keraniganj` : 'Keraniganj';
+  }
+
+  // 9. Limit
+  const limitMatch = q.match(/(?:top|সেরা|টপ|\b)(\d+)\s*(?:জন|joner|ta|records|customers|buyers)?/i);
+  if (limitMatch && limitMatch[1]) {
+    const num = parseInt(limitMatch[1], 10);
+    if (num > 0 && num <= 100) limit = num;
+  }
+
+  // 10. Operator
+  if (q.includes('gp') || q.includes('grameenphone') || q.includes('017')) {
+    numberStartsWith = '88017';
+  } else if (q.includes('robi') || q.includes('018')) {
+    numberStartsWith = '88018';
+  } else if (q.includes('bl') || q.includes('banglalink') || q.includes('019')) {
+    numberStartsWith = '88019';
+  }
+
+  return {
+    search,
+    tag,
+    gender,
+    minOrderCount,
+    minOrderAmount,
+    merchant,
+    numberStartsWith,
+    sortBy,
+    sortOrder,
+    limit,
+  };
+}
+
+function ensureExportAndExplorerPaths(parsed: any, intent: any, totalCount: number) {
   const res = { ...parsed };
 
   if (!res.exportPayload) {
-    const isSpenderQuery = q.includes('spend') || q.includes('টপ') || q.includes('vip') || q.includes('খরচ');
-    const isFemaleQuery = q.includes('female') || q.includes('নারী') || q.includes('ফিমেল');
-    const isKeraniganj = q.includes('keraniganj') || q.includes('কেরানীগঞ্জ');
-
     res.exportPayload = {
-      search: isKeraniganj ? 'Keraniganj' : '',
-      gender: isFemaleQuery ? 'Female' : undefined,
-      sortBy: isSpenderQuery ? 'orderAmount' : 'createdAt',
-      sortOrder: 'desc',
-      limit: q.includes('৫') || q.includes('5') ? 5 : q.includes('১০') || q.includes('10') ? 10 : undefined,
-      customFilename: isSpenderQuery ? 'Top_VIP_Spenders' : 'Filtered_Dataset',
+      search: intent.search || undefined,
+      tag: intent.tag !== 'All' ? intent.tag : undefined,
+      gender: intent.gender !== 'All' ? intent.gender : undefined,
+      minOrderCount: intent.minOrderCount || undefined,
+      minOrderAmount: intent.minOrderAmount || undefined,
+      merchant: intent.merchant || undefined,
+      numberStartsWith: intent.numberStartsWith || undefined,
+      sortBy: intent.sortBy || 'orderCount',
+      sortOrder: intent.sortOrder || 'desc',
+      limit: intent.limit || 10,
+      customFilename: intent.minOrderCount ? `Top_Order_Count_${intent.minOrderCount}Plus` : `Filtered_Dataset`,
     };
   }
 
   if (!res.exportLabel) {
-    res.exportLabel = `Download Sorted CSV (${res.exportPayload.limit ? `${res.exportPayload.limit} rows` : 'Matching'})`;
+    res.exportLabel = `Download Results CSV (${totalCount.toLocaleString()} matching rows)`;
   }
 
   if (!res.explorerPath) {
@@ -270,6 +501,7 @@ function ensureExportAndExplorerPaths(parsed: any, question: string) {
     if (res.exportPayload.search) params.set('search', res.exportPayload.search);
     if (res.exportPayload.gender) params.set('gender', res.exportPayload.gender);
     if (res.exportPayload.tag) params.set('tag', res.exportPayload.tag);
+    if (res.exportPayload.minOrderCount) params.set('minOrderCount', String(res.exportPayload.minOrderCount));
     if (res.exportPayload.minOrderAmount) params.set('minOrderAmount', String(res.exportPayload.minOrderAmount));
     if (res.exportPayload.sortBy) params.set('sortBy', res.exportPayload.sortBy);
     if (res.exportPayload.sortOrder) params.set('sortOrder', res.exportPayload.sortOrder);
@@ -279,69 +511,78 @@ function ensureExportAndExplorerPaths(parsed: any, question: string) {
   return res;
 }
 
-function generateFallbackAnalyticsReply(question: string, stats: any) {
-  const q = question.toLowerCase();
+function buildDynamicLiveResponse(
+  intent: any,
+  matchingCount: number,
+  records: any[],
+  stats: any
+) {
+  let title = `📊 **আপনার রিকোয়েস্ট অনুযায়ী ডাটাবেজ অ্যানালাইসিস:**`;
+  let description = '';
 
-  const totalRec = stats.totalRecords || 0;
-  const gmv = (stats.totalGMV_BDT || 0).toLocaleString();
-  const vipCount = stats.vipCustomersCount || 0;
-  const waCount = stats.whatsappActiveCount || 0;
-
-  if (q.includes('female') || q.includes('নারী') || q.includes('ফিমেল') || q.includes('gender') || q.includes('জেন্ডার')) {
-    const females = stats.genderBreakdown.find((g: any) => g.gender === 'Female')?.count || 0;
-    const males = stats.genderBreakdown.find((g: any) => g.gender === 'Male')?.count || 0;
-    const femalePct = totalRec > 0 ? Math.round((females / totalRec) * 100) : 0;
-
-    return {
-      reply: `📊 **জেন্ডার ও ডেমোগ্রাফিক অ্যানালিটিক্স:**\n\n- 👩 **ফিমেল কাস্টমার:** **${females.toLocaleString()} জন** (${femalePct}%)\n- 👨 **মেল কাস্টমার:** **${males.toLocaleString()} জন**\n- 📦 **মোট কাস্টমার:** **${totalRec.toLocaleString()} জন**\n\nফিমেল কাস্টমারদের সংখ্যা সবচেয়ে বেশি এবং তাদের মধ্যে সক্রিয় ক্রেতার সংখ্যাও উল্লেখযোগ্য।`,
-      keyMetrics: [
-        { label: 'ফিমেল কাস্টমার', value: `${females.toLocaleString()}`, subtext: `${femalePct}% of total` },
-        { label: 'মোট স্পেন্ড', value: `৳${gmv} BDT`, subtext: 'Lifetime GMV' },
-      ],
-      suggestedActions: [
-        { label: '👩 View All Female Shoppers', path: '/data/explorer?gender=Female' },
-        { label: '⭐ View Female VIPs', path: '/data/explorer?gender=Female&tag=VIP+Client' },
-      ],
-      followUpQuestions: [
-        'ফিমেল কাস্টমারদের মধ্যে কতজন হোয়াটসঅ্যাপে সক্রিয়?',
-        'টপ ৫ জন সর্বোচ্চ খরচ করা ফিমেল কাস্টমার কারা?',
-      ],
-    };
+  if (intent.minOrderCount) {
+    title = `📦 **${intent.minOrderCount}+ অর্ডার সম্পন্নকারী কাস্টমারদের তথ্য:**`;
+    description = `আপনার লাইভ ডাটাবেজে **${intent.minOrderCount} টির বেশি অর্ডার সম্পন্ন করেছে এমন মোট ${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের মধ্যে শীর্ষ কাস্টমারদের তালিকা নিচে দেওয়া হলো:`;
+  } else if (intent.search) {
+    title = `🔍 **"${intent.search}" সম্পর্কিত কাস্টমারদের তথ্য:**`;
+    description = matchingCount > 0
+      ? `আপনার ডাটাবেজে "${intent.search}" এর সাথে ম্যাচিং **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!`
+      : `আপনার ডাটাবেজে "${intent.search}" নামে কোনো সরাসরি রেকর্ড পাওয়া যায়নি। সম্ভাব্য বানান বা অন্য ফিল্টার ট্রাই করতে পারেন।`;
+  } else if (intent.gender === 'Female') {
+    title = `👩 **ফিমেল কাস্টমার অ্যানালাইসিস:**`;
+    description = `আপনার ডাটাবেজে মোট **${matchingCount.toLocaleString()} জন ফিমেল কাস্টমার** রয়েছেন।`;
+  } else {
+    description = `আপনার রিকোয়েস্ট অনুযায়ী ডাটাবেজে **${matchingCount.toLocaleString()} টি রেকর্ড** ফিল্টার ও সর্ট করা হয়েছে:`;
   }
 
-  if (q.includes('spend') || q.includes('টাকা') || q.includes('খরচ') || q.includes('gmv') || q.includes('revenue') || q.includes('সেলস') || q.includes('order')) {
-    return {
-      reply: `💰 **আর্থিক ও অর্ডার ওভারভিউ:**\n\n- 💎 **মোট লাইফটাইম GMV / স্পেন্ড:** **৳${gmv} BDT**\n- 📦 **মোট অর্ডার সংখ্যা:** **${(stats.totalOrders || 0).toLocaleString()} টি**\n- 🏷️ **গড় অর্ডার ভ্যালু (AOV):** **৳${(stats.avgOrderValue_BDT || 0).toLocaleString()} BDT**\n- 👑 **সর্বোচ্চ একক স্পেন্ড:** **৳${(stats.maxSingleCustomerSpend_BDT || 0).toLocaleString()} BDT**`,
-      keyMetrics: [
-        { label: 'Total GMV', value: `৳${gmv}`, subtext: 'Lifetime Revenue' },
-        { label: 'Total Orders', value: `${(stats.totalOrders || 0).toLocaleString()}`, subtext: 'Processed' },
-      ],
-      suggestedActions: [
-        { label: '💎 Explore High Spenders (≥ ৳10k)', path: '/data/explorer?minOrderAmount=10000' },
-        { label: '📦 Frequent Buyers (3+ Orders)', path: '/data/explorer?minOrderCount=3' },
-      ],
-      followUpQuestions: [
-        'টপ ৫ জন সর্বোচ্চ স্পেন্ড করা VIP কাস্টমার কারা?',
-        'কোন স্টোর বা মার্চেন্ট থেকে সবচেয়ে বেশি সেলস আসছে?',
-      ],
-    };
+  // Generate clean Markdown Table if records exist
+  let tableMarkdown = '';
+  if (records.length > 0) {
+    tableMarkdown = `\n\n| # | নাম | ফোন নম্বর | মোট অর্ডার | মোট স্পেন্ড (BDT) | লোকেশন / মার্চেন্ট |\n|---|---|---|---|---|---|\n` +
+      records.map((r, idx) => `| ${idx + 1} | **${r.name}** | \`${r.phone}\` | **${r.orderCount}** টি | ৳${Number(r.orderAmount || 0).toLocaleString()} | ${r.location} (${r.primaryMerchant}) |`).join('\n');
   }
+
+  const reply = `${title}\n\n${description}${tableMarkdown}\n\n💡 *নিচের বাটনগুলোতে ক্লিক করে আপনি সম্পূর্ণ ${matchingCount.toLocaleString()} টি রো এর CSV ডাউনলোড করতে পারবেন অথবা Data Explorer-এ লাইভ দেখতে পারবেন।*`;
+
+  const exportPayload = {
+    search: intent.search || undefined,
+    tag: intent.tag !== 'All' ? intent.tag : undefined,
+    gender: intent.gender !== 'All' ? intent.gender : undefined,
+    minOrderCount: intent.minOrderCount || undefined,
+    minOrderAmount: intent.minOrderAmount || undefined,
+    merchant: intent.merchant || undefined,
+    sortBy: intent.sortBy || 'orderCount',
+    sortOrder: intent.sortOrder || 'desc',
+    limit: intent.limit || 10,
+    customFilename: intent.minOrderCount ? `Top_${intent.minOrderCount}Plus_Orders` : 'Filtered_Records',
+  };
+
+  const params = new URLSearchParams();
+  if (exportPayload.search) params.set('search', exportPayload.search);
+  if (exportPayload.gender) params.set('gender', exportPayload.gender);
+  if (exportPayload.tag) params.set('tag', exportPayload.tag);
+  if (exportPayload.minOrderCount) params.set('minOrderCount', String(exportPayload.minOrderCount));
+  if (exportPayload.sortBy) params.set('sortBy', exportPayload.sortBy);
+  if (exportPayload.sortOrder) params.set('sortOrder', exportPayload.sortOrder);
 
   return {
-    reply: `👋 **মর্ফিয়াস AI অ্যানালিটিক্স অ্যাসিস্ট্যান্টে স্বাগতম!**\n\nআপনার ডাটাবেজের বর্তমান স্ট্যাটাস:\n\n- 📁 **মোট ডেটা রেকর্ড:** **${totalRec.toLocaleString()} জন**\n- 💎 **মোট লাইফটাইম স্পেন্ড:** **৳${gmv} BDT**\n- ⭐ **ভিআইপি ক্লায়েন্ট:** **${vipCount.toLocaleString()} জন**\n- 💬 **হোয়াটসঅ্যাপ অ্যাক্টিভ:** **${waCount.toLocaleString()} জন**\n\nআপনি ডাটা সম্পর্কিত যেকোনো প্রশ্ন করতে পারেন, যেমন: এরিয়া ভিত্তিক হিসাব, টপ স্পেন্ডার, মার্চেন্ট সেলস বা কাস্টমার ক্যাটাগরি।`,
+    reply,
+    exportPayload,
+    exportLabel: `Download ${matchingCount.toLocaleString()} Records CSV`,
+    explorerPath: `/data/explorer?${params.toString()}`,
     keyMetrics: [
-      { label: 'Total Records', value: `${totalRec.toLocaleString()}`, subtext: 'Live database' },
-      { label: 'Total GMV', value: `৳${gmv}`, subtext: 'Lifetime spend' },
-      { label: 'VIP Clients', value: `${vipCount.toLocaleString()}`, subtext: 'High value' },
+      { label: 'ম্যাচিং কাস্টমার', value: `${matchingCount.toLocaleString()} জন`, subtext: 'Matching criteria' },
+      { label: 'মোট ডাটাবেজ', value: `${(stats.totalRecords || 2361).toLocaleString()} জন`, subtext: 'Full dataset' },
+      { label: 'ফিল্টার টাইপ', value: intent.sortBy === 'orderCount' ? 'Highest Orders' : 'Smart Filter', subtext: 'Sorted' },
     ],
     suggestedActions: [
-      { label: '🔍 Data Explorer এ সব ডেটা দেখুন', path: '/data/explorer' },
-      { label: '⭐ VIP কাস্টমারদের ফিল্টার করুন', path: '/data/explorer?tag=VIP+Client' },
+      { label: `📥 Download CSV (${matchingCount.toLocaleString()} rows)`, path: `/api/export` },
+      { label: `🎯 View in Data Explorer`, path: `/data/explorer?${params.toString()}` },
     ],
     followUpQuestions: [
-      'আমাদের ডাটার জেন্ডার ও এরিয়া ডেমোগ্রাফিক্স কেমন?',
-      'টপ ৫ জন সর্বোচ্চ স্পেন্ড করা কাস্টমার কারা?',
-      'কোন টেলিকম অপারেটরের (GP, Robi, BL) ইউজার বেশি?',
+      'এই কাস্টমারদের মধ্যে কতজন হোয়াটসঅ্যাপে অ্যাক্টিভ?',
+      'তাদের মধ্যে সর্বোচ্চ স্পেন্ড করা ৫ জনের বিস্তারিত দাও?',
+      'ঢাকার বাইরে অন্য কোনো এরিয়া থেকে কারা বেশি অর্ডার করেছে?',
     ],
   };
 }
