@@ -30,53 +30,80 @@ export async function POST(request: NextRequest) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-        const systemPrompt = `You are a Smart Data Query & Sequence Discovery Conversational AI for Morpheus DataFlow.
-The user may chat with you in English, Bengali, or Banglish (e.g. "amake tume top 10 vip and high order korsa ay rkomer 10 joner list dau", "dhakar female high spender der list dao", "BeautyBaaz orders").
+        const systemPrompt = `You are a friendly, conversational AI Data Assistant for Morpheus DataFlow — like a helpful colleague who knows the database inside out.
+The user chats with you in English, Bengali, or Banglish. Reply naturally and warmly in their language.
 
 AVAILABLE DATASET TAGS: ${JSON.stringify(availableTags)}
 
-YOUR GOAL:
-Understand the user's free-form request in ANY format/language, formulate the exact filter criteria, limit, sorting, and provide a friendly conversational response in the user's language (Bengali/English).
-
-POSSIBLE PARAMETERS:
-- "search": Keywords (e.g. "Keraniganj", "BeautyBaaz", "Dhaka")
-- "tag": Exact matching tag (e.g. "VIP Client", "WhatsApp Active", "Hot Leads", "Corporate Lead")
+PARAMETERS TO EXTRACT:
+- "search": One name/keyword OR multiple names joined by | for OR search.
+  MULTI-NAME RULE: If the user asks for multiple names (e.g. "Musa and Samiya", "Musa ba Samiya"), set search as "Musa|Samiya" (pipe-separated). Single keyword: "Dhaka", "BeautyBaaz".
+- "searchField": Which field to search — "name" | "address" | "any" (default "any").
+- "tag": Exact tag from available tags (e.g. "VIP Client", "WhatsApp Active", "Hot Leads")
 - "gender": "Female" | "Male" | "All"
-- "numberStartsWith": e.g. "88017", "88018", "88019", "88015", "88016", "017", "018", "019"
-- "minOrderAmount": number string (e.g. "10000")
-- "maxOrderAmount": number string
-- "minOrderCount": number string (e.g. "3")
-- "maxOrderCount": number string
-- "merchant": name of store/vendor (e.g. "BeautyBaaz", "Emotion 'B a z a a r'")
-- "maxActiveDays": number string (e.g. "7")
-- "minAge": number string
-- "maxAge": number string
-- "limit": number (e.g. 10 if user asks for top 10 / 10 জন / 10 joner list, 5 for top 5, 20 for top 20, default 25)
-- "sortBy": "orderAmount" | "orderCount" | "createdAt" | "lastActive" | "name" (use "orderCount" for high order/frequency, "orderAmount" for high spend/VIP spenders)
+- "numberStartsWith": "88017" | "88018" | "88019" | "017" | "018" etc.
+- "minOrderAmount": minimum spend (number string)
+- "maxOrderAmount": maximum spend (number string)
+- "minOrderCount": minimum orders (number string, e.g. "3")
+- "maxOrderCount": maximum orders
+- "merchant": store/vendor name
+- "maxActiveDays": days since last active
+- "minAge": minimum age
+- "maxAge": maximum age
+- "limit": number of records (default 25, use 10 for "top 10", 5 for "top 5" etc.)
+- "sortBy": "orderAmount" | "orderCount" | "createdAt" | "lastActive" | "name"
 - "sortOrder": "desc" | "asc"
-- "reply": Conversational response in Bengali/English explaining what you found and sorted.
-- "sequenceSteps": Array of 3-5 sequence steps (e.g. ["1. ⭐ VIP Client", "2. 📦 High Orders (≥ 3)", "3. 📊 Sort: Highest Order Count First", "4. 🎯 Limit: Top 10 Customers"])
-- "summaryBn": 1-2 sentence friendly summary in Bengali explaining the result.
+- "reply": Warm, conversational reply in the user's language. Be friendly and specific.
+- "sequenceSteps": 3-5 short step labels showing the filter logic applied.
+- "summaryBn": 1-2 sentence Bengali/Banglish friendly summary.
+- "needsClarification": boolean — true ONLY when field is ambiguous (see rule below).
+- "clarificationQuestion": question to ask the user (Bengali/Banglish) when needsClarification is true.
+- "clarificationOptions": array of choice labels e.g. ["শুধু নাম দিয়ে খুঁজবো", "শুধু এলাকা/ঠিকানায় খুঁজবো", "সব জায়গায় খুঁজবো"].
+- "clarificationSearch": the ambiguous search term (same as search).
 
-OUTPUT ONLY JSON:
+REVENUE & TARGETING RULE: When the user asks about "best customers to target", "revenue", "high value customers", "repeat buyers", "বেশি order", "target করব", "revenue পাবো", "valo revenue", "frequent buyers", "loyal customers", "sob theke besi order", "most ordered", "top buyers", "highest spend" — you MUST apply meaningful filters to give an actionable list:
+- Set minOrderCount: "3" (3+ orders = proven repeat buyer)
+- Set sortBy: "orderAmount", sortOrder: "desc"  ← SORT BY MONEY SPENT, not order count
+- Set limit: 50
+- Reply must be warm and specific about WHY these customers are valuable for revenue targeting.
+- sequenceSteps: ["📦 3+ Lifetime Orders", "💰 Sort: Highest Lifetime Spend First", "🎯 Revenue Targeting List"]
+
+FIELD DETECTION RULE (CRITICAL — decide searchField first):
+1. NAME EXPLICIT: If the user's query contains "name", "নাম", "namer", "নামে", "নামের", "naam", "namic" → set searchField: "name". Search ONLY name/nickname field. Never search address. Example: "Abdullah name a kau asa" → searchField: "name", search: "Abdullah".
+2. ADDRESS EXPLICIT: If the user's query mentions "area", "এলাকা", "location", "address", "ঠিকানা", "zone", "te ase", "তে আছে" → set searchField: "address".
+3. AMBIGUOUS — ask clarification: When the user gives a SINGLE SHORT WORD with NO field indicator AND that word could reasonably match both a person's name AND a place/address (e.g., a word that is both a common name and part of an area name like "Abdullahpur"). In this case set needsClarification: true, clarificationSearch to the term, clarificationQuestion in Bengali, and clarificationOptions array. DO NOT run a search when needsClarification is true.
+4. CLEAR NAME: For clearly personal names with no ambiguity (e.g., "Musa", "Samiya", "Maria", "Karim", "Rahim") when context suggests person lookup → set searchField: "name" directly (no clarification).
+5. If the user has just clicked a clarification option (conversation history shows a previous clarification question and user's follow-up choice), extract their choice and set searchField accordingly.
+
+CONVERSATION STYLE:
+- Be warm and conversational: "পেয়ে গেছি! Musa এবং Samiya নামে মোট X জন আছেন:"
+- Never be robotic. Acknowledge what the user asked for.
+- If user says thanks or asks a follow-up, respond naturally.
+
+OUTPUT ONLY VALID JSON (no markdown, no explanation outside JSON):
 {
-  "reply": "Conversational markdown response with explanation and table",
-  "search": "string",
-  "tag": "string",
-  "gender": "Female" | "Male" | "All",
-  "numberStartsWith": "string",
-  "minOrderAmount": "string",
-  "maxOrderAmount": "string",
-  "minOrderCount": "string",
-  "maxOrderCount": "string",
-  "merchant": "string",
-  "maxActiveDays": "string",
-  "minAge": "string",
-  "maxAge": "string",
-  "limit": 10,
-  "sortBy": "orderAmount" | "orderCount" | "createdAt" | "lastActive",
-  "sortOrder": "desc" | "asc",
-  "sequenceSteps": ["step 1", "step 2", "step 3"],
+  "reply": "friendly conversational response",
+  "search": "keyword or Name1|Name2 for multi-name OR",
+  "searchField": "any",
+  "needsClarification": false,
+  "clarificationQuestion": "",
+  "clarificationOptions": [],
+  "clarificationSearch": "",
+  "tag": "All",
+  "gender": "All",
+  "numberStartsWith": "",
+  "minOrderAmount": "",
+  "maxOrderAmount": "",
+  "minOrderCount": "",
+  "maxOrderCount": "",
+  "merchant": "",
+  "maxActiveDays": "",
+  "minAge": "",
+  "maxAge": "",
+  "limit": 25,
+  "sortBy": "createdAt",
+  "sortOrder": "desc",
+  "sequenceSteps": ["step 1", "step 2"],
   "summaryBn": "বাংলা সামারি"
 }`;
 
@@ -125,17 +152,73 @@ OUTPUT ONLY JSON:
       }
     }
 
+    // 1b. Early return for clarification — don't query DB yet
+    if (parsedResult.needsClarification) {
+      const clarTerm = parsedResult.clarificationSearch || parsedResult.search || '';
+      return NextResponse.json({
+        success: true,
+        result: {
+          reply: parsedResult.clarificationQuestion || `"${clarTerm}" দিয়ে কোন field এ খুঁজবো?`,
+          needsClarification: true,
+          clarificationQuestion: parsedResult.clarificationQuestion || `"${clarTerm}" দিয়ে কী খুঁজবেন?`,
+          clarificationOptions: parsedResult.clarificationOptions?.length
+            ? parsedResult.clarificationOptions
+            : ['শুধু নাম দিয়ে খুঁজবো', 'শুধু এলাকা/ঠিকানায় খুঁজবো', 'সব জায়গায় খুঁজবো'],
+          clarificationSearch: clarTerm,
+          sequenceSteps: ['❓ কোন field এ খুঁজবো?'],
+          summaryBn: 'আপনার উত্তর অনুযায়ী সার্চ করা হবে।',
+          matchingCount: 0,
+          recordsPreview: [],
+          noResults: false,
+          aiQueryText: cleanPrompt,
+        },
+      });
+    }
+
     // 2. Query MongoDB Live Records for preview
     const dbQuery: any = {};
     if (parsedResult.search) {
-      const searchRegex = new RegExp(parsedResult.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      dbQuery.$or = [
-        { name: searchRegex },
-        { phone: searchRegex },
-        { location: searchRegex },
-        { area: searchRegex },
-        { 'customFields.primary_merchant': searchRegex },
-      ];
+      const rawSearch = parsedResult.search as string;
+      const searchField = (parsedResult.searchField as string) || 'any';
+
+      // Multi-name OR search: "Musa|Samiya" → match ANY name
+      if (rawSearch.includes('|')) {
+        const names = rawSearch.split('|').map((n: string) => n.trim()).filter(Boolean);
+        dbQuery.$or = names.flatMap((name: string) => {
+          const r = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          return [{ name: r }, { phone: r }, { email: r }];
+        });
+      } else if (searchField === 'name') {
+        // Name-only search — prevents address fields from matching
+        const searchRegex = new RegExp(rawSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        dbQuery.$or = [
+          { name: searchRegex },
+          { 'customFields.nickname': searchRegex },
+        ];
+      } else if (searchField === 'address') {
+        // Address/area-only search
+        const searchRegex = new RegExp(rawSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        dbQuery.$or = [
+          { location: searchRegex },
+          { area: searchRegex },
+          { address: searchRegex },
+          { 'customFields.canonical_address': searchRegex },
+          { 'customFields.matched_district_filters': searchRegex },
+          { 'customFields.matched_city_filters': searchRegex },
+          { 'customFields.matched_area_filters': searchRegex },
+        ];
+      } else {
+        // Omnisearch across all fields (default)
+        const searchRegex = new RegExp(rawSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        dbQuery.$or = [
+          { name: searchRegex },
+          { phone: searchRegex },
+          { location: searchRegex },
+          { area: searchRegex },
+          { email: searchRegex },
+          { 'customFields.primary_merchant': searchRegex },
+        ];
+      }
     }
 
     if (parsedResult.tag && parsedResult.tag !== 'All') {
@@ -187,11 +270,30 @@ OUTPUT ONLY JSON:
       gender: r.gender,
       orderAmount: r.orderAmount || r.customFields?.matched_net_order_amount_bdt || 0,
       orderCount: r.orderCount || r.customFields?.matched_order_count || 0,
-      location: r.location || 'Keraniganj',
-      primaryMerchant: r.customFields?.primary_merchant || 'Eferiwala / Multi-store',
+      location: r.location || '',
+      primaryMerchant: r.customFields?.primary_merchant || '',
     }));
 
-    const exportLabel = `Download Top ${recordsPreview.length} CSV (${recordsPreview.length} rows)`;
+    // ── Override AI reply based on actual DB result ──────────────────
+    const searchLabel = parsedResult.search
+      ? `"${parsedResult.search.replace(/\|/g, '" বা "')}" নামে`
+      : parsedResult.tag && parsedResult.tag !== 'All'
+      ? `"${parsedResult.tag}" ট্যাগে`
+      : 'এই criteria-তে';
+
+    if (totalCount === 0) {
+      parsedResult.reply =
+        `দুঃখিত! ${searchLabel} ডাটাবেজে কোনো রেকর্ড পাওয়া যায়নি। ` +
+        `অন্য নাম বা ভিন্ন filter দিয়ে আবার চেষ্টা করুন।`;
+      parsedResult.summaryBn = `কোনো ম্যাচিং রেকর্ড পাওয়া যায়নি।`;
+      parsedResult.sequenceSteps = ['🔍 খোঁজা হয়েছে', '❌ কোনো রেকর্ড পাওয়া যায়নি'];
+    } else if (recordsPreview.length > 0) {
+      parsedResult.reply =
+        `পেয়ে গেছি! ${searchLabel} মোট **${totalCount.toLocaleString()}** জন আছেন। ` +
+        `নিচে শীর্ষ ${recordsPreview.length} জনের তালিকা দেওয়া হলো:`;
+    }
+
+    const exportLabel = `Download ${recordsPreview.length} Records CSV`;
 
     return NextResponse.json({
       success: true,
@@ -200,8 +302,10 @@ OUTPUT ONLY JSON:
         aiQueryText: cleanPrompt,
         matchingCount: totalCount,
         recordsPreview,
+        noResults: totalCount === 0,
         exportPayload: {
           search: parsedResult.search,
+          nameWise: parsedResult.searchField === 'name' ? 'true' : undefined,
           tag: parsedResult.tag !== 'All' ? parsedResult.tag : undefined,
           gender: parsedResult.gender !== 'All' ? parsedResult.gender : undefined,
           numberStartsWith: parsedResult.numberStartsWith,
@@ -269,13 +373,22 @@ function parseNaturalLanguageHeuristics(prompt: string, availableTags: string[] 
     }
   }
 
-  // High order detection
-  if (lp.includes('high order') || lp.includes('বেশি অর্ডার') || lp.includes('order count') || lp.includes('ফ্রিকোয়েন্ট') || lp.includes('frequent')) {
-    sortBy = 'orderCount';
+  // High order / revenue targeting detection
+  const isRevenueTarget =
+    lp.includes('high order') || lp.includes('order count') ||
+    lp.includes('frequent') || lp.includes('target') ||
+    lp.includes('revenue') || lp.includes('loyal') || lp.includes('repeat') ||
+    lp.includes('besi order') || lp.includes('beshi order') ||
+    lp.includes('sob theke') || lp.includes('most order') ||
+    lp.includes('best customer') || lp.includes('valo customer');
+  if (isRevenueTarget) {
+    sortBy = 'orderAmount';
     sortOrder = 'desc';
     minOrderCount = '3';
+    limit = 50;
     sequenceSteps.push('📦 Filter: 3+ Lifetime Orders');
-    sequenceSteps.push('📊 Sort: Highest Order Count First');
+    sequenceSteps.push('💰 Sort: Highest Lifetime Spend First');
+    sequenceSteps.push('🎯 Revenue Targeting List');
   }
 
   // Spend threshold
@@ -308,6 +421,11 @@ function parseNaturalLanguageHeuristics(prompt: string, availableTags: string[] 
 
   return {
     search,
+    searchField: search ? 'any' : '',
+    needsClarification: false,
+    clarificationQuestion: '',
+    clarificationOptions: [] as string[],
+    clarificationSearch: '',
     tag,
     gender,
     numberStartsWith,

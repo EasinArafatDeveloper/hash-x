@@ -302,14 +302,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: rgba(var(--brand-glow-rgb), 0.35);
   border-radius: 9999px;
 }
-.dark ::-webkit-scrollbar-thumb {
-  background: #334155;
-}
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: rgba(var(--brand-glow-rgb), 0.6);
 }
 
 /* Tailwind animate-in utility */
@@ -344,3 +341,77 @@
   .duration-200 { animation-duration: 200ms; }
   .duration-300 { animation-duration: 300ms; }
 }
+
+/* =====================================================
+   PREMIUM UI ENHANCEMENT ANIMATIONS
+   ===================================================== */
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(var(--brand-glow-rgb), 0.08) 40%,
+    rgba(var(--brand-glow-rgb), 0.15) 50%,
+    rgba(var(--brand-glow-rgb), 0.08) 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.2s ease-in-out infinite;
+}
+
+/* Glow pulse for live indicators */
+@keyframes glowPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px rgba(var(--brand-glow-rgb), 0.5); }
+  50%        { opacity: 0.6; box-shadow: 0 0 12px rgba(var(--brand-glow-rgb), 0.9); }
+}
+.glow-pulse {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+/* Animated gradient border on cards */
+@keyframes gradientBorderShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.gradient-border-animated {
+  background: linear-gradient(135deg,
+    rgba(var(--brand-glow-rgb), 0.8),
+    rgba(139, 92, 246, 0.8),
+    rgba(var(--brand-glow-rgb), 0.8)
+  );
+  background-size: 200% 200%;
+  animation: gradientBorderShift 4s ease infinite;
+}
+
+/* Floating glow orb */
+@keyframes floatGlow {
+  0%, 100% { transform: translateY(0) scale(1);   opacity: 0.6; }
+  50%        { transform: translateY(-8px) scale(1.08); opacity: 0.9; }
+}
+.float-glow {
+  animation: floatGlow 4s ease-in-out infinite;
+}
+
+/* Metric card number count-up – controlled via JS */
+.count-up {
+  transition: all 0.1s ease;
+}
+
+/* Glass surface */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+}
+.dark .glass {
+  background: rgba(15, 23, 42, 0.75);
+}
+
+/* No-scrollbar utility */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

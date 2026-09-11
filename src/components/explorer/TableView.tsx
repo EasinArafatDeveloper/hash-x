@@ -7,13 +7,16 @@ import {
   Eye,
   ArrowUpDown,
   Calendar,
-  Image as ImageIcon,
   Tag,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 interface TableViewProps {
   records: IRecord[];
   onSelectRecord: (record: IRecord) => void;
+  onEditRecord?: (record: IRecord) => void;
+  onDeleteRecord?: (record: IRecord) => void;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   onSortChange?: (field: string) => void;
@@ -68,9 +71,11 @@ function TableAvatar({ record }: { record: IRecord }) {
   );
 }
 
-export function TableView({
+function TableViewComponent({
   records,
   onSelectRecord,
+  onEditRecord,
+  onDeleteRecord,
   sortBy = 'createdAt',
   sortOrder = 'desc',
   onSortChange,
@@ -239,13 +244,35 @@ export function TableView({
                     </span>
                   </td>
                   <td className="py-3.5 px-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => onSelectRecord(record)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-slate-800 hover:bg-brand-50 hover:text-brand-600 text-gray-600 dark:text-gray-300 text-xs font-semibold transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5" /> Details
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      {onEditRecord && (
+                        <button
+                          type="button"
+                          onClick={() => onEditRecord(record)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {onDeleteRecord && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteRecord(record)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onSelectRecord(record)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-slate-800 hover:bg-brand-50 hover:text-brand-600 text-gray-600 dark:text-gray-300 text-xs font-semibold transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> Details
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -256,3 +283,5 @@ export function TableView({
     </div>
   );
 }
+
+export const TableView = React.memo(TableViewComponent);

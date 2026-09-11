@@ -3,77 +3,141 @@ import connectToDatabase from '@/lib/db';
 import RecordModel from '@/lib/models/Record';
 import DatasetModel from '@/lib/models/Dataset';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60; // Cache stats for 60 seconds — dashboard doesn't need sub-second freshness
 
 export async function GET() {
   try {
     await connectToDatabase();
 
+    // Round 1: total count + active dataset (fast indexed queries in parallel)
     const [totalRecords, activeDataset] = await Promise.all([
       RecordModel.countDocuments({}),
       DatasetModel.findOne({}).sort({ createdAt: -1 }).lean(),
     ]);
 
-    // Financial & GMV Aggregation
-    const financialAggregation = await RecordModel.aggregate([
-      {
-        $group: {
-          _id: null,
-          totalGMV: { $sum: { $ifNull: ['$orderAmount', 0] } },
-          totalOrders: { $sum: { $ifNull: ['$orderCount', 0] } },
-          avgOrderValue: { $avg: { $ifNull: ['$orderAmount', 0] } },
-          maxSpend: { $max: { $ifNull: ['$orderAmount', 0] } },
+    // Round 2: All chart data + financials + topSpenders in one $facet (single DB round-trip)
+    // Round 3: Operator breakdown + Channel engagement in parallel $facet aggregations
+    const [chartsResult, [operatorResult, channelResult]] = await Promise.all([
+      RecordModel.aggregate([
+        {
+          $facet: {
+            financials: [
+              {
+                $group: {
+                  _id: null,
+                  totalGMV: { $sum: { $ifNull: ['$orderAmount', 0] } },
+                  totalOrders: { $sum: { $ifNull: ['$orderCount', 0] } },
+                  avgOrderValue: { $avg: { $ifNull: ['$orderAmount', 0] } },
+                  maxSpend: { $max: { $ifNull: ['$orderAmount', 0] } },
+                },
+              },
+            ],
+            gender: [
+              { $group: { _id: '$gender', count: { $sum: 1 } } },
+            ],
+            status: [
+              { $group: { _id: '$status', count: { $sum: 1 } } },
+            ],
+            locations: [
+              { $group: { _id: { $ifNull: ['$location', 'Unspecified'] }, count: { $sum: 1 } } },
+              { $sort: { count: -1 } },
+              { $limit: 8 },
+            ],
+            merchants: [
+              {
+                $group: {
+                  _id: { $ifNull: ['$customFields.primary_merchant', 'Direct / Multi-category'] },
+                  count: { $sum: 1 },
+                  totalSpend: { $sum: { $ifNull: ['$orderAmount', 0] } },
+                },
+              },
+              { $sort: { count: -1 } },
+              { $limit: 6 },
+            ],
+            ageRanges: [
+              {
+                $bucket: {
+                  groupBy: '$age',
+                  boundaries: [18, 26, 36, 50, 65],
+                  default: '65+',
+                  output: { count: { $sum: 1 } },
+                },
+              },
+            ],
+            topSpenders: [
+              { $sort: { orderAmount: -1 } },
+              { $limit: 5 },
+              { $project: { name: 1, phone: 1, gender: 1, orderAmount: 1, orderCount: 1, location: 1, customFields: 1, tags: 1 } },
+            ],
+          },
         },
-      },
+      ]),
+      Promise.all([
+        // Operator breakdown — one aggregation instead of 5 countDocuments
+        RecordModel.aggregate([
+          {
+            $facet: {
+              gp: [{ $match: { phone: { $regex: '^(88017|88013|017|013)' } } }, { $count: 'count' }],
+              robi: [{ $match: { phone: { $regex: '^(88018|018)' } } }, { $count: 'count' }],
+              bl: [{ $match: { phone: { $regex: '^(88019|88014|019|014)' } } }, { $count: 'count' }],
+              airtel: [{ $match: { phone: { $regex: '^(88016|016)' } } }, { $count: 'count' }],
+              teletalk: [{ $match: { phone: { $regex: '^(88015|015)' } } }, { $count: 'count' }],
+            },
+          },
+        ]),
+        // Channel engagement — one aggregation instead of 3 countDocuments
+        RecordModel.aggregate([
+          {
+            $facet: {
+              whatsapp: [
+                {
+                  $match: {
+                    $or: [
+                      { tags: { $regex: 'WhatsApp Active', $options: 'i' } },
+                      { 'customFields.whatsapp_status': { $regex: 'active', $options: 'i' } },
+                    ],
+                  },
+                },
+                { $count: 'count' },
+              ],
+              vip: [
+                {
+                  $match: {
+                    $or: [
+                      { tags: { $regex: 'VIP', $options: 'i' } },
+                      { orderAmount: { $gte: 10000 } },
+                    ],
+                  },
+                },
+                { $count: 'count' },
+              ],
+              frequent: [
+                { $match: { orderCount: { $gte: 3 } } },
+                { $count: 'count' },
+              ],
+            },
+          },
+        ]),
+      ]),
     ]);
 
-    const financials = financialAggregation[0] || {
-      totalGMV: 0,
-      totalOrders: 0,
-      avgOrderValue: 0,
-      maxSpend: 0,
-    };
+    // Parse $facet results
+    const facet = chartsResult[0] || {};
+    const financials = facet.financials?.[0] || { totalGMV: 0, totalOrders: 0, avgOrderValue: 0, maxSpend: 0 };
+    const topSpenders = facet.topSpenders || [];
 
-    // Aggregate gender distribution
-    const genderAggregation = await RecordModel.aggregate([
-      { $group: { _id: '$gender', count: { $sum: 1 } } },
-    ]);
-
-    // Aggregate status distribution
-    const statusAggregation = await RecordModel.aggregate([
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-    ]);
-
-    // Aggregate top locations
-    const locationAggregation = await RecordModel.aggregate([
-      { $group: { _id: { $ifNull: ['$location', 'Unspecified'] }, count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 8 },
-    ]);
-
-    // Aggregate top merchants
-    const merchantAggregation = await RecordModel.aggregate([
-      {
-        $group: {
-          _id: { $ifNull: ['$customFields.primary_merchant', 'Direct / Multi-category'] },
-          count: { $sum: 1 },
-          totalSpend: { $sum: { $ifNull: ['$orderAmount', 0] } },
-        },
-      },
-      { $sort: { count: -1 } },
-      { $limit: 6 },
-    ]);
-
-    // Aggregate Telecom Operators (GP: 017/013, Robi: 018, BL: 019/014, Airtel: 016, Teletalk: 015)
-    const [gpCount, robiCount, blCount, airtelCount, teletalkCount] = await Promise.all([
-      RecordModel.countDocuments({ phone: { $regex: '^(88017|88013|017|013)' } }),
-      RecordModel.countDocuments({ phone: { $regex: '^(88018|018)' } }),
-      RecordModel.countDocuments({ phone: { $regex: '^(88019|88014|019|014)' } }),
-      RecordModel.countDocuments({ phone: { $regex: '^(88016|016)' } }),
-      RecordModel.countDocuments({ phone: { $regex: '^(88015|015)' } }),
-    ]);
-
+    const ops = operatorResult?.[0] || {};
+    const gpCount = ops.gp?.[0]?.count || 0;
+    const robiCount = ops.robi?.[0]?.count || 0;
+    const blCount = ops.bl?.[0]?.count || 0;
+    const airtelCount = ops.airtel?.[0]?.count || 0;
+    const teletalkCount = ops.teletalk?.[0]?.count || 0;
     const otherOperatorCount = Math.max(0, totalRecords - (gpCount + robiCount + blCount + airtelCount + teletalkCount));
+
+    const ch = channelResult?.[0] || {};
+    const whatsappCount = ch.whatsapp?.[0]?.count || 0;
+    const vipCount = ch.vip?.[0]?.count || 0;
+    const frequentBuyerCount = ch.frequent?.[0]?.count || 0;
 
     const operators = [
       { name: 'Grameenphone (017/013)', value: gpCount, color: '#0EA5E9' },
@@ -84,42 +148,6 @@ export async function GET() {
       ...(otherOperatorCount > 0 ? [{ name: 'Other', value: otherOperatorCount, color: '#8B5CF6' }] : []),
     ];
 
-    // WhatsApp & VIP Engagement counts
-    const [whatsappCount, vipCount, frequentBuyerCount] = await Promise.all([
-      RecordModel.countDocuments({
-        $or: [
-          { tags: { $regex: 'WhatsApp Active', $options: 'i' } },
-          { 'customFields.whatsapp_status': { $regex: 'active', $options: 'i' } },
-        ],
-      }),
-      RecordModel.countDocuments({
-        $or: [
-          { tags: { $regex: 'VIP', $options: 'i' } },
-          { orderAmount: { $gte: 10000 } },
-        ],
-      }),
-      RecordModel.countDocuments({ orderCount: { $gte: 3 } }),
-    ]);
-
-    // Top 5 Spenders List
-    const topSpenders = await RecordModel.find({})
-      .sort({ orderAmount: -1 })
-      .limit(5)
-      .select('name phone gender orderAmount orderCount location customFields tags')
-      .lean();
-
-    // Aggregate age demographics
-    const ageAggregation = await RecordModel.aggregate([
-      {
-        $bucket: {
-          groupBy: '$age',
-          boundaries: [18, 26, 36, 50, 65],
-          default: '65+',
-          output: { count: { $sum: 1 } },
-        },
-      },
-    ]);
-
     const ageRangeLabels: Record<string, string> = {
       '18': '18-25',
       '26': '26-35',
@@ -128,7 +156,7 @@ export async function GET() {
       '65+': '65+',
     };
 
-    let formattedAgeData = ageAggregation.map((item) => ({
+    let formattedAgeData = (facet.ageRanges || []).map((item: any) => ({
       range: ageRangeLabels[String(item._id)] || String(item._id),
       count: item.count,
     }));
@@ -143,32 +171,25 @@ export async function GET() {
     }
 
     const charts = {
-      gender: genderAggregation.length > 0 ? genderAggregation.map((g) => ({
-        name: g._id || 'Other',
-        value: g.count,
-      })) : [
-        { name: 'Male', value: Math.round(totalRecords * 0.65) },
-        { name: 'Female', value: Math.round(totalRecords * 0.30) },
-        { name: 'Other', value: Math.round(totalRecords * 0.05) },
-      ],
-      status: statusAggregation.length > 0 ? statusAggregation.map((s) => ({
-        name: s._id || 'Active',
-        value: s.count,
-      })) : [
-        { name: 'Active', value: totalRecords },
-        { name: 'Inactive', value: 0 },
-        { name: 'Pending', value: 0 },
-      ],
-      locations: locationAggregation.filter((l) => l._id).length > 0 ? locationAggregation.map((l) => ({
-        name: l._id || 'Unspecified',
-        value: l.count,
-      })) : [
-        { name: 'Dhaka', value: Math.round(totalRecords * 0.45) },
-        { name: 'Chittagong', value: Math.round(totalRecords * 0.25) },
-        { name: 'Sylhet', value: Math.round(totalRecords * 0.15) },
-        { name: 'Rajshahi', value: Math.round(totalRecords * 0.15) },
-      ],
-      merchants: merchantAggregation.map((m) => ({
+      gender: (facet.gender || []).length > 0
+        ? facet.gender.map((g: any) => ({ name: g._id || 'Other', value: g.count }))
+        : [
+            { name: 'Male', value: Math.round(totalRecords * 0.65) },
+            { name: 'Female', value: Math.round(totalRecords * 0.30) },
+            { name: 'Other', value: Math.round(totalRecords * 0.05) },
+          ],
+      status: (facet.status || []).length > 0
+        ? facet.status.map((s: any) => ({ name: s._id || 'Active', value: s.count }))
+        : [{ name: 'Active', value: totalRecords }, { name: 'Inactive', value: 0 }, { name: 'Pending', value: 0 }],
+      locations: (facet.locations || []).filter((l: any) => l._id).length > 0
+        ? facet.locations.map((l: any) => ({ name: l._id || 'Unspecified', value: l.count }))
+        : [
+            { name: 'Dhaka', value: Math.round(totalRecords * 0.45) },
+            { name: 'Chittagong', value: Math.round(totalRecords * 0.25) },
+            { name: 'Sylhet', value: Math.round(totalRecords * 0.15) },
+            { name: 'Rajshahi', value: Math.round(totalRecords * 0.15) },
+          ],
+      merchants: (facet.merchants || []).map((m: any) => ({
         name: m._id || 'General Store',
         value: m.count,
         spend: m.totalSpend,
@@ -179,10 +200,10 @@ export async function GET() {
 
     return NextResponse.json({
       totalRecords,
-      totalFields: activeDataset?.totalFields || 21,
+      totalFields: (activeDataset as any)?.totalFields || 21,
       filteredRecords: totalRecords,
-      lastUpload: activeDataset?.uploadedAt
-        ? new Date(activeDataset.uploadedAt).toLocaleDateString('en-US', {
+      lastUpload: (activeDataset as any)?.uploadedAt
+        ? new Date((activeDataset as any).uploadedAt).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
             year: 'numeric',

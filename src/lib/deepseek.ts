@@ -535,9 +535,9 @@ export function computeSmartTagsFromRows(
   for (const r of rows) {
     const { phone, name } = getPhoneAndName(r);
 
-    // 1. WhatsApp Status
-    const waVal = getVal(r, 'whatsapp_status', ['whatsapp', 'wastatus', 'wpstatus', 'whatsappstatus']).toLowerCase();
-    if (waVal.includes('active') || waVal === 'yes' || waVal === 'true' || waVal === 'valid' || waVal === '1') {
+    // 1. WhatsApp Status — exact match only ("inactive" must NOT match "active")
+    const waVal = getVal(r, 'whatsapp_status', ['whatsapp', 'wastatus', 'wpstatus', 'whatsappstatus']).toLowerCase().trim();
+    if (waVal === 'active' || waVal === 'yes' || waVal === 'true' || waVal === 'valid' || waVal === '1') {
       waActiveCount++;
       if (waSamples.length < 3) {
         waSamples.push({ phone, name, matchedValue: `WhatsApp: ${waVal || 'Active'}` });
@@ -583,14 +583,14 @@ export function computeSmartTagsFromRows(
       }
     }
 
-    // 5. Gender Demographics
-    const genderVal = getVal(r, 'gender', ['sex']).toLowerCase();
-    if (genderVal.startsWith('f') || genderVal.includes('female') || genderVal.includes('woman')) {
+    // 5. Gender Demographics — check female FIRST to avoid "female".includes("male") false positive
+    const genderVal = getVal(r, 'gender', ['sex']).toLowerCase().trim();
+    if (genderVal === 'female' || genderVal === 'f' || genderVal.startsWith('female') || genderVal.includes('woman')) {
       femaleCount++;
       if (femaleSamples.length < 3) {
         femaleSamples.push({ phone, name, matchedValue: 'Gender: Female' });
       }
-    } else if (genderVal.startsWith('m') || genderVal.includes('male') || genderVal.includes('man')) {
+    } else if (genderVal === 'male' || genderVal === 'm' || genderVal.startsWith('male') || genderVal.includes('man')) {
       maleCount++;
       if (maleSamples.length < 3) {
         maleSamples.push({ phone, name, matchedValue: 'Gender: Male' });

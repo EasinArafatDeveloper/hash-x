@@ -4,25 +4,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
   ArrowRight,
-  X,
-  RefreshCw,
   Bot,
   Send,
   Download,
   Eye,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Flame,
-  User,
-  Phone,
-  ShoppingBag,
-  Coins,
-  MapPin,
   Trash2,
-  Layers,
-  ArrowUpDown,
-  Filter,
+  X,
+  Minimize2,
+  ChevronUp,
+  Zap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -56,31 +47,45 @@ interface ChatMessage {
   exportPayload?: any;
   exportLabel?: string;
   filterParams?: Record<string, any>;
+  noResults?: boolean;
   matchingCount?: number;
+  needsClarification?: boolean;
+  clarificationQuestion?: string;
+  clarificationOptions?: string[];
+  clarificationSearch?: string;
 }
 
-const QUICK_AI_PROMPTS = [
-  {
-    label: '⭐ Top 10 VIP & High Orders (১০ জন টপ বায়ার)',
-    prompt: 'amake tume top 10 vip and high order korsa ay rkomer 10 joner list dau',
-  },
-  {
-    label: '💬 WhatsApp Active Female Shoppers',
-    prompt: 'Female customers with WhatsApp Active status and spend > 5000',
-  },
-  {
-    label: '🛍️ BeautyBaaz Frequent Buyers',
-    prompt: 'BeautyBaaz store theke 3 er besi order korsa emon top 10 buyer list dao',
-  },
-  {
-    label: '💰 Dhaka High Spenders (৳10k+)',
-    prompt: 'Dhaka and Keraniganj VIP high spenders sorted by highest amount',
-  },
-  {
-    label: '📞 Grameenphone 017 High Orders',
-    prompt: 'GP 017 numbers with high order count and lifetime spend',
-  },
+const QUICK_PROMPTS = [
+  'Top 10 VIP customers by lifetime spend',
+  'WhatsApp active female customers from Dhaka',
+  'Customers with 5+ orders last 30 days',
 ];
+
+// Animated typing dots for AI loading
+function TypingIndicator() {
+  return (
+    <div className="flex items-start gap-2.5 px-1">
+      <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-md shadow-purple-500/30 shrink-0 mt-0.5">
+        <Bot className="w-3.5 h-3.5 text-white" />
+      </div>
+      <div className="flex items-center gap-1 px-4 py-3 rounded-2xl rounded-tl-sm bg-white dark:bg-slate-800 border border-purple-200/80 dark:border-purple-800/60 shadow-sm">
+        {[0, 1, 2].map((i) => (
+          <motion.div
+            key={i}
+            className="w-2 h-2 rounded-full bg-purple-500 dark:bg-purple-400"
+            animate={{ y: [0, -6, 0], opacity: [0.5, 1, 0.5] }}
+            transition={{
+              duration: 0.9,
+              repeat: Infinity,
+              delay: i * 0.18,
+              ease: 'easeInOut',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function AIQueryAssistant({
   onApplyAiFilter,
@@ -91,58 +96,55 @@ export function AIQueryAssistant({
   availableTags = [],
   totalMatchingRecords = 0,
 }: AIQueryAssistantProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [promptInput, setPromptInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Initialize with initial message if empty
+  // Auto-scroll to latest message
   useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: 'welcome-msg',
-          sender: 'assistant',
-          text: '👋 আসসালামু আলাইকুম! আমি আপনার **Morpheus AI Data Copilot**। আপনি বাংলা, English বা Banglish-এ যেকোনো রিকোয়েস্ট করতে পারেন।\n\nউদাহরণ:\n- *"amake tume top 10 vip and high order korsa ay rkomer 10 joner list dau"*\n- *"Dhaka female VIP with WhatsApp"*\n- *"BeautyBaaz er highest spender 10 buyer"*',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ]);
-    }
-  }, []);
-
-  // Auto scroll to bottom when new message arrives
-  useEffect(() => {
-    if (messages.length > 1) {
-      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length > 0 || isLoading) {
+      setTimeout(() => {
+        chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 80);
     }
   }, [messages, isLoading]);
 
+  // Focus input when panel opens
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 200);
+    }
+  }, [isOpen]);
+
+  // Auto-resize textarea
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setPromptInput(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+  };
+
   const handleDownloadExport = (exportPayload: any, label?: string) => {
     if (!exportPayload) return;
-    const toastId = toast.loading(`Preparing instant CSV download...`);
+    const toastId = toast.loading('Preparing CSV download...');
     try {
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = '/api/export';
       form.style.display = 'none';
-
       const input = document.createElement('input');
       input.type = 'hidden';
       input.name = 'payload';
       input.value = JSON.stringify(exportPayload);
       form.appendChild(input);
-
       document.body.appendChild(form);
       form.submit();
       form.remove();
-
-      setTimeout(() => {
-        toast.success(`Download started! Your sorted CSV is downloading.`, { id: toastId });
-      }, 1200);
-    } catch (err: any) {
-      console.error('Export error:', err);
-      toast.error('Download failed. Please try again.', { id: toastId });
+      setTimeout(() => toast.success('Download started!', { id: toastId }), 1200);
+    } catch {
+      toast.error('Download failed', { id: toastId });
     }
   };
 
@@ -159,6 +161,7 @@ export function AIQueryAssistant({
 
     setMessages((prev) => [...prev, userMessage]);
     setPromptInput('');
+    if (inputRef.current) inputRef.current.style.height = 'auto';
     setIsLoading(true);
 
     try {
@@ -167,19 +170,39 @@ export function AIQueryAssistant({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: textToSend,
-          messages: messages.map((m) => ({ role: m.sender === 'assistant' ? 'assistant' : 'user', content: m.text })),
+          messages: messages.map((m) => ({
+            role: m.sender === 'assistant' ? 'assistant' : 'user',
+            content: m.text,
+          })),
           availableTags,
         }),
       });
 
-      if (!res.ok) throw new Error('AI Query parsing failed');
-
+      if (!res.ok) throw new Error('AI Query failed');
       const data = await res.json();
       const r = data.result;
 
       if (r) {
+        // Clarification needed — don't apply filter, just show the question
+        if (r.needsClarification) {
+          const clarMsg: ChatMessage = {
+            id: `ai-${Date.now()}`,
+            sender: 'assistant',
+            text: r.clarificationQuestion || `"${r.clarificationSearch}" দিয়ে কোন field এ খুঁজবো?`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            needsClarification: true,
+            clarificationQuestion: r.clarificationQuestion,
+            clarificationOptions: r.clarificationOptions || ['শুধু নাম দিয়ে খুঁজবো', 'শুধু এলাকা/ঠিকানায় খুঁজবো', 'সব জায়গায় খুঁজবো'],
+            clarificationSearch: r.clarificationSearch || r.search || '',
+            sequenceSteps: r.sequenceSteps || [],
+          };
+          setMessages((prev) => [...prev, clarMsg]);
+          return;
+        }
+
         const filterPayload = {
           search: r.search || '',
+          nameWise: r.searchField === 'name',
           tag: r.tag || 'All',
           gender: r.gender || 'All',
           numberStartsWith: r.numberStartsWith || '',
@@ -193,19 +216,18 @@ export function AIQueryAssistant({
           maxAge: r.maxAge || '',
           sortBy: r.sortBy || 'createdAt',
           sortOrder: r.sortOrder || 'desc',
-          limit: r.limit || (r.recordsPreview ? r.recordsPreview.length : 25),
+          limit: r.limit || 25,
           aiQueryText: textToSend,
           aiSequenceSteps: r.sequenceSteps || [],
           aiSummaryBn: r.summaryBn || '',
         };
 
-        // Automatically apply to main Data Explorer
         onApplyAiFilter(filterPayload);
 
         const aiResponse: ChatMessage = {
           id: `ai-${Date.now()}`,
           sender: 'assistant',
-          text: r.reply || r.summaryBn || 'আপনার রিকোয়েস্ট অনুযায়ী ডাটাবেজ ফিল্টার ও সর্ট করে নিচের তালিকায় সাজানো হয়েছে:',
+          text: r.reply || r.summaryBn || 'ডাটাবেজ থেকে ফিল্টার করে নিচে দেখানো হলো:',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           sequenceSteps: r.sequenceSteps || [],
           summaryBn: r.summaryBn || '',
@@ -220,236 +242,305 @@ export function AIQueryAssistant({
             sortBy: r.sortBy,
             sortOrder: r.sortOrder,
             limit: r.limit,
-            customFilename: `Sorted_${r.sortBy || 'Records'}`,
           },
-          exportLabel: r.exportLabel || `Download Sorted CSV (${r.recordsPreview?.length || 0} rows)`,
+          exportLabel: r.exportLabel || `Download CSV (${r.recordsPreview?.length || 0} rows)`,
           filterParams: filterPayload,
           matchingCount: r.matchingCount || 0,
+          noResults: r.noResults === true || r.matchingCount === 0,
         };
 
         setMessages((prev) => [...prev, aiResponse]);
-        toast.success(`AI Query executed & Explorer synchronized!`);
+        if (r.matchingCount === 0) {
+          toast.info('কোনো রেকর্ড পাওয়া যায়নি।');
+        } else {
+          toast.success(`${r.matchingCount} টি রেকর্ড পাওয়া গেছে!`);
+        }
       }
-    } catch (err: any) {
-      console.error('AI Chat error:', err);
+    } catch {
       setMessages((prev) => [
         ...prev,
         {
           id: `err-${Date.now()}`,
           sender: 'assistant',
-          text: 'দুঃখিত, কোনো ত্রুটি হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন বা সাধারণ ফিল্টার ব্যবহার করুন।',
+          text: 'দুঃখিত, একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
-      toast.error('Could not process AI chat request');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleClearChat = () => {
-    setMessages([
-      {
-        id: `welcome-${Date.now()}`,
-        sender: 'assistant',
-        text: '👋 চ্যাট হিস্ট্রি রিসেট করা হয়েছে। আপনি যেকোনো নতুন কুয়েরি করতে পারেন!',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      },
-    ]);
+    setMessages([]);
     setPromptInput('');
     onClearAiFilter();
-    toast.info('Chat history and AI filters cleared');
+    toast.info('Chat cleared');
   };
 
+  const unreadBadge = messages.filter((m) => m.sender === 'assistant').length;
+
   return (
-    <div className="rounded-3xl bg-gradient-to-r from-purple-900/10 via-indigo-900/5 to-brand-900/10 dark:from-purple-950/40 dark:via-indigo-950/20 dark:to-slate-900 border border-purple-200/80 dark:border-purple-900/60 shadow-md p-4 sm:p-5 space-y-3.5 transition-all">
-      {/* Header Bar with Expand/Collapse & Reset Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-500 text-white flex items-center justify-center shadow-lg shadow-purple-500/25 shrink-0">
-            <Bot className="w-5 h-5 animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                <span>DeepSeek AI Free-Form Conversational Assistant</span>
-              </h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 uppercase tracking-wider">
-                Full AI Chat
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-              Type naturally in Bangla, English or Banglish. Ask for top sorted lists, VIPs, spenders, or specific store buyers.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 self-start sm:self-center">
-          {messages.length > 1 && (
-            <button
-              type="button"
-              onClick={handleClearChat}
-              className="px-2.5 py-1.5 rounded-xl bg-gray-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-gray-600 dark:text-gray-300 hover:text-rose-600 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
-              title="Clear Chat History"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Reset Chat</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="px-3 py-1.5 rounded-xl bg-purple-100 dark:bg-purple-900/40 hover:bg-purple-200 dark:hover:bg-purple-800/50 text-purple-800 dark:text-purple-200 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-          >
-            {isExpanded ? (
-              <>
-                <ChevronUp className="w-3.5 h-3.5" />
-                <span>Collapse Chat</span>
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-3.5 h-3.5" />
-                <span>Open Chat ({messages.length})</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* QUICK SUGGESTION PILLS */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1">
-            <Flame className="w-3 h-3 text-amber-500" />
-            <span>Try these conversational prompts:</span>
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {QUICK_AI_PROMPTS.map((item, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => {
-                setPromptInput(item.prompt);
-                handleSendMessage(item.prompt);
-              }}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white/90 dark:bg-slate-800/90 text-gray-700 dark:text-gray-200 border border-purple-100 dark:border-purple-900/60 hover:border-purple-300 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50/60 shadow-xs transition-all cursor-pointer active:scale-95"
-            >
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* CONVERSATION THREAD CONTAINER */}
+    <>
+      {/* ── Floating Launcher Button ─────────────────────────────────── */}
       <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden space-y-3 pt-1"
+        {!isOpen && (
+          <motion.button
+            key="launcher"
+            type="button"
+            onClick={() => setIsOpen(true)}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.94 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+            className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 text-white shadow-2xl shadow-purple-600/40 flex items-center justify-center cursor-pointer"
+            title="Open AI Assistant"
           >
-            {/* Messages Scroll Area */}
-            <div className="max-h-[380px] overflow-y-auto pr-1 space-y-3.5 scrollbar-thin scrollbar-thumb-purple-200 dark:scrollbar-thumb-purple-900">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex flex-col ${
-                    msg.sender === 'user' ? 'items-end' : 'items-start'
-                  } space-y-1.5`}
+            {/* Pulse ring */}
+            <span className="absolute inset-0 rounded-2xl bg-purple-500 animate-ping opacity-20" />
+            <Bot className="w-6 h-6 relative z-10" />
+            {unreadBadge > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-950">
+                {unreadBadge}
+              </span>
+            )}
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* ── Chat Panel ───────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            key="chat-panel"
+            initial={{ opacity: 0, y: 60, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 60, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+            className="fixed bottom-6 right-6 z-50 w-[min(420px,calc(100vw-24px))] flex flex-col rounded-3xl shadow-2xl shadow-purple-900/30 overflow-hidden border border-purple-200/60 dark:border-purple-900/60"
+            style={{ maxHeight: 'min(600px, calc(100vh - 100px))' }}
+          >
+            {/* Panel Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-700 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+                  <Bot className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white leading-tight">AI Data Assistant</h3>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 glow-pulse" />
+                    <span className="text-[10px] font-semibold text-purple-200 uppercase tracking-wider">
+                      DeepSeek · Live
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearChat}
+                    className="p-1.5 rounded-lg text-purple-200 hover:text-white hover:bg-white/15 transition-colors"
+                    title="Clear chat"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="p-1.5 rounded-lg text-purple-200 hover:text-white hover:bg-white/15 transition-colors"
+                  title="Close"
                 >
-                  {/* Sender Badge & Time */}
-                  <div className="flex items-center gap-1.5 px-1 text-[10px] font-semibold text-gray-400 dark:text-gray-500">
-                    <span>{msg.sender === 'user' ? 'You' : 'DeepSeek AI Copilot'}</span>
-                    <span>•</span>
-                    <span>{msg.timestamp}</span>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-slate-950 px-3 py-4 space-y-4 min-h-0">
+              {/* Empty state / welcome */}
+              {messages.length === 0 && !isLoading && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-4"
+                >
+                  {/* Welcome message */}
+                  <div className="flex items-start gap-2.5 px-1">
+                    <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-md shadow-purple-500/30 shrink-0 mt-0.5">
+                      <Bot className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <div className="max-w-[82%] px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-white dark:bg-slate-800 border border-purple-100 dark:border-purple-900/60 shadow-sm">
+                      <p className="text-xs text-gray-700 dark:text-gray-200 leading-relaxed">
+                        আমি আপনার AI Data Assistant। Banglish বা English-এ যা জিজ্ঞেস করুন — আমি ডাটাবেজ থেকে ফিল্টার করে দেখাবো।
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Message Bubble */}
+                  {/* Quick prompts */}
+                  <div className="px-1 space-y-1.5">
+                    <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest px-1">
+                      Quick Suggestions
+                    </p>
+                    {QUICK_PROMPTS.map((prompt) => (
+                      <motion.button
+                        key={prompt}
+                        type="button"
+                        whileHover={{ x: 3 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => handleSendMessage(prompt)}
+                        className="w-full text-left px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-purple-100 dark:border-purple-900/50 hover:border-purple-300 dark:hover:border-purple-700 text-xs text-gray-700 dark:text-gray-200 font-medium transition-all flex items-center justify-between gap-2 group shadow-sm"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Zap className="w-3 h-3 text-purple-400 shrink-0" />
+                          <span className="truncate">{prompt}</span>
+                        </div>
+                        <ArrowRight className="w-3 h-3 text-purple-300 group-hover:text-purple-500 shrink-0 transition-colors" />
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Conversation messages */}
+              {messages.map((msg, idx) => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                  className={`flex ${msg.sender === 'user' ? 'justify-end' : 'items-start gap-2.5'} px-1`}
+                >
+                  {msg.sender === 'assistant' && (
+                    <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-md shadow-purple-500/30 shrink-0 mt-0.5">
+                      <Bot className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  )}
+
                   <div
-                    className={`max-w-[95%] sm:max-w-[85%] rounded-2xl p-3.5 text-xs sm:text-sm leading-relaxed shadow-sm ${
+                    className={`max-w-[82%] rounded-2xl shadow-sm ${
                       msg.sender === 'user'
-                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium rounded-tr-xs'
-                        : 'bg-white dark:bg-slate-850 text-gray-800 dark:text-gray-100 border border-purple-200 dark:border-purple-800/70 rounded-tl-xs space-y-3'
+                        ? 'px-3.5 py-2.5 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-tr-sm'
+                        : 'px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-purple-100 dark:border-purple-900/60 text-gray-800 dark:text-gray-100 rounded-tl-sm space-y-2.5'
                     }`}
                   >
-                    {/* Message Text Content */}
-                    <div className="whitespace-pre-line font-normal">
-                      {msg.text}
+                    {/* Timestamp */}
+                    <div className={`text-[9px] font-semibold mb-1 ${msg.sender === 'user' ? 'text-purple-200' : 'text-gray-400 dark:text-gray-500'}`}>
+                      {msg.sender === 'user' ? 'You' : 'AI'} · {msg.timestamp}
                     </div>
 
-                    {/* Sequence Steps (if any) */}
-                    {msg.sequenceSteps && msg.sequenceSteps.length > 0 && (
-                      <div className="space-y-1.5 pt-1 border-t border-purple-100 dark:border-purple-900/60">
-                        <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider block">
-                          Applied Filtering & Sort Sequence:
-                        </span>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {msg.sequenceSteps.map((step, sIdx) => (
-                            <span
-                              key={sIdx}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800"
+                    {/* Message text */}
+                    <p className="text-xs leading-relaxed whitespace-pre-line">{msg.text}</p>
+
+                    {/* Clarification option buttons */}
+                    {msg.needsClarification && msg.clarificationOptions && msg.sender === 'assistant' && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-[10px] font-bold text-purple-500 dark:text-purple-400 uppercase tracking-wider">
+                          একটি option বেছে নিন:
+                        </p>
+                        <div className="flex flex-col gap-1.5">
+                          {msg.clarificationOptions.map((opt) => (
+                            <motion.button
+                              key={opt}
+                              type="button"
+                              whileHover={{ x: 3 }}
+                              whileTap={{ scale: 0.96 }}
+                              onClick={() => {
+                                const term = msg.clarificationSearch || '';
+                                let followUp = '';
+                                const optLower = opt.toLowerCase();
+                                if (optLower.includes('নাম') || optLower.includes('name')) {
+                                  followUp = `শুধু নাম field এ '${term}' খোঁজো`;
+                                } else if (optLower.includes('এলাকা') || optLower.includes('ঠিকানা') || optLower.includes('address')) {
+                                  followUp = `শুধু এলাকা বা ঠিকানা field এ '${term}' খোঁজো`;
+                                } else {
+                                  followUp = `সব field এ '${term}' খোঁজো`;
+                                }
+                                handleSendMessage(followUp);
+                              }}
+                              className="flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-semibold bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 hover:border-purple-300 transition-all text-left"
                             >
-                              <span>{step}</span>
-                              {sIdx < (msg.sequenceSteps?.length || 0) - 1 && (
-                                <ArrowRight className="w-3 h-3 text-purple-400 ml-1" />
-                              )}
-                            </span>
+                              <ArrowRight className="w-3 h-3 shrink-0" />
+                              {opt}
+                            </motion.button>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Records Preview Table (Top 10 / Filtered List) */}
-                    {msg.recordsPreview && msg.recordsPreview.length > 0 && (
-                      <div className="space-y-2 pt-1 border-t border-purple-100 dark:border-purple-900/60">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                            <span>Top {msg.recordsPreview.length} Live Database Records:</span>
+                    {/* No-results state */}
+                    {msg.noResults && msg.sender === 'assistant' && (
+                      <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 flex items-start gap-2.5">
+                        <span className="text-lg leading-none">🔍</span>
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300">
+                            কোনো রেকর্ড পাওয়া যায়নি
+                          </p>
+                          <p className="text-[10px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                            ভিন্ন নাম, ফোন নম্বর বা অন্য keyword দিয়ে আবার চেষ্টা করুন।
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sequence steps */}
+                    {!msg.noResults && msg.sequenceSteps && msg.sequenceSteps.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1 pt-1">
+                        {msg.sequenceSteps.map((step, sIdx) => (
+                          <React.Fragment key={sIdx}>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                              {step}
+                            </span>
+                            {sIdx < (msg.sequenceSteps?.length || 0) - 1 && (
+                              <ArrowRight className="w-2.5 h-2.5 text-purple-300" />
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Records preview table */}
+                    {!msg.noResults && msg.recordsPreview && msg.recordsPreview.length > 0 && (
+                      <div className="space-y-2 pt-1 border-t border-purple-100 dark:border-purple-900/50">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-gray-900 dark:text-white">
+                          <span className="flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            Top {msg.recordsPreview.length} records
                           </span>
-                          {msg.matchingCount !== undefined && msg.matchingCount > 0 && (
-                            <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 font-bold">
-                              {msg.matchingCount.toLocaleString()} total matches
+                          {msg.matchingCount && msg.matchingCount > 0 && (
+                            <span className="text-[10px] font-mono text-purple-500 dark:text-purple-400">
+                              {msg.matchingCount.toLocaleString()} total
                             </span>
                           )}
                         </div>
 
-                        {/* Mini Table */}
-                        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-slate-750 bg-gray-50/50 dark:bg-slate-900/50">
-                          <table className="w-full text-left text-[11px]">
-                            <thead className="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 uppercase font-semibold text-[9px] tracking-wider">
+                        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900">
+                          <table className="w-full text-left text-[10px]">
+                            <thead className="bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">
                               <tr>
-                                <th className="px-2.5 py-1.5">#</th>
-                                <th className="px-2.5 py-1.5">Customer Name</th>
-                                <th className="px-2.5 py-1.5">Phone</th>
-                                <th className="px-2.5 py-1.5 text-center">Orders</th>
-                                <th className="px-2.5 py-1.5 text-right">Lifetime Spend</th>
-                                <th className="px-2.5 py-1.5">Location / Store</th>
+                                <th className="px-2 py-1.5">#</th>
+                                <th className="px-2 py-1.5">Name</th>
+                                <th className="px-2 py-1.5">Phone</th>
+                                <th className="px-2 py-1.5 text-right">Spend</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200/60 dark:divide-slate-800">
+                            <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                               {msg.recordsPreview.map((rec, rIdx) => (
                                 <tr key={rIdx} className="hover:bg-purple-50/40 dark:hover:bg-purple-950/20 transition-colors">
-                                  <td className="px-2.5 py-1.5 font-bold text-purple-600 dark:text-purple-400">
-                                    #{rIdx + 1}
+                                  <td className="px-2 py-1.5 font-bold text-purple-500">#{rIdx + 1}</td>
+                                  <td className="px-2 py-1.5 font-semibold text-gray-900 dark:text-white truncate max-w-[90px]">
+                                    {rec.name || 'N/A'}
                                   </td>
-                                  <td className="px-2.5 py-1.5 font-semibold text-gray-900 dark:text-white truncate max-w-[120px]">
-                                    {rec.name || 'Unnamed Client'}
-                                  </td>
-                                  <td className="px-2.5 py-1.5 font-mono text-gray-600 dark:text-gray-300">
+                                  <td className="px-2 py-1.5 font-mono text-gray-500 dark:text-gray-400">
                                     {rec.phone}
                                   </td>
-                                  <td className="px-2.5 py-1.5 text-center font-bold text-indigo-600 dark:text-indigo-400">
-                                    {rec.orderCount || 0}
-                                  </td>
-                                  <td className="px-2.5 py-1.5 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                                  <td className="px-2 py-1.5 text-right font-bold text-emerald-600 dark:text-emerald-400">
                                     ৳{(rec.orderAmount || 0).toLocaleString()}
-                                  </td>
-                                  <td className="px-2.5 py-1.5 text-gray-500 dark:text-gray-400 truncate max-w-[130px]">
-                                    {rec.location || rec.primaryMerchant || 'Dhaka'}
                                   </td>
                                 </tr>
                               ))}
@@ -457,87 +548,92 @@ export function AIQueryAssistant({
                           </table>
                         </div>
 
-                        {/* Action Buttons: 1-Click CSV Download & Apply to Explorer */}
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 pt-0.5 flex-wrap">
                           <button
                             type="button"
                             onClick={() => handleDownloadExport(msg.exportPayload, msg.exportLabel)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold shadow-sm shadow-emerald-600/20 transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold shadow-sm transition-all cursor-pointer"
                           >
-                            <Download className="w-3.5 h-3.5" />
-                            <span>📥 {msg.exportLabel || 'Download Sorted CSV'}</span>
+                            <Download className="w-3 h-3" />
+                            Download CSV
                           </button>
-
                           {msg.filterParams && (
                             <button
                               type="button"
-                              onClick={() => {
-                                onApplyAiFilter(msg.filterParams!);
-                                toast.success('Applied to Data Explorer view!');
-                              }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-bold transition-all cursor-pointer"
+                              onClick={() => { onApplyAiFilter(msg.filterParams!); toast.success('Applied!'); }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-bold transition-all cursor-pointer"
                             >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>View All Matches in Explorer</span>
+                              <Eye className="w-3 h-3" />
+                              View in Explorer
                             </button>
                           )}
                         </div>
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
               ))}
 
-              {isLoading && (
-                <div className="flex items-start space-y-1.5">
-                  <div className="bg-white dark:bg-slate-850 text-gray-800 dark:text-gray-100 border border-purple-200 dark:border-purple-800/70 rounded-2xl rounded-tl-xs p-3.5 text-xs flex items-center gap-2 shadow-sm">
-                    <RefreshCw className="w-4 h-4 animate-spin text-purple-600" />
-                    <span className="font-semibold text-purple-700 dark:text-purple-300">
-                      DeepSeek AI is analyzing your prompt, sorting database records, and preparing preview...
-                    </span>
-                  </div>
-                </div>
-              )}
+              {/* AI Typing indicator */}
+              <AnimatePresence>
+                {isLoading && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <TypingIndicator />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div ref={chatBottomRef} />
             </div>
 
-            {/* Input Bar inside Chat Card */}
-            <div className="relative flex items-center gap-2 pt-1 border-t border-purple-200/60 dark:border-purple-900/40">
-              <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-purple-600 dark:text-purple-400">
-                  <Bot className="w-4 h-4" />
+            {/* ── Fixed Input Bar (always at bottom) ───────────────── */}
+            <div className="shrink-0 bg-white dark:bg-slate-900 border-t border-gray-200/80 dark:border-slate-800 px-3 py-3">
+              <div className="flex items-end gap-2">
+                <div className="flex-1 relative bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl focus-within:ring-2 focus-within:ring-purple-500 focus-within:border-purple-400 transition-all overflow-hidden">
+                  <textarea
+                    ref={inputRef}
+                    rows={1}
+                    value={promptInput}
+                    onChange={handleInputChange}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder="Ask anything in Banglish or English…"
+                    disabled={isLoading}
+                    className="w-full resize-none px-3.5 py-2.5 bg-transparent text-xs sm:text-[13px] font-medium text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none min-h-[42px] max-h-[120px] leading-relaxed"
+                    style={{ height: 'auto' }}
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={promptInput}
-                  onChange={(e) => setPromptInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  placeholder="✨ টাইপ করুন: 'amake tume top 10 vip and high order korsa ay rkomer 10 joner list dau'..."
-                  className="w-full pl-10 pr-24 py-3 bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800/80 rounded-2xl text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
-                />
-                <button
+
+                {/* Send button */}
+                <motion.button
                   type="button"
                   onClick={() => handleSendMessage()}
                   disabled={isLoading || !promptInput.trim()}
-                  className="absolute right-1.5 top-1.5 bottom-1.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-purple-600/20 disabled:opacity-50 cursor-pointer active:scale-95"
+                  whileTap={{ scale: 0.9 }}
+                  className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white flex items-center justify-center shadow-md shadow-purple-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  title="Send (Enter)"
                 >
-                  {isLoading ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Send className="w-3.5 h-3.5" />
-                  )}
-                  <span>{isLoading ? 'Thinking...' : 'Send'}</span>
-                </button>
+                  <Send className="w-4 h-4" />
+                </motion.button>
               </div>
+
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-1.5">
+                Enter to send · Shift+Enter for new line
+              </p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }

@@ -11,7 +11,7 @@ if (!cached) {
 }
 
 async function connectToDatabase() {
-  const uri = process.env.MONGODB_URI || 'mongodb+srv://office-task:o1fpqLHRhxVqxZlS@cluster0.xzqvmjt.mongodb.net/dataflow?retryWrites=true&w=majority';
+  const uri = process.env.MONGODB_URI;
 
   if (!uri) {
     throw new Error('Please define the MONGODB_URI environment variable inside .env.local or Vercel Settings');

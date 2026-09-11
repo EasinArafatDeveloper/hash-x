@@ -2,12 +2,14 @@
 
 import React, { useState } from 'react';
 import { IRecord } from '@/types';
-import { Phone, MapPin, Calendar, ArrowRight, Image as ImageIcon, Tag } from 'lucide-react';
+import { Phone, MapPin, Calendar, ArrowRight, Tag, Pencil, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface CardViewProps {
   records: IRecord[];
   onSelectRecord: (record: IRecord) => void;
+  onEditRecord?: (record: IRecord) => void;
+  onDeleteRecord?: (record: IRecord) => void;
   isLoading?: boolean;
 }
 
@@ -92,7 +94,7 @@ function UserAvatar({ record }: { record: IRecord }) {
   );
 }
 
-export function CardView({ records, onSelectRecord, isLoading }: CardViewProps) {
+function CardViewComponent({ records, onSelectRecord, onEditRecord, onDeleteRecord, isLoading }: CardViewProps) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -269,13 +271,35 @@ export function CardView({ records, onSelectRecord, isLoading }: CardViewProps) 
                 <Calendar className="w-3 h-3 text-gray-400" />
                 {record.createdAt ? new Date(record.createdAt).toLocaleDateString() : 'Recent'}
               </span>
-              <button
-                type="button"
-                onClick={() => onSelectRecord(record)}
-                className="inline-flex items-center gap-1 font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors cursor-pointer"
-              >
-                View Details <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </button>
+              <div className="flex items-center gap-1">
+                {onEditRecord && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onEditRecord(record); }}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors"
+                    title="Edit"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {onDeleteRecord && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onDeleteRecord(record); }}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onSelectRecord(record)}
+                  className="inline-flex items-center gap-1 font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors cursor-pointer ml-1"
+                >
+                  View <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              </div>
             </div>
           </motion.div>
         );
@@ -283,3 +307,5 @@ export function CardView({ records, onSelectRecord, isLoading }: CardViewProps) 
     </div>
   );
 }
+
+export const CardView = React.memo(CardViewComponent);
