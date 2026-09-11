@@ -11,9 +11,9 @@ import { TableView } from '@/components/explorer/TableView';
 import { RecordDetailDrawer } from '@/components/explorer/RecordDetailDrawer';
 import { ShareLinkModal } from '@/components/explorer/ShareLinkModal';
 import { Pagination } from '@/components/explorer/Pagination';
-import { AIQueryAssistant } from '@/components/explorer/AIQueryAssistant';
 import { FilterQueryState, IRecord, PaginationResponse } from '@/types';
-import { LayoutGrid, Table2, Database, Bookmark, X } from 'lucide-react';
+import { LayoutGrid, Table2, Database, Bookmark, X, AlertTriangle } from 'lucide-react';
+import { EditRecordModal } from '@/components/explorer/EditRecordModal';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -66,6 +66,9 @@ function DataExplorerContent() {
   const [filterName, setFilterName] = useState('');
   const [isSavingFilter, setIsSavingFilter] = useState(false);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [editingRecord, setEditingRecord] = useState<IRecord | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState<IRecord | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -271,6 +274,41 @@ function DataExplorerContent() {
     toast.success('All filters reset');
   }, []);
 
+  const handleRecordSaved = useCallback((updated: IRecord) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        data: prev.data.map((r) => (r._id === updated._id ? updated : r)),
+      };
+    });
+    setEditingRecord(null);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deletingRecord?._id) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/data/${deletingRecord._id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Delete failed');
+      toast.success(`"${deletingRecord.name}" মুছে ফেলা হয়েছে।`);
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          data: prev.data.filter((r) => r._id !== deletingRecord._id),
+          pagination: { ...prev.pagination, total: Math.max(0, prev.pagination.total - 1) },
+        };
+      });
+      setDeletingRecord(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Delete করতে সমস্যা হয়েছে।');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deletingRecord]);
+
   const handleRemoveFilter = useCallback((key: keyof FilterQueryState) => {
     setFilters((prev) => {
       const resetValues: Partial<FilterQueryState> = {
@@ -454,18 +492,7 @@ function DataExplorerContent() {
         </div>
       </div>
 
-      {/* DeepSeek AI Natural Language Query & Sequence Assistant */}
-      <AIQueryAssistant
-        onApplyAiFilter={handleApplyAiFilter}
-        onClearAiFilter={handleClearAiFilter}
-        activeAiQueryText={filters.aiQueryText}
-        activeSequenceSteps={filters.aiSequenceSteps}
-        activeSummaryBn={filters.aiSummaryBn}
-        availableTags={availableTags}
-        totalMatchingRecords={filteredRecords}
-      />
-
-      {/* Smart Omnibar & Advanced Filtering Studio */}
+      {/* Smart Omnibar & Advanced Filtering Studio (Single Unified Search Box) */}
       <FilterToolbar
         filters={filters}
         onApplyFilters={handleApplyFilters}
@@ -513,12 +540,16 @@ function DataExplorerContent() {
             <CardView
               records={records}
               onSelectRecord={setSelectedRecord}
+              onEditRecord={setEditingRecord}
+              onDeleteRecord={setDeletingRecord}
               isLoading={isLoading && !data}
             />
           ) : (
             <TableView
               records={records}
               onSelectRecord={setSelectedRecord}
+              onEditRecord={setEditingRecord}
+              onDeleteRecord={setDeletingRecord}
               sortBy={filters.sortBy}
               sortOrder={filters.sortOrder}
               onSortChange={handleSortChange}
@@ -547,6 +578,75 @@ function DataExplorerContent() {
           onClose={() => setSelectedRecord(null)}
         />
       )}
+
+      {/* Edit Record Modal */}
+      <EditRecordModal
+        record={editingRecord}
+        isOpen={!!editingRecord}
+        onClose={() => setEditingRecord(null)}
+        onSaved={handleRecordSaved}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deletingRecord && (
+          <>
+            <motion.div
+              key="del-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeleting && setDeletingRecord(null)}
+              className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              key="del-modal"
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 16 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+            >
+              <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200/60 dark:border-slate-700/60 p-6 pointer-events-auto space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/50 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">রেকর্ড ডিলিট করবেন?</h3>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।</p>
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50">
+                  <p className="text-xs font-bold text-rose-800 dark:text-rose-300">{deletingRecord.name}</p>
+                  <p className="text-[11px] text-rose-600 dark:text-rose-400 font-mono">{deletingRecord.phone}</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDeletingRecord(null)}
+                    disabled={isDeleting}
+                    className="flex-1 py-2 text-sm font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-slate-800 rounded-xl hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                  >
+                    বাতিল
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteConfirm}
+                    disabled={isDeleting}
+                    className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors disabled:opacity-60 active:scale-95"
+                  >
+                    {isDeleting ? (
+                      <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                    ) : null}
+                    {isDeleting ? 'ডিলিট হচ্ছে...' : 'হ্যাঁ, ডিলিট করুন'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Secure One-Time Share Link Modal */}
       <ShareLinkModal
