@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, Sun, Moon, Bell, HelpCircle, UploadCloud, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Menu, Sun, Moon, Bell, HelpCircle, UploadCloud, PanelLeftClose, PanelLeftOpen, Sparkles } from 'lucide-react';
 import { useTheme } from '../theme/ThemeProvider';
 import { ThemeSelector } from '../theme/ThemeSelector';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ interface HeaderProps {
   onMobileMenuOpen: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onOpenAiCopilot?: () => void;
 }
 
 const PAGE_META: Record<string, { title: string; subtitle: string }> = {
@@ -44,7 +45,7 @@ const PAGE_META: Record<string, { title: string; subtitle: string }> = {
   },
 };
 
-export function Header({ onMobileMenuOpen, isCollapsed, onToggleCollapse }: HeaderProps) {
+export function Header({ onMobileMenuOpen, isCollapsed, onToggleCollapse, onOpenAiCopilot }: HeaderProps) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -55,7 +56,7 @@ export function Header({ onMobileMenuOpen, isCollapsed, onToggleCollapse }: Head
   };
 
   return (
-    <header className="sticky top-0 z-20 h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 px-4 lg:px-8 flex items-center justify-between transition-colors">
+    <header className="sticky top-0 z-20 h-16 bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-b border-gray-200/60 dark:border-slate-800/60 px-4 lg:px-8 flex items-center justify-between transition-colors shadow-sm shadow-gray-100/50 dark:shadow-slate-900/50">
       {/* Left: Mobile Hamburger / Desktop Collapse Toggle & Page Titles */}
       <div className="flex items-center space-x-3">
         <button
@@ -83,10 +84,17 @@ export function Header({ onMobileMenuOpen, isCollapsed, onToggleCollapse }: Head
         )}
 
         <div>
-          <h2 className="text-base lg:text-lg font-bold text-gray-900 dark:text-white leading-tight">
-            {currentPage.title}
-          </h2>
-          <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-400 font-medium">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base lg:text-lg font-bold bg-gradient-to-r from-gray-900 via-brand-700 to-gray-700 dark:from-white dark:via-brand-300 dark:to-gray-300 bg-clip-text text-transparent leading-tight">
+              {currentPage.title}
+            </h2>
+            {/* Live status badge */}
+            <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900 text-[9px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 glow-pulse" />
+              Live
+            </span>
+          </div>
+          <p className="hidden sm:block text-xs text-gray-400 dark:text-gray-500 font-medium">
             {currentPage.subtitle}
           </p>
         </div>
@@ -94,6 +102,22 @@ export function Header({ onMobileMenuOpen, isCollapsed, onToggleCollapse }: Head
 
       {/* Right Action Icons & Theme Switcher */}
       <div className="flex items-center space-x-2 sm:space-x-3">
+        {/* Global AI Assistant Trigger Button */}
+        {onOpenAiCopilot && (
+          <button
+            type="button"
+            onClick={onOpenAiCopilot}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-brand-600 hover:from-purple-700 hover:to-brand-700 text-white text-xs font-bold shadow-md shadow-purple-600/25 transition-all cursor-pointer active:scale-95 border border-white/20"
+            title="Open AI Personal Assistant (Ctrl+J)"
+          >
+            <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-300" />
+            <span className="hidden sm:inline">AI Copilot</span>
+            <span className="hidden md:inline px-1 py-0.2 rounded text-[9px] bg-white/20 font-mono">
+              Ctrl+J
+            </span>
+          </button>
+        )}
+
         {/* Quick Upload Action */}
         {pathname !== '/data/upload' && (
           <Link

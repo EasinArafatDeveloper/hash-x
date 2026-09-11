@@ -1,3 +1,5 @@
+import mongoose from 'mongoose';
+
 /**
  * Smart Upsert & Data Ingestion Engine for Morpheus DataFlow
  * 
@@ -504,7 +506,7 @@ export function parseRowData(
     ''
   ).toLowerCase().trim();
   if (
-    waStatus.includes('active') ||
+    waStatus === 'active' ||
     waStatus === 'yes' ||
     waStatus === 'true' ||
     waStatus === 'valid' ||
@@ -713,6 +715,7 @@ export function buildNewRecord(
     (incoming.phone ? `User (${incoming.phone})` : `Record #${fallbackIndex}`);
 
   return {
+    _id: new mongoose.Types.ObjectId(),
     name: defaultName,
     phone: incoming.phone || '',
     email: incoming.providedFields.email || '',

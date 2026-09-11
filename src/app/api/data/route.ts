@@ -49,74 +49,90 @@ export async function GET(request: NextRequest) {
     // 1. SMART OMNISEARCH
     if (search.trim()) {
       const rawSearch = search.trim();
-      const cleanPhoneSearch = rawSearch.replace(/[\s\+\-\(\)]/g, '');
-      const escaped = rawSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const searchRegex = new RegExp(escaped, 'i');
 
-      const isTargeted =
-        (nameWise && (numberWise || genderWise || ageWise || lastOnlineWise || avatarTypeWise || tagWise)) ||
-        numberWise ||
-        genderWise ||
-        ageWise ||
-        lastOnlineWise ||
-        avatarTypeWise ||
-        tagWise;
-
-      if (isTargeted) {
-        const targetedConditions: any[] = [];
-        if (nameWise) {
-          targetedConditions.push({ name: searchRegex });
-          targetedConditions.push({ 'customFields.nickname': searchRegex });
-        }
-        if (numberWise) {
-          targetedConditions.push({ phone: new RegExp(cleanPhoneSearch || escaped, 'i') });
-        }
-        if (genderWise) {
-          targetedConditions.push({ gender: searchRegex });
-        }
-        if (ageWise) {
-          const numVal = parseInt(rawSearch, 10);
-          if (!isNaN(numVal)) targetedConditions.push({ age: numVal });
-        }
-        if (avatarTypeWise) {
-          targetedConditions.push({ avatarType: searchRegex });
-        }
-        if (tagWise) {
-          targetedConditions.push({ tags: searchRegex });
-          targetedConditions.push({ category: searchRegex });
-          targetedConditions.push({ 'customFields.Tag / Label': searchRegex });
-        }
-        if (targetedConditions.length > 0) {
-          query.$or = targetedConditions;
-        }
+      // ── Multi-name OR search (AI sends "Musa|Samiya" for name1 OR name2) ──
+      if (rawSearch.includes('|')) {
+        const names = rawSearch.split('|').map((n) => n.trim()).filter(Boolean);
+        query.$or = names.flatMap((name) => {
+          const r = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          return [
+            { name: r },
+            { phone: r },
+            { email: r },
+            { 'customFields.nickname': r },
+          ];
+        });
       } else {
-        // Universal Smart Omnisearch: Searches across Name, Phone, Email, Location, Address, Merchant, and Tags
-        const orConditions: any[] = [
-          { name: searchRegex },
-          { phone: searchRegex },
-          { email: searchRegex },
-          { location: searchRegex },
-          { area: searchRegex },
-          { address: searchRegex },
-          { tags: searchRegex },
-          { category: searchRegex },
-          { 'customFields.nickname': searchRegex },
-          { 'customFields.canonical_address': searchRegex },
-          { 'customFields.primary_merchant': searchRegex },
-          { 'customFields.matched_district_filters': searchRegex },
-          { 'customFields.matched_city_filters': searchRegex },
-          { 'customFields.matched_area_filters': searchRegex },
-          { 'customFields.Tag / Label': searchRegex },
-          { 'customFields.Tags / Labels': searchRegex },
-          { 'customFields.tag': searchRegex },
-          { 'customFields.tags': searchRegex },
-        ];
+        // ── Single keyword search ──
+        const cleanPhoneSearch = rawSearch.replace(/[\s\+\-\(\)]/g, '');
+        const escaped = rawSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const searchRegex = new RegExp(escaped, 'i');
 
-        if (cleanPhoneSearch && /\d/.test(cleanPhoneSearch)) {
-          orConditions.push({ phone: new RegExp(cleanPhoneSearch, 'i') });
+        const isTargeted =
+          nameWise ||
+          numberWise ||
+          genderWise ||
+          ageWise ||
+          lastOnlineWise ||
+          avatarTypeWise ||
+          tagWise;
+
+        if (isTargeted) {
+          const targetedConditions: any[] = [];
+          if (nameWise) {
+            targetedConditions.push({ name: searchRegex });
+            targetedConditions.push({ 'customFields.nickname': searchRegex });
+          }
+          if (numberWise) {
+            targetedConditions.push({ phone: new RegExp(cleanPhoneSearch || escaped, 'i') });
+          }
+          if (genderWise) {
+            targetedConditions.push({ gender: searchRegex });
+          }
+          if (ageWise) {
+            const numVal = parseInt(rawSearch, 10);
+            if (!isNaN(numVal)) targetedConditions.push({ age: numVal });
+          }
+          if (avatarTypeWise) {
+            targetedConditions.push({ avatarType: searchRegex });
+          }
+          if (tagWise) {
+            targetedConditions.push({ tags: searchRegex });
+            targetedConditions.push({ category: searchRegex });
+            targetedConditions.push({ 'customFields.Tag / Label': searchRegex });
+          }
+          if (targetedConditions.length > 0) {
+            query.$or = targetedConditions;
+          }
+        } else {
+          // Universal Smart Omnisearch across all key fields
+          const orConditions: any[] = [
+            { name: searchRegex },
+            { phone: searchRegex },
+            { email: searchRegex },
+            { location: searchRegex },
+            { area: searchRegex },
+            { address: searchRegex },
+            { tags: searchRegex },
+            { category: searchRegex },
+            { 'customFields.nickname': searchRegex },
+            { 'customFields.canonical_address': searchRegex },
+            { 'customFields.primary_merchant': searchRegex },
+            { 'customFields.matched_district_filters': searchRegex },
+            { 'customFields.matched_city_filters': searchRegex },
+            { 'customFields.matched_area_filters': searchRegex },
+            { 'customFields.Tag / Label': searchRegex },
+            { 'customFields.Tags / Labels': searchRegex },
+            { 'customFields.tag': searchRegex },
+            { 'customFields.tags': searchRegex },
+          ];
+
+          if (cleanPhoneSearch && /\d/.test(cleanPhoneSearch)) {
+            orConditions.push({ phone: new RegExp(cleanPhoneSearch, 'i') });
+          }
+
+          query.$or = orConditions;
         }
-
-        query.$or = orConditions;
       }
     }
 
@@ -212,27 +228,20 @@ export async function GET(request: NextRequest) {
     }
 
     const skip = (page - 1) * limit;
+    const isFiltered = Object.keys(query).length > 0;
 
-    const [records, totalMatching, totalDatasetRecords, activeCount, inactiveCount, pendingCount] =
-      await Promise.all([
-        RecordModel.find(query)
-          .sort({ [sortBy]: sortOrder })
-          .skip(skip)
-          .limit(limit)
-          .lean(),
-        RecordModel.countDocuments(query),
-        RecordModel.countDocuments({}),
-        RecordModel.countDocuments({ ...query, status: 'Active' }),
-        RecordModel.countDocuments({ ...query, status: 'Inactive' }),
-        RecordModel.countDocuments({ ...query, status: 'Pending' }),
-      ]);
-
-    // Average age calculation for matching records
-    const ageAggregation = await RecordModel.aggregate([
-      { $match: query },
-      { $group: { _id: null, avgAge: { $avg: '$age' } } },
+    const [records, totalMatching, totalDatasetRecords] = await Promise.all([
+      RecordModel.find(query)
+        .select('-avatarBase64 -__v')
+        .sort({ [sortBy]: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      RecordModel.countDocuments(query),
+      isFiltered ? RecordModel.estimatedDocumentCount() : Promise.resolve(0),
     ]);
-    const avgAge = ageAggregation.length > 0 ? Math.round(ageAggregation[0].avgAge || 0) : 0;
+
+    const effectiveTotal = isFiltered ? (totalDatasetRecords || totalMatching) : totalMatching;
 
     return NextResponse.json({
       data: records,
@@ -243,12 +252,8 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(totalMatching / limit) || 1,
       },
       summaryStats: {
-        totalRecords: totalDatasetRecords,
+        totalRecords: effectiveTotal,
         filteredRecords: totalMatching,
-        activeCount,
-        inactiveCount,
-        pendingCount,
-        avgAge,
       },
     });
   } catch (error: any) {

@@ -4,11 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
+import { AIAnalyticsCopilot } from '@/components/dashboard/AIAnalyticsCopilot';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isAiCopilotOpen, setIsAiCopilotOpen] = useState(false);
 
   // Load user's collapsed preference from localStorage
   useEffect(() => {
@@ -20,6 +22,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     } catch (e) {
       // Ignore localStorage errors
     }
+  }, []);
+
+  // Global Keyboard Shortcut: Ctrl + J or Cmd + J to toggle AI Executive Copilot
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'j' || e.key === 'J')) {
+        e.preventDefault();
+        setIsAiCopilotOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const handleToggleCollapse = () => {
@@ -46,6 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onMobileClose={() => setMobileMenuOpen(false)}
         isCollapsed={isCollapsed}
         onToggleCollapse={handleToggleCollapse}
+        onOpenAiCopilot={() => setIsAiCopilotOpen(true)}
       />
       <div
         className={`flex-1 ${
@@ -56,11 +71,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
           isCollapsed={isCollapsed}
           onToggleCollapse={handleToggleCollapse}
+          onOpenAiCopilot={() => setIsAiCopilotOpen(true)}
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto space-y-8">
           {children}
         </main>
       </div>
+
+      {/* Global AI Executive Personal Assistant */}
+      <AIAnalyticsCopilot
+        isOpen={isAiCopilotOpen}
+        onClose={() => setIsAiCopilotOpen(false)}
+        onOpen={() => setIsAiCopilotOpen(true)}
+      />
     </div>
   );
 }
