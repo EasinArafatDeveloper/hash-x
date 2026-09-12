@@ -25,6 +25,7 @@ import {
   Table,
   CheckCircle2,
   Copy,
+  Zap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -34,6 +35,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  isStreaming?: boolean;
   exportPayload?: any;
   exportLabel?: string;
   explorerPath?: string;
@@ -108,12 +110,13 @@ export function AIAnalyticsCopilot({
     {
       id: 'welcome-msg',
       role: 'assistant',
-      content: `👋 **হ্যালো! আমি Morpheus AI Analytics Copilot.**\n\nআপনার ডাটাবেজের **${totalRecords.toLocaleString()} টি রিয়েল-টাইম রেকর্ডের** সম্পূর্ণ তথ্য আমার কাছে লাইভ সংযুক্ত আছে।\n\nআপনি বাংলায় বা ইংরেজিতে যেকোনো প্রশ্ন করতে পারেন—আমি সাথে সাথে অ্যানালাইসিস করে আপনাকে **সর্ট করা ডাটা**, **সরাসরি CSV ডাউনলোড ফাইল** এবং **Data Explorer এ দেখার লিংক** তৈরি করে দেব!`,
+      content: `👋 **হ্যালো! আমি Morpheus AI Analytics Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${totalRecords.toLocaleString()} টি রিয়েল-টাইম রেকর্ডের** সম্পূর্ণ তথ্য আমার কাছে লাইভ সংযুক্ত আছে।\n\nআপনি বাংলায় বা ইংরেজিতে যেকোনো প্রশ্ন করতে পারেন—আমি সাথে সাথে অ্যানালাইসিস করে আপনাকে **সর্ট করা ডাটা**, **সরাসরি CSV ডাউনলোড ফাইল** এবং **Data Explorer এ দেখার লিংক** তৈরি করে দেব!`,
       followUpQuestions: [
         'টপ ৫ জন সর্বোচ্চ খরচ করা VIP কাস্টমার কারা?',
         'আমাদের ডাটার জেন্ডার ও স্পেন্ড হিসাব কেমন?',
         'কেরানীগঞ্জ ও ঢাকার কাস্টমারদের সেলস কত?',
       ],
+      isStreaming: false,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -162,6 +165,7 @@ export function AIAnalyticsCopilot({
           id: `ai-${Date.now()}`,
           role: 'assistant',
           content: data.result.reply || 'Here is the analysis based on your live dataset.',
+          isStreaming: true, // Start typewriter streaming
           exportPayload: data.result.exportPayload,
           exportLabel: data.result.exportLabel,
           explorerPath: data.result.explorerPath,
@@ -183,12 +187,19 @@ export function AIAnalyticsCopilot({
           id: `err-${Date.now()}`,
           role: 'assistant',
           content: '⚠️ দুঃখিত, রিকোয়েস্ট প্রসেস করতে সামান্য সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
+          isStreaming: false,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleStreamingFinish = (messageId: string) => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === messageId ? { ...msg, isStreaming: false } : msg))
+    );
   };
 
   const handleDownloadCSV = (payload: any, filenameLabel?: string) => {
@@ -224,6 +235,7 @@ export function AIAnalyticsCopilot({
         id: 'reset-msg',
         role: 'assistant',
         content: '🧹 চ্যাট হিস্ট্রি ক্লিয়ার করা হয়েছে। নতুন কোনো অ্যানালিটিক্স বা ডেটা সম্পর্কে জানতে লিখুন!',
+        isStreaming: false,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
@@ -279,8 +291,8 @@ export function AIAnalyticsCopilot({
               transition={{ type: 'spring', damping: 25, stiffness: 280 }}
               className={`pointer-events-auto w-full sm:rounded-3xl bg-white dark:bg-slate-900 border border-purple-200/80 dark:border-purple-900/60 shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ${
                 isExpanded
-                  ? 'sm:w-[760px] h-[95vh] sm:h-[88vh]'
-                  : 'sm:w-[500px] h-[88vh] sm:h-[680px]'
+                  ? 'sm:w-[780px] h-[95vh] sm:h-[88vh]'
+                  : 'sm:w-[520px] h-[88vh] sm:h-[700px]'
               }`}
             >
               {/* Header */}
@@ -350,7 +362,7 @@ export function AIAnalyticsCopilot({
                     )}
 
                     <div className={`space-y-3 max-w-[92%] ${msg.role === 'user' ? 'items-end' : 'w-full'}`}>
-                      {/* Message Bubble with Rich Markdown and Table Rendering */}
+                      {/* Message Bubble with Streaming Typewriter and Markdown Rendering */}
                       <div
                         className={`p-4 rounded-2xl text-xs sm:text-[13px] leading-relaxed shadow-xs ${
                           msg.role === 'user'
@@ -360,17 +372,32 @@ export function AIAnalyticsCopilot({
                       >
                         {msg.role === 'user' ? (
                           msg.content
+                        ) : msg.isStreaming ? (
+                          <StreamingTypewriter
+                            fullText={msg.content}
+                            onComplete={() => handleStreamingFinish(msg.id)}
+                            onTick={scrollToBottom}
+                          />
                         ) : (
                           <FormattedMarkdownContent content={msg.content} />
                         )}
                       </div>
 
-                      {/* Prominent Action Bar: CSV Download & Data Explorer View */}
-                      {msg.role === 'assistant' && (msg.exportPayload || msg.explorerPath) && (
-                        <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-900/10 via-indigo-900/5 to-emerald-900/10 dark:from-purple-950/50 dark:via-indigo-950/30 dark:to-slate-900 border border-purple-200 dark:border-purple-800/60 shadow-xs space-y-2">
-                          <span className="block text-[10px] font-extrabold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
-                            ⚡ ডেটা অ্যাকশন & এক্সপোর্ট (Instant 1-Click Action):
-                          </span>
+                      {/* Prominent Action Bar (Fades in when streaming completes): CSV Download & Data Explorer View */}
+                      {msg.role === 'assistant' && !msg.isStreaming && (msg.exportPayload || msg.explorerPath) && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-900/10 via-indigo-900/5 to-emerald-900/10 dark:from-purple-950/50 dark:via-indigo-950/30 dark:to-slate-900 border border-purple-200 dark:border-purple-800/60 shadow-xs space-y-2.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="block text-[10px] font-black text-purple-700 dark:text-purple-300 uppercase tracking-wider">
+                              ⚡ ডেটা অ্যাকশন & এক্সপোর্ট (Instant 1-Click Action):
+                            </span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" /> Ready
+                            </span>
+                          </div>
                           <div className="flex flex-wrap items-center gap-2">
                             {/* 1. Download Sorted CSV Button */}
                             {msg.exportPayload && (
@@ -400,12 +427,16 @@ export function AIAnalyticsCopilot({
                               </button>
                             )}
                           </div>
-                        </div>
+                        </motion.div>
                       )}
 
-                      {/* Embedded Mini Metric Badges (if any) */}
-                      {msg.keyMetrics && msg.keyMetrics.length > 0 && (
-                        <div className="grid grid-cols-2 gap-2 pt-1">
+                      {/* Embedded Mini Metric Badges (Fades in when streaming completes) */}
+                      {msg.role === 'assistant' && !msg.isStreaming && msg.keyMetrics && msg.keyMetrics.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1"
+                        >
                           {msg.keyMetrics.map((met, idx) => (
                             <div
                               key={idx}
@@ -424,12 +455,16 @@ export function AIAnalyticsCopilot({
                               )}
                             </div>
                           ))}
-                        </div>
+                        </motion.div>
                       )}
 
-                      {/* Suggested Follow-up Questions */}
-                      {msg.followUpQuestions && msg.followUpQuestions.length > 0 && (
-                        <div className="space-y-1.5 pt-1">
+                      {/* Suggested Follow-up Questions (Fades in when streaming completes) */}
+                      {msg.role === 'assistant' && !msg.isStreaming && msg.followUpQuestions && msg.followUpQuestions.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="space-y-1.5 pt-1"
+                        >
                           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
                             <Lightbulb className="w-3 h-3 text-amber-500" /> সম্পর্কিত প্রশ্ন:
                           </span>
@@ -446,7 +481,7 @@ export function AIAnalyticsCopilot({
                               </button>
                             ))}
                           </div>
-                        </div>
+                        </motion.div>
                       )}
 
                       {/* Timestamp */}
@@ -466,9 +501,9 @@ export function AIAnalyticsCopilot({
                 {/* Loading indicator */}
                 {isLoading && (
                   <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 p-3 rounded-2xl bg-white dark:bg-slate-850 border border-purple-200 dark:border-purple-900/40 w-fit"
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 p-3 rounded-2xl bg-white dark:bg-slate-850 border border-purple-200 dark:border-purple-900/40 w-fit shadow-xs"
                   >
                     <RefreshCw className="w-4 h-4 animate-spin" />
                     <span className="font-semibold">AI অ্যানালিটিক্স ও ফাইল তৈরি করছে...</span>
@@ -535,6 +570,68 @@ export function AIAnalyticsCopilot({
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+/**
+ * Real-time Streaming Typewriter Component
+ */
+function StreamingTypewriter({
+  fullText,
+  onComplete,
+  onTick,
+}: {
+  fullText: string;
+  onComplete: () => void;
+  onTick?: () => void;
+}) {
+  const [displayedText, setDisplayedText] = useState('');
+  const [isCompleted, setIsCompleted] = useState(false);
+
+  useEffect(() => {
+    if (!fullText) {
+      setIsCompleted(true);
+      onComplete();
+      return;
+    }
+
+    // Split into words / token chunks for fast, natural streaming
+    const words = fullText.split(/(\s+)/);
+    let currentIndex = 0;
+    let currentBuffer = '';
+
+    const interval = setInterval(() => {
+      if (currentIndex < words.length) {
+        // Append 2 words at a time for smooth, speedy flow
+        const nextWords = words.slice(currentIndex, currentIndex + 2).join('');
+        currentBuffer += nextWords;
+        setDisplayedText(currentBuffer);
+        currentIndex += 2;
+        if (onTick) onTick();
+      } else {
+        clearInterval(interval);
+        setDisplayedText(fullText);
+        setIsCompleted(true);
+        onComplete();
+      }
+    }, 18);
+
+    return () => clearInterval(interval);
+  }, [fullText]);
+
+  const handleSkip = () => {
+    setDisplayedText(fullText);
+    setIsCompleted(true);
+    onComplete();
+  };
+
+  return (
+    <div onClick={handleSkip} className="cursor-pointer select-text">
+      <FormattedMarkdownContent content={displayedText} />
+      {!isCompleted && (
+        <span className="inline-block w-2 h-4 bg-purple-600 dark:bg-purple-400 animate-pulse ml-0.5 align-middle rounded-xs" />
+      )}
+    </div>
   );
 }
 

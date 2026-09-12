@@ -312,7 +312,9 @@ OUTPUT ONLY VALID JSON (no markdown, no explanation outside JSON):
 }
 
 function parseNaturalLanguageHeuristics(prompt: string, availableTags: string[] = []) {
-  const lp = prompt.toLowerCase();
+  const normalizedPrompt = prompt
+    .replace(/[০-৯]/g, (d) => String(['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'].indexOf(d)));
+  const lp = normalizedPrompt.toLowerCase();
   const sequenceSteps: string[] = [];
 
   let search = '';

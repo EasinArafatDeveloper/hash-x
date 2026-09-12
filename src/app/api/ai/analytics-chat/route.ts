@@ -25,26 +25,33 @@ export async function POST(request: NextRequest) {
     // 2. RUN TARGETED LIVE MONGODB QUERY FOR THIS SPECIFIC QUESTION
     const targetDbQuery: any = {};
 
-    if (parsedIntent.search) {
-      if (parsedIntent.search.includes('|')) {
-        const terms = parsedIntent.search.split('|').map((t: string) => t.trim()).filter(Boolean);
-        const orConditions: any[] = [];
-        terms.forEach((term: string) => {
-          const r = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-          orConditions.push(
-            { name: r },
-            { phone: r },
-            { email: r },
-            { location: r },
-            { area: r },
-            { 'customFields.nickname': r },
-            { 'customFields.customer_name': r },
-            { 'customFields.primary_merchant': r }
-          );
-        });
-        targetDbQuery.$or = orConditions;
+    if (!parsedIntent.isConversational && parsedIntent.search) {
+      const searchTerms = parsedIntent.search.split('|').map((t: string) => t.trim()).filter(Boolean);
+      const searchRegex = new RegExp(searchTerms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i');
+
+      if (parsedIntent.searchField === 'name') {
+        // STRICT NAME SEARCH: Only match customer name & nickname, never merchant or address
+        targetDbQuery.$or = [
+          { name: searchRegex },
+          { 'customFields.nickname': searchRegex },
+          { 'customFields.customer_name': searchRegex },
+        ];
+      } else if (parsedIntent.searchField === 'address') {
+        // ADDRESS / AREA ONLY SEARCH
+        targetDbQuery.$or = [
+          { location: searchRegex },
+          { area: searchRegex },
+          { address: searchRegex },
+          { 'customFields.canonical_address': searchRegex },
+          { 'customFields.matched_district_filters': searchRegex },
+          { 'customFields.matched_city_filters': searchRegex },
+          { 'customFields.matched_area_filters': searchRegex },
+        ];
+      } else if (parsedIntent.searchField === 'merchant') {
+        // MERCHANT ONLY SEARCH
+        targetDbQuery['customFields.primary_merchant'] = searchRegex;
       } else {
-        const searchRegex = new RegExp(parsedIntent.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        // OMNISEARCH ACROSS PRIMARY USER FIELDS
         targetDbQuery.$or = [
           { name: searchRegex },
           { phone: searchRegex },
@@ -53,14 +60,12 @@ export async function POST(request: NextRequest) {
           { area: searchRegex },
           { 'customFields.nickname': searchRegex },
           { 'customFields.customer_name': searchRegex },
-          { 'customFields.primary_merchant': searchRegex },
         ];
       }
     }
 
-    if (parsedIntent.tag && parsedIntent.tag !== 'All') {
+    if (!parsedIntent.isConversational && parsedIntent.tag && parsedIntent.tag !== 'All') {
       const tagRegex = new RegExp(`^${parsedIntent.tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-      targetDbQuery.$or = targetDbQuery.$or || [];
       targetDbQuery.$and = targetDbQuery.$and || [];
       targetDbQuery.$and.push({
         $or: [
@@ -73,23 +78,23 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (parsedIntent.gender && parsedIntent.gender !== 'All') {
+    if (!parsedIntent.isConversational && parsedIntent.gender && parsedIntent.gender !== 'All') {
       targetDbQuery.gender = parsedIntent.gender;
     }
 
-    if (parsedIntent.minOrderCount) {
+    if (!parsedIntent.isConversational && parsedIntent.minOrderCount) {
       targetDbQuery.orderCount = { $gte: parseInt(parsedIntent.minOrderCount, 10) };
     }
 
-    if (parsedIntent.minOrderAmount) {
+    if (!parsedIntent.isConversational && parsedIntent.minOrderAmount) {
       targetDbQuery.orderAmount = { $gte: parseFloat(parsedIntent.minOrderAmount) };
     }
 
-    if (parsedIntent.merchant) {
+    if (!parsedIntent.isConversational && parsedIntent.merchant) {
       targetDbQuery['customFields.primary_merchant'] = new RegExp(parsedIntent.merchant, 'i');
     }
 
-    if (parsedIntent.numberStartsWith) {
+    if (!parsedIntent.isConversational && parsedIntent.numberStartsWith) {
       const pfx = buildPhonePrefixRegex(parsedIntent.numberStartsWith);
       if (pfx) targetDbQuery.phone = { $regex: pfx };
     }
@@ -114,12 +119,14 @@ export async function POST(request: NextRequest) {
       frequentBuyers,
       operatorCounts,
     ] = await Promise.all([
-      RecordModel.countDocuments(targetDbQuery),
-      RecordModel.find(targetDbQuery)
-        .sort({ [sortField]: sortDir })
-        .limit(fetchLimit)
-        .select('name phone gender orderAmount orderCount location area customFields tags')
-        .lean(),
+      parsedIntent.isConversational ? 0 : RecordModel.countDocuments(targetDbQuery),
+      parsedIntent.isConversational
+        ? []
+        : RecordModel.find(targetDbQuery)
+            .sort({ [sortField]: sortDir })
+            .limit(fetchLimit)
+            .select('name phone gender orderAmount orderCount location area customFields tags')
+            .lean(),
       RecordModel.countDocuments({}),
       DatasetModel.findOne({}).sort({ createdAt: -1 }).lean(),
       RecordModel.aggregate([
@@ -216,39 +223,59 @@ export async function POST(request: NextRequest) {
         Airtel_016: airtelCount,
         Teletalk_015: teletalkCount,
       },
-      // Targeted Live Results
       userQueryAnalysis: {
+        isConversational: parsedIntent.isConversational,
         criteriaApplied: parsedIntent,
         exactMatchingCount: targetedCount,
         topMatchingRecords: formattedTargetedRecords,
       },
     };
 
-    const apiKey = process.env.DEEPSEEK_API_KEY || 'sk-8fd0df2b25bb4509a6166f42ff224a3e';
-    const apiUrl = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions';
+    const systemInstruction = `You are "Morpheus AI Copilot", an elite AI Data Scientist and friendly Executive Assistant powered by OpenAI GPT-4o.
+The user is conversing with you or querying their live business dataset in Bengali, English, or Banglish.
 
-    const systemInstruction = `You are "Morpheus AI Copilot", an elite Data Analytics & Executive Assistant for the Morpheus DataFlow platform.
-The user is asking you questions or issuing commands about their business dataset in Bengali, English, or Banglish.
+LIVE DATABASE CONTEXT:
+- Total Customer Records in Database: ${totalRecords.toLocaleString()}
+- Total Lifetime GMV: ৳${fin.totalGMV.toLocaleString()} BDT
+- Total Orders: ${fin.totalOrders.toLocaleString()}
+- VIP Customers: ${vipCount.toLocaleString()}
+- WhatsApp Active Customers: ${whatsappCount.toLocaleString()}
+- 3+ Repeat Buyers: ${frequentBuyers.toLocaleString()}
+- Top Districts: ${topLocations.map((l: any) => `${l._id} (${l.count})`).join(', ')}
 
-LIVE DATABASE ANALYSIS FOR THIS SPECIFIC REQUEST:
+CURRENT USER REQUEST ANALYSIS:
 ${JSON.stringify(liveStatsSummary.userQueryAnalysis, null, 2)}
 
-OVERALL DATABASE STATS:
-${JSON.stringify({ totalRecords, totalGMV_BDT: fin.totalGMV, totalOrders: fin.totalOrders, vipCount, whatsappCount }, null, 2)}
+INSTRUCTIONS & CAPABILITIES:
+1. HUMAN CONVERSATION & GREETINGS:
+   - If the user sends a greeting (e.g. "hi", "hello", "kemon aso", "who are you", "what can you do", "thanks", "bujso"):
+     - Respond warmly, naturally, and smartly in fluent Bengali/English.
+     - NEVER say "no keyword data found" for greetings!
+     - Introduce yourself as their live Morpheus AI Copilot with ${totalRecords.toLocaleString()} real-time customer records connected.
+     - Suggest 3 concrete, powerful questions they can ask (e.g. VIP clients, top repeat buyers, WhatsApp segmentation).
+     - Set "type": "chat".
 
-INSTRUCTIONS:
-1. Speak in the SAME language the user used (Bengali, English, or Banglish). Provide warm, clear, professional formatting.
-2. Directly answer the user's specific question using the EXACT "exactMatchingCount" and "topMatchingRecords" from above.
-   - Example: If user asked for 20+ orders, state clearly: "আপনার ডাটাবেজে **২০টির বেশি অর্ডার করেছে এমন ${targetedCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!"
-   - Always display the matching records in a clean Markdown Table (# | Name | Phone | Orders | Spend BDT | Location/Store).
-3. If no matches were found (exactMatchingCount = 0), explain politely with helpful suggestions (spelling variation, different filters).
-4. ALWAYS provide "exportPayload", "exportLabel", and "explorerPath" so the user can 1-click download the CSV of these exact results or view them in Data Explorer.
+2. DATA & ANALYTICAL QUERIES (when user asks for specific data, names, orders, spend, areas):
+   - Always state the EXACT matching count ("exactMatchingCount").
+   - If exactMatchingCount > 0:
+     - Clearly state: "আপনার ডাটাবেজে মোট **${targetedCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!"
+     - If matching count > preview count (e.g. 12 found, showing top 10), state clearly: "নিচে শীর্ষ ${formattedTargetedRecords.length} জনের তালিকা দেওয়া হলো (সম্পূর্ণ ${targetedCount} জনের ফাইল দেখতে নিচের বাটনে ক্লিক করুন):"
+     - Render a clean Markdown Table (# | Name | Mobile | Orders | Spend BDT | Location/Store).
+     - Provide accurate "exportPayload", "exportLabel", and "explorerPath".
+   - If exactMatchingCount === 0:
+     - Explain politely that no matching records were found with this specific criteria, and suggest alternative spellings or broader filters.
 
-OUTPUT ONLY JSON:
+3. MARKETING STRATEGY & BUSINESS ADVICE:
+   - If the user asks for business recommendations (e.g. "how to increase revenue?", "which campaign to run?"):
+     - Give actionable, data-driven advice referencing their live dataset stats.
+
+OUTPUT ONLY VALID JSON:
 {
-  "reply": "Markdown formatted rich response in Bengali/English with exact counts, bullet points, and markdown table",
+  "type": "chat" | "data_query" | "strategy",
+  "reply": "Rich markdown formatted response in Bengali/English with bullet points and tables if applicable",
   "exportPayload": {
     "search": "string",
+    "nameWise": "true" | undefined,
     "tag": "string",
     "gender": "Female" | "Male" | "All",
     "minOrderAmount": "string",
@@ -257,10 +284,10 @@ OUTPUT ONLY JSON:
     "sortBy": "orderCount" | "orderAmount" | "createdAt",
     "sortOrder": "desc" | "asc",
     "limit": 10,
-    "customFilename": "Custom_Name"
+    "customFilename": "Custom_Filename"
   },
-  "exportLabel": "Download CSV Label (${targetedCount} rows)",
-  "explorerPath": "/data/explorer?sortBy=orderCount&sortOrder=desc",
+  "exportLabel": "Download CSV (${targetedCount} rows)",
+  "explorerPath": "/data/explorer?...",
   "keyMetrics": [
     { "label": "Metric Name", "value": "Value", "subtext": "Subtext" }
   ],
@@ -274,7 +301,7 @@ OUTPUT ONLY JSON:
 }`;
 
     // Format conversation history
-    const conversationPayload = [
+    const conversationPayload: any[] = [
       { role: 'system', content: systemInstruction },
       ...messages.slice(-6).map((m: any) => ({
         role: m.role === 'assistant' ? 'assistant' : 'user',
@@ -286,7 +313,7 @@ OUTPUT ONLY JSON:
       conversationPayload.push({ role: 'user', content: lastMessage });
     }
 
-    // 3. CALL FLAGSHIP AI (OPENAI GPT-4o / DEEPSEEK FALLBACK)
+    // 3. CALL FLAGSHIP AI (OPENAI GPT-4o)
     try {
       const { content, provider, model } = await callAIModel({
         messages: conversationPayload,
@@ -335,9 +362,24 @@ OUTPUT ONLY JSON:
 }
 
 function parseQueryIntent(question: string) {
-  const q = question.toLowerCase().trim();
+  const normalizedQ = question
+    .replace(/[০-৯]/g, (d) => String(['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'].indexOf(d)))
+    .toLowerCase()
+    .trim();
+  const q = normalizedQ;
+
+  // Check for greetings & casual conversation
+  const casualGreetingPatterns = [
+    /^(hi|hello|hey|hii|helo|hiii|assalamu|salam|kemon|halo|hola|good\s*morning|good\s*evening|good\s*afternoon)\b/i,
+    /^(ki\s*khobor|kemon\s*acho|kemon\s*aso|bhalo\s*acho|bhalo\s*aso|who\s*are\s*you|what\s*can\s*you\s*do|tume\s*ki|apni\s*ke|tumi\s*ke)\b/i,
+    /^(thanks|thank\s*you|dhonnobad|dhonno|shukriya|ok|okay|thik\s*ase|accha|acha|bujso|bujhlam)$/i,
+  ];
+
+  const isConversational = casualGreetingPatterns.some((pattern) => pattern.test(q)) &&
+    !q.includes('order') && !q.includes('spend') && !q.includes('data') && !q.includes('customer') && !q.includes('vip') && !q.includes('list') && !q.includes('kau') && !q.includes('name');
 
   let search = '';
+  let searchField: 'name' | 'address' | 'merchant' | 'any' = 'any';
   let tag = 'All';
   let gender = 'All';
   let minOrderCount = '';
@@ -348,10 +390,28 @@ function parseQueryIntent(question: string) {
   let sortOrder = 'desc';
   let limit = 10;
 
-  // 1. Order Count Detection (e.g. 20+ order, ২০টি অর্ডার, 3+ orders, order >= 5)
-  const orderCountMatch = q.match(/(\d+)\s*(?:\+|er\s*besi|টি|ta|barer|bar)?\s*(?:order|অর্ডার)/i) ||
-                          q.match(/(?:order|অর্ডার)\s*(?:>=|>|count|সংখ্যা|besi|count)\s*(\d+)/i) ||
-                          q.match(/(\d+)\s*\+\s*order/i);
+  if (isConversational) {
+    return {
+      isConversational: true,
+      search: '',
+      searchField: 'any',
+      tag: 'All',
+      gender: 'All',
+      minOrderCount: '',
+      minOrderAmount: '',
+      merchant: '',
+      numberStartsWith: '',
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+      limit: 10,
+    };
+  }
+
+  // 1. Order Count Detection (e.g. 20+ order, ২০টি অর্ডার, ২০ টির বেশি অর্ডার, 3+ orders, order >= 5)
+  const orderCountMatch =
+    q.match(/(\d+)\s*(?:টির|টি|ta|er|বারের|বার)?\s*(?:বেশি|besi|অধিক|\+)?\s*(?:order|অর্ডার)/i) ||
+    q.match(/(?:order|অর্ডার)\s*(?:>=|>|count|সংখ্যা|besi|বেশি|অধিক)?\s*(\d+)/i) ||
+    q.match(/(\d+)\s*\+\s*order/i);
   if (orderCountMatch) {
     const num = parseInt(orderCountMatch[1], 10);
     if (!isNaN(num) && num > 0) {
@@ -376,7 +436,7 @@ function parseQueryIntent(question: string) {
   }
 
   // 3. VIP / High Spender
-  if (q.includes('vip') || q.includes('ভিআইপি') || q.includes('high spend') || q.includes('টপ বায়ার')) {
+  if (q.includes('vip') || q.includes('ভিআইপি') || q.includes('high spend') || q.includes('টপ বায়ার') || q.includes('সর্বোচ্চ খরচ')) {
     tag = 'VIP Client';
     if (!sortBy || sortBy === 'createdAt') {
       sortBy = 'orderAmount';
@@ -390,22 +450,42 @@ function parseQueryIntent(question: string) {
   }
 
   // 5. Gender
-  if (q.includes('female') || q.includes('নারী') || q.includes('মহিলা') || q.includes('woman') || q.includes('women')) {
+  if (q.includes('female') || q.includes('নারী') || q.includes('মহিলা') || q.includes('woman') || q.includes('women') || q.includes('মেয়ে')) {
     gender = 'Female';
-  } else if (q.includes('male') || q.includes('পুরুষ') || q.includes('man') || q.includes('men')) {
+  } else if (q.includes('male') || q.includes('পুরুষ') || q.includes('man') || q.includes('men') || q.includes('ছেলে')) {
     gender = 'Male';
   }
 
   // 6. Name Search (e.g. "easin name a", "name easin", "rahim namer", "yeasin")
+  const isExplicitName =
+    q.includes('name') || q.includes('নাম') || q.includes('নামে') || q.includes('নামের') ||
+    q.includes('namer') || q.includes('naam');
+
   let extractedName = '';
-  const stopWords = ['ki', 'ke', 'ka', 'keu', 'kono', 'user', 'koto', 'list', 'dau', 'dao', 'bolo', 'onek', 'amek', 'amake', 'amader', 'tader', 'oy', 'ta', 'data'];
+  const stopWords = ['ki', 'ke', 'ka', 'keu', 'kono', 'user', 'koto', 'list', 'dau', 'dao', 'bolo', 'onek', 'amek', 'amake', 'amader', 'tader', 'oy', 'ta', 'data', 'customer', 'kotojon'];
   const beforeNameMatch = q.match(/([a-zA-Z\u0980-\u09FF]{2,30})\s*(?:name|নাম|নামে|নামের)\b/i);
   const afterNameMatch = q.match(/(?:name|নাম|নামে|নামের)\s*(?:a|e|er|is|hocche)?\s*([a-zA-Z\u0980-\u09FF]{2,30})\b/i);
 
   if (beforeNameMatch && !stopWords.includes(beforeNameMatch[1].toLowerCase())) {
     extractedName = beforeNameMatch[1].trim();
+    searchField = 'name';
   } else if (afterNameMatch && !stopWords.includes(afterNameMatch[1].toLowerCase())) {
     extractedName = afterNameMatch[1].trim();
+    searchField = 'name';
+  } else if (isExplicitName) {
+    searchField = 'name';
+  }
+
+  // If common personal names mentioned directly
+  const commonNames = ['easin', 'yeasin', 'iasin', 'musa', 'samiya', 'maria', 'karim', 'rahim', 'abdullah', 'arafat', 'tasnim', 'tanvir'];
+  if (!extractedName) {
+    for (const cn of commonNames) {
+      if (q.split(/\s+/).includes(cn)) {
+        extractedName = cn;
+        if (isExplicitName) searchField = 'name';
+        break;
+      }
+    }
   }
 
   if (extractedName) {
@@ -415,20 +495,28 @@ function parseQueryIntent(question: string) {
     } else {
       search = extractedName;
     }
+    if (isExplicitName || commonNames.includes(lName)) {
+      searchField = 'name';
+    }
   }
 
   // 7. Merchant Search
   if (q.includes('beautybaaz')) {
     merchant = 'BeautyBaaz';
+    searchField = 'merchant';
   } else if (q.includes('fashionable dresses')) {
     merchant = 'Fashionable Dresses';
+    searchField = 'merchant';
   }
 
   // 8. Location Search
+  const isLocationQuery = q.includes('area') || q.includes('এলাকা') || q.includes('district') || q.includes('location') || q.includes('ঠিকানা') || q.includes('zone');
   if (q.includes('dhaka') || q.includes('ঢাকা')) {
     search = search ? `${search}|Dhaka` : 'Dhaka';
+    if (isLocationQuery) searchField = 'address';
   } else if (q.includes('keraniganj') || q.includes('কেরানীগঞ্জ')) {
     search = search ? `${search}|Keraniganj` : 'Keraniganj';
+    if (isLocationQuery) searchField = 'address';
   }
 
   // 9. Limit
@@ -448,7 +536,9 @@ function parseQueryIntent(question: string) {
   }
 
   return {
+    isConversational: false,
     search,
+    searchField,
     tag,
     gender,
     minOrderCount,
@@ -464,9 +554,14 @@ function parseQueryIntent(question: string) {
 function ensureExportAndExplorerPaths(parsed: any, intent: any, totalCount: number) {
   const res = { ...parsed };
 
+  if (intent.isConversational) {
+    return res;
+  }
+
   if (!res.exportPayload) {
     res.exportPayload = {
       search: intent.search || undefined,
+      nameWise: intent.searchField === 'name' ? 'true' : undefined,
       tag: intent.tag !== 'All' ? intent.tag : undefined,
       gender: intent.gender !== 'All' ? intent.gender : undefined,
       minOrderCount: intent.minOrderCount || undefined,
@@ -476,7 +571,7 @@ function ensureExportAndExplorerPaths(parsed: any, intent: any, totalCount: numb
       sortBy: intent.sortBy || 'orderCount',
       sortOrder: intent.sortOrder || 'desc',
       limit: intent.limit || 10,
-      customFilename: intent.minOrderCount ? `Top_Order_Count_${intent.minOrderCount}Plus` : `Filtered_Dataset`,
+      customFilename: intent.search ? `Records_${intent.search.replace(/\|/g, '_')}` : `Filtered_Dataset`,
     };
   }
 
@@ -487,6 +582,7 @@ function ensureExportAndExplorerPaths(parsed: any, intent: any, totalCount: numb
   if (!res.explorerPath) {
     const params = new URLSearchParams();
     if (res.exportPayload.search) params.set('search', res.exportPayload.search);
+    if (intent.searchField === 'name' || res.exportPayload.nameWise) params.set('nameWise', 'true');
     if (res.exportPayload.gender) params.set('gender', res.exportPayload.gender);
     if (res.exportPayload.tag) params.set('tag', res.exportPayload.tag);
     if (res.exportPayload.minOrderCount) params.set('minOrderCount', String(res.exportPayload.minOrderCount));
@@ -505,6 +601,28 @@ function buildDynamicLiveResponse(
   records: any[],
   stats: any
 ) {
+  // If user sent casual greeting
+  if (intent.isConversational) {
+    return {
+      type: 'chat',
+      reply: `👋 **হ্যালো! আমি Morpheus AI Analytics Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${(stats.totalRecords || 2361).toLocaleString()} টি রিয়েল-টাইম রেকর্ডের** সম্পূর্ণ তথ্য আমার কাছে সংযুক্ত আছে।\n\nআপনি বাংলায় বা ইংরেজিতে যেকোনো প্রশ্ন করতে পারেন—যেমন:\n- 👑 **টপ ৫ জন সর্বোচ্চ স্পেন্ড করা VIP কাস্টমার কারা?**\n- 📦 **২০টির বেশি অর্ডার করেছে এমন কাস্টমারদের তালিকা দাও?**\n- 💬 **হোয়াটসঅ্যাপে সক্রিয় ও ঢাকার কাস্টমারদের ডাটা কত?**\n\nআমি সাথে সাথে অ্যানালাইসিস করে আপনাকে সর্ট করা ডাটা এবং ১-ক্লিকে CSV ডাউনলোড ফাইল তৈরি করে দেব!`,
+      keyMetrics: [
+        { label: 'মোট ডাটাবেজ', value: `${(stats.totalRecords || 2361).toLocaleString()} টি`, subtext: 'Live Records' },
+        { label: 'লাইফটাইম GMV', value: `৳${Number(stats.totalGMV_BDT || 0).toLocaleString()}`, subtext: 'Total spend' },
+        { label: 'VIP ক্রেতা', value: `${(stats.vipCustomersCount || 0).toLocaleString()} জন`, subtext: 'Spend ≥ ৳10k' },
+      ],
+      suggestedActions: [
+        { label: '👑 টপ VIP ক্রেতা দেখুন', path: '/data/explorer?tag=VIP+Client&sortBy=orderAmount&sortOrder=desc' },
+        { label: '💬 WhatsApp Active দেখুন', path: '/data/explorer?tag=WhatsApp+Active' },
+      ],
+      followUpQuestions: [
+        'টপ ৫ জন সর্বোচ্চ খরচ করা VIP কাস্টমার কারা?',
+        'আমাদের ডাটার জেন্ডার ও স্পেন্ড হিসাব কেমন?',
+        'কেরানীগঞ্জ ও ঢাকার কাস্টমারদের সেলস কত?',
+      ],
+    };
+  }
+
   let title = `📊 **আপনার রিকোয়েস্ট অনুযায়ী ডাটাবেজ অ্যানালাইসিস:**`;
   let description = '';
 
@@ -512,10 +630,12 @@ function buildDynamicLiveResponse(
     title = `📦 **${intent.minOrderCount}+ অর্ডার সম্পন্নকারী কাস্টমারদের তথ্য:**`;
     description = `আপনার লাইভ ডাটাবেজে **${intent.minOrderCount} টির বেশি অর্ডার সম্পন্ন করেছে এমন মোট ${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের মধ্যে শীর্ষ কাস্টমারদের তালিকা নিচে দেওয়া হলো:`;
   } else if (intent.search) {
-    title = `🔍 **"${intent.search}" সম্পর্কিত কাস্টমারদের তথ্য:**`;
+    const searchDisplay = intent.search.replace(/\|/g, ' / ');
+    const fieldLabel = intent.searchField === 'name' ? 'নামে' : 'কীওয়ার্ডে';
+    title = `🔍 **"${searchDisplay}" ${fieldLabel} কাস্টমারদের তথ্য:**`;
     description = matchingCount > 0
-      ? `আপনার ডাটাবেজে "${intent.search}" এর সাথে ম্যাচিং **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!`
-      : `আপনার ডাটাবেজে "${intent.search}" নামে কোনো সরাসরি রেকর্ড পাওয়া যায়নি। সম্ভাব্য বানান বা অন্য ফিল্টার ট্রাই করতে পারেন।`;
+      ? `আপনার ডাটাবেজে "${searchDisplay}" ${fieldLabel} মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nনিচে শীর্ষ ${records.length} জনের প্রিভিউ দেওয়া হলো (সম্পূর্ণ ${matchingCount} জনের ফাইল দেখতে নিচের বাটনে ক্লিক করুন):`
+      : `আপনার ডাটাবেজে "${searchDisplay}" ${fieldLabel} কোনো সরাসরি রেকর্ড পাওয়া যায়নি। ভিন্ন বানান বা ফিল্টার দিয়ে চেষ্টা করতে পারেন।`;
   } else if (intent.gender === 'Female') {
     title = `👩 **ফিমেল কাস্টমার অ্যানালাইসিস:**`;
     description = `আপনার ডাটাবেজে মোট **${matchingCount.toLocaleString()} জন ফিমেল কাস্টমার** রয়েছেন।`;
@@ -530,10 +650,11 @@ function buildDynamicLiveResponse(
       records.map((r, idx) => `| ${idx + 1} | **${r.name}** | \`${r.phone}\` | **${r.orderCount}** টি | ৳${Number(r.orderAmount || 0).toLocaleString()} | ${r.location} (${r.primaryMerchant}) |`).join('\n');
   }
 
-  const reply = `${title}\n\n${description}${tableMarkdown}\n\n💡 *নিচের বাটনগুলোতে ক্লিক করে আপনি সম্পূর্ণ ${matchingCount.toLocaleString()} টি রো এর CSV ডাউনলোড করতে পারবেন অথবা Data Explorer-এ লাইভ দেখতে পারবেন।*`;
+  const reply = `${title}\n\n${description}${tableMarkdown}\n\n💡 *নিচের বাটনগুলোতে ক্লিক করে আপনি সম্পূর্ণ ${matchingCount.toLocaleString()} টি রেকর্ডের CSV ডাউনলোড করতে পারবেন অথবা Data Explorer-এ লাইভ দেখতে পারবেন।*`;
 
   const exportPayload = {
     search: intent.search || undefined,
+    nameWise: intent.searchField === 'name' ? 'true' : undefined,
     tag: intent.tag !== 'All' ? intent.tag : undefined,
     gender: intent.gender !== 'All' ? intent.gender : undefined,
     minOrderCount: intent.minOrderCount || undefined,
@@ -542,11 +663,12 @@ function buildDynamicLiveResponse(
     sortBy: intent.sortBy || 'orderCount',
     sortOrder: intent.sortOrder || 'desc',
     limit: intent.limit || 10,
-    customFilename: intent.minOrderCount ? `Top_${intent.minOrderCount}Plus_Orders` : 'Filtered_Records',
+    customFilename: intent.search ? `Records_${intent.search.replace(/\|/g, '_')}` : 'Filtered_Records',
   };
 
   const params = new URLSearchParams();
   if (exportPayload.search) params.set('search', exportPayload.search);
+  if (intent.searchField === 'name') params.set('nameWise', 'true');
   if (exportPayload.gender) params.set('gender', exportPayload.gender);
   if (exportPayload.tag) params.set('tag', exportPayload.tag);
   if (exportPayload.minOrderCount) params.set('minOrderCount', String(exportPayload.minOrderCount));
@@ -554,6 +676,7 @@ function buildDynamicLiveResponse(
   if (exportPayload.sortOrder) params.set('sortOrder', exportPayload.sortOrder);
 
   return {
+    type: 'data_query',
     reply,
     exportPayload,
     exportLabel: `Download ${matchingCount.toLocaleString()} Records CSV`,
@@ -561,7 +684,7 @@ function buildDynamicLiveResponse(
     keyMetrics: [
       { label: 'ম্যাচিং কাস্টমার', value: `${matchingCount.toLocaleString()} জন`, subtext: 'Matching criteria' },
       { label: 'মোট ডাটাবেজ', value: `${(stats.totalRecords || 2361).toLocaleString()} জন`, subtext: 'Full dataset' },
-      { label: 'ফিল্টার টাইপ', value: intent.sortBy === 'orderCount' ? 'Highest Orders' : 'Smart Filter', subtext: 'Sorted' },
+      { label: 'ফিল্টার টাইপ', value: intent.searchField === 'name' ? 'Name Matching' : intent.sortBy === 'orderCount' ? 'Highest Orders' : 'Smart Filter', subtext: 'Criteria' },
     ],
     suggestedActions: [
       { label: `📥 Download CSV (${matchingCount.toLocaleString()} rows)`, path: `/api/export` },
