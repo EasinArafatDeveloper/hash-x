@@ -426,7 +426,7 @@ export function ColumnMappingStudio({
                 type="button"
                 onClick={handleDeepSeekAutoMap}
                 disabled={isAiMappingLoading}
-                title="Use DeepSeek AI to semantically map messy column headers"
+                title="Use AI (GPT-4o) to semantically map messy column headers"
                 className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-brand-600 text-white hover:from-purple-700 hover:to-brand-700 text-[11px] font-extrabold flex items-center gap-1.5 shadow-md shadow-purple-500/20 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 {isAiMappingLoading ? (
@@ -434,7 +434,7 @@ export function ColumnMappingStudio({
                 ) : (
                   <Sparkles className="w-3.5 h-3.5" />
                 )}
-                <span>{isAiMappingLoading ? 'AI Mapping...' : '✨ DeepSeek AI Auto-Map'}</span>
+                <span>{isAiMappingLoading ? 'AI Mapping...' : '✨ Smart AI Auto-Map'}</span>
               </button>
 
               <button

@@ -74,10 +74,10 @@ export function AIAuditPreviewModal({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold text-gray-900 dark:text-white">
-                    DeepSeek AI Pre-Flight Audit
+                    AI Pre-Flight Ingestion Audit
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 uppercase tracking-wider">
-                    AI Verified
+                    GPT-4o Verified
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -104,7 +104,7 @@ export function AIAuditPreviewModal({
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                    DeepSeek AI Reasoning in Progress...
+                    AI Ingestion Reasoning in Progress...
                   </h4>
                   <p className="text-xs text-gray-500 max-w-sm mx-auto">
                     Analyzing duplicate mobile numbers, conflicting fields, and categorizing into CREATE / UPDATE / KEEP / SKIP

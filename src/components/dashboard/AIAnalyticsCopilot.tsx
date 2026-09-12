@@ -292,8 +292,8 @@ export function AIAnalyticsCopilot({
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-bold tracking-tight">Morpheus AI Copilot</h3>
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-white/20 text-white border border-white/30 uppercase">
-                        DeepSeek Live
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-white/20 text-white border border-white/30 uppercase tracking-wide">
+                        GPT-4o Live
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">

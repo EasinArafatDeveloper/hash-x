@@ -8,6 +8,7 @@
  */
 
 import { getAutoSuggestedField } from '@/components/upload/ColumnMappingStudio';
+import { callAIModel } from '@/lib/ai-provider';
 
 export const DEEPSEEK_TARGET_FIELDS = [
   // 1. Core Profile & Contact
@@ -152,7 +153,7 @@ export async function aiSuggestColumnMapping(
     };
   });
 
-  if (!apiKey || columnNames.length === 0) {
+  if (columnNames.length === 0) {
     return fallbackResult;
   }
 
@@ -196,39 +197,21 @@ OUTPUT FORMAT (Strict JSON):
   }
 }`;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: `Analyze and map these uploaded columns:\n${JSON.stringify(columnsWithSamples, null, 2)}`,
-          },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-      }),
-      signal: controller.signal,
+    const { content } = await callAIModel({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: `Analyze and map these uploaded columns:\n${JSON.stringify(columnsWithSamples, null, 2)}`,
+        },
+      ],
+      preferredModel: 'gpt-4o',
+      jsonMode: true,
+      temperature: 0.1,
+      maxTokens: 1500,
+      timeoutMs: 10000,
     });
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.warn(`DeepSeek API returned HTTP ${response.status}. Using deterministic fallback.`);
-      return fallbackResult;
-    }
-
-    const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content;
     if (!content) return fallbackResult;
 
     const parsed = JSON.parse(content);
@@ -254,7 +237,7 @@ OUTPUT FORMAT (Strict JSON):
 
     return mergedResult;
   } catch (error) {
-    console.warn('DeepSeek AI Column Mapping exception, using deterministic fallback:', error);
+    console.warn('AI Column Mapping exception, using deterministic fallback:', error);
     return fallbackResult;
   }
 }
@@ -386,15 +369,12 @@ export async function aiAuditDataBatch(
     anomaliesDetected: anomalies,
   };
 
-  if (!apiKey || evaluatedRows.length === 0) {
+  if (evaluatedRows.length === 0) {
     return baselineSummary;
   }
 
-  // Enhance insights with DeepSeek AI reasoning
+  // Enhance insights with AI reasoning
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
     const auditPrompt = `You are an AI Data Auditor for Morpheus DataFlow.
 Review this ingestion batch statistics:
 - Total Analyzed: ${evaluatedRows.length}
@@ -412,31 +392,19 @@ OUTPUT FORMAT (JSON):
   "cleanlinessRating": "Excellent" | "Good" | "Requires Attention"
 }`;
 
-    const res = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'system', content: auditPrompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.2,
-      }),
-      signal: controller.signal,
+    const { content } = await callAIModel({
+      messages: [{ role: 'system', content: auditPrompt }],
+      preferredModel: 'gpt-4o',
+      jsonMode: true,
+      temperature: 0.2,
+      maxTokens: 500,
+      timeoutMs: 6000,
     });
 
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      const content = data?.choices?.[0]?.message?.content;
-      if (content) {
-        const parsed = JSON.parse(content);
-        if (Array.isArray(parsed.insights) && parsed.insights.length > 0) {
-          baselineSummary.aiInsights = parsed.insights;
-        }
+    if (content) {
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed.insights) && parsed.insights.length > 0) {
+        baselineSummary.aiInsights = parsed.insights;
       }
     }
   } catch {}
@@ -812,17 +780,11 @@ export async function aiDiscoverSmartTags(
   columnMapping?: Record<string, string>
 ): Promise<AISmartTag[]> {
   const deterministicTags = computeSmartTagsFromRows(sampleRows, columnMapping);
-  const apiKey = process.env.DEEPSEEK_API_KEY || 'sk-8fd0df2b25bb4509a6166f42ff224a3e';
-  const apiUrl = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions';
-
-  if (!apiKey || sampleRows.length === 0) {
+  if (sampleRows.length === 0) {
     return deterministicTags;
   }
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
     const prompt = `You are a Customer Segmentation & AI Tagging Specialist for Morpheus DataFlow.
 Analyze these sample records and discovered smart tags:
 Existing Discovered Tags: ${JSON.stringify(deterministicTags.map((t) => t.label))}
@@ -844,52 +806,40 @@ OUTPUT FORMAT (JSON):
   ]
 }`;
 
-    const res = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'system', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-      }),
-      signal: controller.signal,
+    const { content } = await callAIModel({
+      messages: [{ role: 'system', content: prompt }],
+      preferredModel: 'gpt-4o',
+      jsonMode: true,
+      temperature: 0.3,
+      maxTokens: 1000,
+      timeoutMs: 8000,
     });
 
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      const content = data?.choices?.[0]?.message?.content;
-      if (content) {
-        const parsed = JSON.parse(content);
-        if (Array.isArray(parsed.additionalTags)) {
-          parsed.additionalTags.forEach((t: any, idx: number) => {
-            if (t.tag && !deterministicTags.some((dt) => dt.tag.toLowerCase() === t.tag.toLowerCase())) {
-              deterministicTags.push({
-                id: `ai_custom_${idx}_${Date.now()}`,
-                tag: t.tag,
-                label: t.label || `✨ ${t.tag}`,
-                count: Math.round(totalRows * 0.3) || 1,
-                percentage: 30,
-                reason: t.reason || 'AI Discovered segmentation tag',
-                detectionRule: t.detectionRule || 'AI Semantic pattern detection on sample records',
-                analyzedColumns: Array.isArray(t.analyzedColumns) ? t.analyzedColumns : ['custom_fields'],
-                explanationBn: t.explanationBn || `${t.tag} সেগমেন্টের গ্রাহকদের জন্য AI দ্বারা বিশেষায়িত ট্যাগ।`,
-                sampleMatchingRows: sampleRows.slice(0, 2).map((r) => ({
-                  phone: String(r.phone || Object.values(r)[0] || '01***'),
-                  name: String(r.name || r.customer_name || 'Customer'),
-                  matchedValue: `AI Match: ${t.tag}`,
-                })),
-                category: 'custom',
-                isAiDiscovered: true,
-              });
-            }
-          });
-        }
+    if (content) {
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed.additionalTags)) {
+        parsed.additionalTags.forEach((t: any, idx: number) => {
+          if (t.tag && !deterministicTags.some((dt) => dt.tag.toLowerCase() === t.tag.toLowerCase())) {
+            deterministicTags.push({
+              id: `ai_custom_${idx}_${Date.now()}`,
+              tag: t.tag,
+              label: t.label || `✨ ${t.tag}`,
+              count: Math.round(totalRows * 0.3) || 1,
+              percentage: 30,
+              reason: t.reason || 'AI Discovered segmentation tag',
+              detectionRule: t.detectionRule || 'AI Semantic pattern detection on sample records',
+              analyzedColumns: Array.isArray(t.analyzedColumns) ? t.analyzedColumns : ['custom_fields'],
+              explanationBn: t.explanationBn || `${t.tag} সেগমেন্টের গ্রাহকদের জন্য AI দ্বারা বিশেষায়িত ট্যাগ।`,
+              sampleMatchingRows: sampleRows.slice(0, 2).map((r) => ({
+                phone: String(r.phone || Object.values(r)[0] || '01***'),
+                name: String(r.name || r.customer_name || 'Customer'),
+                matchedValue: `AI Match: ${t.tag}`,
+              })),
+              category: 'custom',
+              isAiDiscovered: true,
+            });
+          }
+        });
       }
     }
   } catch {}

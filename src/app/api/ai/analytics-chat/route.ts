@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/db';
 import RecordModel from '@/lib/models/Record';
 import DatasetModel from '@/lib/models/Dataset';
 import { buildPhonePrefixRegex } from '@/lib/phone';
+import { callAIModel } from '@/lib/ai-provider';
 
 export const dynamic = 'force-dynamic';
 
@@ -285,48 +286,35 @@ OUTPUT ONLY JSON:
       conversationPayload.push({ role: 'user', content: lastMessage });
     }
 
+    // 3. CALL FLAGSHIP AI (OPENAI GPT-4o / DEEPSEEK FALLBACK)
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 9000);
-
-      const aiRes = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: conversationPayload,
-          temperature: 0.2,
-          max_tokens: 1500,
-          response_format: { type: 'json_object' },
-        }),
-        signal: controller.signal,
+      const { content, provider, model } = await callAIModel({
+        messages: conversationPayload,
+        preferredModel: 'gpt-4o',
+        jsonMode: true,
+        temperature: 0.2,
+        maxTokens: 2000,
+        timeoutMs: 15000,
       });
 
-      clearTimeout(timeoutId);
+      if (content) {
+        try {
+          const parsed = JSON.parse(content);
+          const sanitized = ensureExportAndExplorerPaths(parsed, parsedIntent, targetedCount);
 
-      if (aiRes.ok) {
-        const aiData = await aiRes.json();
-        const content = aiData.choices?.[0]?.message?.content;
-        if (content) {
-          try {
-            const parsed = JSON.parse(content);
-            const sanitized = ensureExportAndExplorerPaths(parsed, parsedIntent, targetedCount);
-
-            return NextResponse.json({
-              success: true,
-              result: sanitized,
-              liveStats: liveStatsSummary,
-            });
-          } catch (pErr) {
-            console.error('Failed to parse AI JSON:', pErr);
-          }
+          return NextResponse.json({
+            success: true,
+            provider,
+            model,
+            result: sanitized,
+            liveStats: liveStatsSummary,
+          });
+        } catch (pErr) {
+          console.error('Failed to parse AI JSON:', pErr);
         }
       }
     } catch (aiErr: any) {
-      console.warn('DeepSeek AI Analytics chat API exception, using live dynamic generator:', aiErr?.message);
+      console.warn('AI Analytics chat API exception, using live dynamic generator:', aiErr?.message);
     }
 
     // Dynamic Live Fallback using Real MongoDB Query Results

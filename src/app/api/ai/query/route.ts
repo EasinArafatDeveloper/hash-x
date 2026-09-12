@@ -3,6 +3,8 @@ import connectToDatabase from '@/lib/db';
 import RecordModel from '@/lib/models/Record';
 import { buildPhonePrefixRegex } from '@/lib/phone';
 
+import { callAIModel } from '@/lib/ai-provider';
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
@@ -17,20 +19,13 @@ export async function POST(request: NextRequest) {
 
     await connectToDatabase();
 
-    const apiKey = process.env.DEEPSEEK_API_KEY || 'sk-8fd0df2b25bb4509a6166f42ff224a3e';
-    const apiUrl = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions';
-
     // 1. Fallback Heuristic Parser
     const fallbackParsed = parseNaturalLanguageHeuristics(cleanPrompt, availableTags);
 
     let parsedResult = fallbackParsed;
 
-    if (apiKey) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-        const systemPrompt = `You are a friendly, conversational AI Data Assistant for Morpheus DataFlow — like a helpful colleague who knows the database inside out.
+    try {
+      const systemPrompt = `You are a friendly, conversational AI Data Assistant for Morpheus DataFlow — like a helpful colleague who knows the database inside out.
 The user chats with you in English, Bengali, or Banglish. Reply naturally and warmly in their language.
 
 AVAILABLE DATASET TAGS: ${JSON.stringify(availableTags)}
@@ -107,49 +102,36 @@ OUTPUT ONLY VALID JSON (no markdown, no explanation outside JSON):
   "summaryBn": "বাংলা সামারি"
 }`;
 
-        const conversation = [
-          { role: 'system', content: systemPrompt },
-          ...messages.slice(-4).map((m: any) => ({
-            role: m.role === 'assistant' ? 'assistant' : 'user',
-            content: m.content || '',
-          })),
-        ];
+      const conversation: any[] = [
+        { role: 'system', content: systemPrompt },
+        ...messages.slice(-4).map((m: any) => ({
+          role: m.role === 'assistant' ? 'assistant' : 'user',
+          content: m.content || '',
+        })),
+      ];
 
-        if (!messages.some((m: any) => m.content === cleanPrompt)) {
-          conversation.push({ role: 'user', content: cleanPrompt });
-        }
-
-        const res = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: 'deepseek-chat',
-            messages: conversation,
-            response_format: { type: 'json_object' },
-            temperature: 0.2,
-          }),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const data = await res.json();
-          const content = data?.choices?.[0]?.message?.content;
-          if (content) {
-            const parsed = JSON.parse(content);
-            parsedResult = {
-              ...fallbackParsed,
-              ...parsed,
-            };
-          }
-        }
-      } catch (err) {
-        console.warn('DeepSeek AI natural query exception, using rule fallback:', err);
+      if (!messages.some((m: any) => m.content === cleanPrompt)) {
+        conversation.push({ role: 'user', content: cleanPrompt });
       }
+
+      const { content } = await callAIModel({
+        messages: conversation,
+        preferredModel: 'gpt-4o',
+        jsonMode: true,
+        temperature: 0.2,
+        maxTokens: 1500,
+        timeoutMs: 12000,
+      });
+
+      if (content) {
+        const parsed = JSON.parse(content);
+        parsedResult = {
+          ...fallbackParsed,
+          ...parsed,
+        };
+      }
+    } catch (err) {
+      console.warn('AI natural query exception, using rule fallback:', err);
     }
 
     // 1b. Early return for clarification — don't query DB yet
