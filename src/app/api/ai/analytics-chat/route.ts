@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     if (!parsedIntent.isConversational && parsedIntent.search) {
       const searchTerms = parsedIntent.search.split('|').map((t: string) => t.trim()).filter(Boolean);
-      const searchRegex = new RegExp(searchTerms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i');
+      const searchRegex = new RegExp(searchTerms.map((t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i');
 
       if (parsedIntent.searchField === 'name') {
         // STRICT NAME SEARCH: Only match customer name & nickname, never merchant or address
@@ -260,7 +260,7 @@ LIVE DATABASE CONTEXT:
 - 3+ Repeat Buyers: ${frequentBuyers.toLocaleString()}
 - Top Districts: ${topLocations.map((l: any) => `${l._id} (${l.count})`).join(', ')}
 
-CURRENT USER REQUEST ANALYSIS:
+CURRENT USER REQUEST ANALYSIS & FILTER STATE:
 ${JSON.stringify(liveStatsSummary.userQueryAnalysis, null, 2)}
 
 INSTRUCTIONS & CAPABILITIES (BEHAVE LIKE A GENUINE HUMAN ASSISTANT / CHATGPT):
@@ -272,28 +272,28 @@ INSTRUCTIONS & CAPABILITIES (BEHAVE LIKE A GENUINE HUMAN ASSISTANT / CHATGPT):
      - Suggest 3 concrete, powerful questions they can ask (e.g. VIP clients, top repeat buyers, WhatsApp segmentation).
      - Set "type": "chat".
 
-2. DATA & ANALYTICAL QUERIES (orders placed, spend, areas, landmarks, categories, phone prefixes/suffixes):
-   - STRICT ACCURACY RULE: You MUST rely 100% on "userQueryAnalysis" -> "exactMatchingCount" and "topMatchingRecords".
-   - If user asked for order counts (e.g. 100+ orders placed), state the exact count from exactMatchingCount.
-   - If user asked for phone numbers ending with a digit (e.g. last 2 digits 14), confirm that these numbers end with that specific digit.
-   - If user asked for phone numbers starting with a prefix, confirm that these numbers start with that prefix.
-   - NEVER hallucinate, guess, or dump unrelated database records!
-   - If "exactMatchingCount" === 0:
-     - Explain politely and honestly in fluent Bengali (e.g. "না স্যার, আপনার ডাটাবেজে এই নির্দিষ্ট শর্ত বা তথ্যের কোনো ডাটা খুঁজে পাওয়া যায়নি। আপনি কি অন্য কোনো ফিল্টার বা নাম্বার দিয়ে দেখতে চান?").
-     - DO NOT render a table of unrelated records when 0 matches exist!
-     - Set "type": "data_query".
-   - If "exactMatchingCount" > 0:
-     - Clearly state the exact count: "আপনার ডাটাবেজে মোট **${targetedCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!"
-     - If exactMatchingCount > formattedTargetedRecords.length:
-       - State clearly: "নিচে শীর্ষ ${formattedTargetedRecords.length} জনের তালিকা দেওয়া হলো (সম্পূর্ণ ${targetedCount} জনের ফাইল দেখতে নিচের বাটনে ক্লিক করুন):"
-     - Render a clean Markdown Table (# | Name | Phone Number | Orders | Spend BDT | Location/Store).
-     - Provide accurate "exportPayload", "exportLabel", and "explorerPath".
+2. MULTI-TURN CONVERSATIONS & MICRO-REFINEMENTS (CONTEXT RETENTION):
+   - When the user asks a follow-up or refinement on previous data (e.g., "ar modde jader order 15 plus tader ta sud dua", "tader modde female kara", "017 number kotojon"):
+     - UNDERSTAND that this query is a micro-filter applied to the PREVIOUS customer set (e.g., matching the specific name/keyword previously queried).
+     - Clearly acknowledge the active search/name context and explain how many of those specific customers meet the new condition.
+     - STRICT ACCURACY RULE: Always use "userQueryAnalysis" -> "exactMatchingCount" as the single source of truth for the exact number of matching customers.
 
-3. MARKETING STRATEGY & BUSINESS ADVICE:
-   - If the user asks for business recommendations (e.g. "how to increase revenue?", "which campaign to run?"):
-     - Give actionable, data-driven advice referencing their live dataset stats.
+3. DATA & ANALYTICAL QUERIES:
+   - If user asked for order counts, phone prefix/suffix, areas, categories, or names:
+     - STRICT ACCURACY: Use the exact count from exactMatchingCount.
+     - NEVER hallucinate, guess, or dump unrelated database records!
+     - If "exactMatchingCount" === 0:
+       - Explain politely and honestly in fluent Bengali (e.g. "না স্যার, আপনার ডাটাবেজে এই নির্দিষ্ট শর্ত বা তথ্যের কোনো ডাটা খুঁজে পাওয়া যায়নি। আপনি কি অন্য কোনো ফিল্টার বা নাম্বার দিয়ে দেখতে চান?").
+       - DO NOT render a table of unrelated records when 0 matches exist!
+       - Set "type": "data_query".
+     - If "exactMatchingCount" > 0:
+       - Clearly state the exact count in bold Bengali.
+       - If exactMatchingCount > formattedTargetedRecords.length:
+         - State clearly: "নিচে শীর্ষ ${formattedTargetedRecords.length} জনের তালিকা দেওয়া হলো (সম্পূর্ণ ${targetedCount} জনের ফাইল দেখতে নিচের বাটনে ক্লিক করুন):"
+       - Render a clean Markdown Table (# | Name | Phone Number | Orders | Spend BDT | Location/Store).
+       - Provide accurate "exportPayload", "exportLabel", and "explorerPath".
 
-OUTPUT ONLY VALID JSON:
+4. OUTPUT ONLY VALID JSON:
 {
   "type": "chat" | "data_query" | "strategy",
   "reply": "Rich markdown formatted response in Bengali/English with bullet points and tables if applicable",
@@ -387,7 +387,23 @@ OUTPUT ONLY VALID JSON:
   }
 }
 
-function parseQueryIntent(question: string, history: any[] = []) {
+interface QueryIntent {
+  isConversational: boolean;
+  search: string;
+  searchField: 'name' | 'address' | 'merchant' | 'any';
+  tag: string;
+  gender: string;
+  minOrderCount: string;
+  minOrderAmount: string;
+  merchant: string;
+  numberStartsWith: string;
+  numberEndsWith: string;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+  limit: number;
+}
+
+function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
   const normalizedQ = question
     .replace(/[০-৯]/g, (d) => String(['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'].indexOf(d)))
     .toLowerCase()
@@ -424,7 +440,7 @@ function parseQueryIntent(question: string, history: any[] = []) {
   let numberStartsWith = '';
   let numberEndsWith = '';
   let sortBy = 'createdAt';
-  let sortOrder = 'desc';
+  let sortOrder: 'asc' | 'desc' = 'desc';
   let limit = 10;
 
   if (isConversational) {
@@ -445,12 +461,12 @@ function parseQueryIntent(question: string, history: any[] = []) {
     };
   }
 
-  // 1. Order Count Detection (handles "order plased 100", "order placed 100", "100 order", "order >= 50", "20+ order", "২০টি অর্ডার", "order 100")
+  // 1. Order Count Detection (handles "order plased 100", "order placed 100", "100 order", "order >= 50", "20+ order", "২০টি অর্ডার", "order 15 plus", "15+ order")
   const orderCountMatch =
-    q.match(/(?:order|অর্ডার)\s*(?:placed|plased|count|সংখ্যা|complete|কমপ্লিট|kora|করা|হয়েছে|hoise|besi|বেশি|অধিক|>=|>|:|=)?\s*(\d+)/i) ||
-    q.match(/(\d+)\s*(?:টির|টি|ta|er|বারের|বার)?\s*(?:besi|বেশি|অধিক|placed|plased|\+)?\s*(?:order|অর্ডার)/i) ||
-    q.match(/(\d+)\s*\+\s*order/i) ||
-    q.match(/(?:order|অর্ডার)\s*(\d+)/i);
+    q.match(/(?:order|অর্ডার)\s*(?:placed|plased|count|সংখ্যা|complete|কমপ্লিট|kora|করা|হয়েছে|hoise|besi|বেশি|অধিক|>=|>|:|=)?\s*(\d+)\s*(?:\+|plus)?/i) ||
+    q.match(/(\d+)\s*(?:টির|টি|ta|er|বারের|বার)?\s*(?:besi|বেশি|অধিক|placed|plased|\+|plus)?\s*(?:order|অর্ডার)/i) ||
+    q.match(/(\d+)\s*(?:\+|plus)\s*order/i) ||
+    q.match(/(?:order|অর্ডার)\s*(\d+)\s*(?:\+|plus)?/i);
 
   if (orderCountMatch) {
     const num = parseInt(orderCountMatch[1], 10);
@@ -657,26 +673,49 @@ function parseQueryIntent(question: string, history: any[] = []) {
     }
   }
 
-  // 11. Multi-turn Merge / Follow-up support: If user asks a refinement ("ar moddhe jara female", "merge koro", "ager data r eita")
+  // 11. Multi-turn Merge & Follow-up Micro-Refinement Support
   if (history && history.length > 0) {
     const isRefinement =
       q.includes('ar moddhe') ||
+      q.includes('ar modde') ||
+      q.includes('ar modhe') ||
       q.includes('tader moddhe') ||
+      q.includes('tader modde') ||
+      q.includes('tader modhe') ||
+      q.includes('tader') ||
+      q.includes('ar maje') ||
+      q.includes('er moddhe') ||
+      q.includes('er modde') ||
+      q.includes('er modhe') ||
       q.includes('ager') ||
       q.includes('uporer') ||
       q.includes('merge') ||
-      q.includes('also');
+      q.includes('also') ||
+      q.includes('sudhu') ||
+      q.includes('sud') ||
+      q.includes('only') ||
+      q.includes('just') ||
+      q.includes('jader') ||
+      q.includes('jara') ||
+      (!search && (minOrderCount || minOrderAmount || gender !== 'All' || tag !== 'All' || numberStartsWith || numberEndsWith));
 
     if (isRefinement) {
-      const lastUserMsg = [...history].reverse().find((m) => (m.role === 'user' && m.content !== question) || m.content !== question);
+      const lastUserMsg = [...history].reverse().find(
+        (m) => (m.role === 'user' && m.content !== question) || (m.role !== 'assistant' && m.content !== question)
+      );
       if (lastUserMsg && lastUserMsg.content) {
         const prevIntent = parseQueryIntent(lastUserMsg.content, []);
-        if (!search && prevIntent.search) search = prevIntent.search;
+        if (!search && prevIntent.search) {
+          search = prevIntent.search;
+          searchField = prevIntent.searchField || 'any';
+        }
         if (!minOrderCount && prevIntent.minOrderCount) minOrderCount = prevIntent.minOrderCount;
         if (!minOrderAmount && prevIntent.minOrderAmount) minOrderAmount = prevIntent.minOrderAmount;
         if (!merchant && prevIntent.merchant) merchant = prevIntent.merchant;
         if (gender === 'All' && prevIntent.gender !== 'All') gender = prevIntent.gender;
         if (tag === 'All' && prevIntent.tag !== 'All') tag = prevIntent.tag;
+        if (!numberStartsWith && prevIntent.numberStartsWith) numberStartsWith = prevIntent.numberStartsWith;
+        if (!numberEndsWith && prevIntent.numberEndsWith) numberEndsWith = prevIntent.numberEndsWith;
       }
     }
   }
@@ -817,7 +856,19 @@ function buildDynamicLiveResponse(
   let title = `📊 **আপনার রিকোয়েস্ট অনুযায়ী ডাটাবেজ অ্যানালাইসিস:**`;
   let description = '';
 
-  if (intent.minOrderCount) {
+  const searchDisplay = intent.search ? intent.search.replace(/\|/g, ' / ') : '';
+
+  if (intent.search && intent.minOrderCount) {
+    title = `📦 **"${searchDisplay}" নাম/কীওয়ার্ডে ${intent.minOrderCount}+ অর্ডার সম্পন্নকারী কাস্টমারদের তথ্য:**`;
+    description = matchingCount > 0
+      ? `আপনার ডাটাবেজে **"${searchDisplay}"** যাদের মধ্যে **${intent.minOrderCount} টির বেশি অর্ডার** রয়েছে এমন মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের প্রিভিউ তালিকা নিচে দেওয়া হলো:`
+      : `না স্যার, আপনার ডাটাবেজে "${searchDisplay}" নাম/কীওয়ার্ডে ${intent.minOrderCount} টির বেশি অর্ডার করেছে এমন কোনো কাস্টমার খুঁজে পাওয়া যায়নি।`;
+  } else if (intent.search && intent.gender && intent.gender !== 'All') {
+    title = `👩 **"${searchDisplay}" নাম/কীওয়ার্ডে ${intent.gender} কাস্টমারদের তথ্য:**`;
+    description = matchingCount > 0
+      ? `আপনার ডাটাবেজে **"${searchDisplay}"** এর মধ্যে **${intent.gender}** মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!`
+      : `না স্যার, "${searchDisplay}" এর মধ্যে কোনো ${intent.gender} কাস্টমার পাওয়া যায়নি।`;
+  } else if (intent.minOrderCount) {
     title = `📦 **${intent.minOrderCount}+ অর্ডার সম্পন্নকারী কাস্টমারদের তথ্য:**`;
     description = matchingCount > 0
       ? `আপনার লাইভ ডাটাবেজে **${intent.minOrderCount} টির বেশি অর্ডার সম্পন্ন করেছে এমন মোট ${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের মধ্যে শীর্ষ কাস্টমারদের তালিকা নিচে দেওয়া হলো:`
@@ -833,7 +884,6 @@ function buildDynamicLiveResponse(
       ? `আপনার লাইভ ডাটাবেজে "${intent.numberStartsWith}" দিয়ে শুরু এমন মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের প্রিভিউ তালিকা নিচে দেওয়া হলো:`
       : `না স্যার, আপনার ডাটাবেজে "${intent.numberStartsWith}" দিয়ে শুরু এমন কোনো ফোন নম্বরের কাস্টমার খুঁজে পাওয়া যায়নি।`;
   } else if (intent.search) {
-    const searchDisplay = intent.search.replace(/\|/g, ' / ');
     const fieldLabel = intent.searchField === 'name' ? 'নামে' : 'কীওয়ার্ডে';
     title = `🔍 **"${searchDisplay}" ${fieldLabel} কাস্টমারদের তথ্য:**`;
     description = matchingCount > 0
