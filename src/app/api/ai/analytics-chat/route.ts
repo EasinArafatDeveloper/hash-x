@@ -58,8 +58,19 @@ export async function POST(request: NextRequest) {
           { email: searchRegex },
           { location: searchRegex },
           { area: searchRegex },
+          { address: searchRegex },
+          { category: searchRegex },
+          { tags: searchRegex },
           { 'customFields.nickname': searchRegex },
           { 'customFields.customer_name': searchRegex },
+          { 'customFields.canonical_address': searchRegex },
+          { 'customFields.primary_merchant': searchRegex },
+          { 'customFields.matched_district_filters': searchRegex },
+          { 'customFields.matched_city_filters': searchRegex },
+          { 'customFields.matched_area_filters': searchRegex },
+          { 'customFields.lifetime_primary_category': searchRegex },
+          { 'customFields.Tag / Label': searchRegex },
+          { 'customFields.Tags / Labels': searchRegex },
         ];
       }
     }
@@ -482,22 +493,9 @@ function parseQueryIntent(question: string) {
   }
 
   // 5. Gender
-  if (
-    q.includes('female') ||
-    q.includes('নারী') ||
-    q.includes('মহিলা') ||
-    q.includes('woman') ||
-    q.includes('women') ||
-    q.includes('মেয়ে')
-  ) {
+  if (q.match(/\b(female|woman|women|নারী|মহিলা|মেয়ে)\b/i)) {
     gender = 'Female';
-  } else if (
-    q.includes('male') ||
-    q.includes('পুরুষ') ||
-    q.includes('man') ||
-    q.includes('men') ||
-    q.includes('ছেলে')
-  ) {
+  } else if (q.match(/\b(male|man|men|পুরুষ|ছেলে)\b/i) && !q.match(/\b(female|woman|women)\b/i)) {
     gender = 'Male';
   }
 
@@ -584,7 +582,15 @@ function parseQueryIntent(question: string) {
     }
   }
 
-  // 7. Merchant Search
+  // 7. Merchant & Category Search
+  const categoryKeywords = ['fashion', 'boutique', 'beauty', 'jewelry', 'jewellery', 'apparel', 'clothing', 'saree', 'cosmetics', 'grocery', 'shoes', 'bag'];
+  for (const cat of categoryKeywords) {
+    if (q.includes(cat)) {
+      search = search ? `${search}|${cat}` : cat;
+      break;
+    }
+  }
+
   if (q.includes('beautybaaz')) {
     merchant = 'BeautyBaaz';
     searchField = 'merchant';
@@ -593,20 +599,28 @@ function parseQueryIntent(question: string) {
     searchField = 'merchant';
   }
 
-  // 8. Location Search
+  // 8. Landmark, Area & Location Search
   const isLocationQuery =
     q.includes('area') ||
     q.includes('এলাকা') ||
     q.includes('district') ||
     q.includes('location') ||
     q.includes('ঠিকানা') ||
-    q.includes('zone');
-  if (q.includes('dhaka') || q.includes('ঢাকা')) {
-    search = search ? `${search}|Dhaka` : 'Dhaka';
-    if (isLocationQuery) searchField = 'address';
-  } else if (q.includes('keraniganj') || q.includes('কেরানীগঞ্জ')) {
-    search = search ? `${search}|Keraniganj` : 'Keraniganj';
-    if (isLocationQuery) searchField = 'address';
+    q.includes('zone') ||
+    q.includes('tower') ||
+    q.includes('বিল্ডিং');
+
+  const knownLocations = [
+    'rahman tower', 'tailghat', 'keraniganj', 'কেরানীগঞ্জ', 'dhaka', 'ঢাকা',
+    'chittagong', 'চট্টগ্রাম', 'sylhet', 'সিলেট', 'rajshahi', 'khulna', 'barisal',
+    'comilla', 'gazipur', 'narayanganj', 'dhanmondi', 'mirpur', 'uttara', 'gulshan', 'banani', 'mugda'
+  ];
+
+  for (const loc of knownLocations) {
+    if (q.includes(loc.toLowerCase())) {
+      search = search ? `${search}|${loc}` : loc;
+      if (isLocationQuery) searchField = 'address';
+    }
   }
 
   // 9. Limit
