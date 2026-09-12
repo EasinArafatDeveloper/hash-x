@@ -22,7 +22,216 @@ export async function POST(request: NextRequest) {
     // 1. DYNAMIC USER INTENT & MULTI-TURN CONVERSATION MEMORY EXTRACTION
     const parsedIntent = parseQueryIntent(lastMessage, messages);
 
-    // 2. RUN TARGETED LIVE MONGODB QUERY FOR THIS SPECIFIC QUESTION
+    // ==========================================
+    // 2. DIRECT AI DATABASE ACTION EXECUTION (DELETE / UPDATE / CRUD)
+    // ==========================================
+    if (parsedIntent.action === 'delete') {
+      let targetQuery: any = null;
+      if (parsedIntent.targetPhone) {
+        const cleanP = parsedIntent.targetPhone.replace(/[^0-9]/g, '');
+        targetQuery = { phone: { $regex: cleanP } };
+      } else if (parsedIntent.search) {
+        const sRegex = new RegExp(parsedIntent.search, 'i');
+        targetQuery = {
+          $or: [
+            { name: sRegex },
+            { phone: sRegex },
+            { 'customFields.nickname': sRegex },
+            { 'customFields.customer_name': sRegex },
+          ],
+        };
+      }
+
+      if (targetQuery) {
+        const recordToDelete = await RecordModel.findOne(targetQuery).lean();
+        if (recordToDelete) {
+          await RecordModel.findByIdAndDelete(recordToDelete._id);
+          const totalRemaining = await RecordModel.countDocuments({});
+
+          const reply = `🗑️ **কাস্টমার রেকর্ড সফলভাবে ডাটাবেজ থেকে মুছে ফেলা হয়েছে (Deleted)!**
+
+**মুছে ফেলা রেকর্ডের বিবরণ:**
+- 👤 **নাম:** **${recordToDelete.name || 'Unnamed Client'}**
+- 📱 **ফোন নম্বর:** \`${recordToDelete.phone || 'N/A'}\`
+- 📦 **মোট অর্ডার:** **${recordToDelete.orderCount || 0}** টি
+- 💰 **মোট স্পেন্ড:** **৳${Number(recordToDelete.orderAmount || 0).toLocaleString()}** BDT
+- 📍 **লোকেশন:** ${recordToDelete.location || recordToDelete.area || 'Dhaka'}
+- 🏪 **মার্চেন্ট:** ${recordToDelete.customFields?.primary_merchant || 'Direct / Store'}
+
+> ℹ️ আপনার ডাটাবেজে এখন মোট **${totalRemaining.toLocaleString()} জন** কাস্টমারের ডাটা সংরক্ষিত রয়েছে।`;
+
+          return NextResponse.json({
+            success: true,
+            actionExecuted: 'delete',
+            deletedRecord: {
+              id: recordToDelete._id,
+              name: recordToDelete.name,
+              phone: recordToDelete.phone,
+            },
+            result: {
+              type: 'data_query',
+              reply,
+              exportPayload: { limit: 15 },
+              exportLabel: `Download All Records CSV (${totalRemaining.toLocaleString()} rows)`,
+              explorerPath: `/data/explorer`,
+              keyMetrics: [
+                { label: 'অ্যাকশন সম্পন্ন', value: 'মুছে ফেলা হয়েছে', subtext: 'Record Deleted' },
+                { label: 'অবশিষ্ট ডাটাবেজ', value: `${totalRemaining.toLocaleString()} জন`, subtext: 'Active Records' },
+              ],
+              suggestedActions: [
+                { label: '🎯 View Database in Explorer', path: '/data/explorer' },
+              ],
+              followUpQuestions: [
+                'অন্য কোনো কাস্টমার রেকর্ড মুছে ফেলতে বা আপডেট করতে চান?',
+                'বর্তমান ডাটাবেজের টপ ক্রেতাদের ওভারভিউ দাও?',
+              ],
+            },
+          });
+        } else {
+          return NextResponse.json({
+            success: true,
+            result: {
+              type: 'data_query',
+              reply: `⚠️ না স্যার, আপনার উল্লেখিত ফোন নম্বর বা নামের কোনো কাস্টমার রেকর্ড ডাটাবেজে খুঁজে পাওয়া যায়নি। মুছে ফেলার জন্য সঠিক ফোন নম্বর দিন।`,
+              explorerPath: '/data/explorer',
+            },
+          });
+        }
+      }
+    }
+
+    if (parsedIntent.action === 'update') {
+      let targetQuery: any = null;
+      if (parsedIntent.targetPhone) {
+        const cleanP = parsedIntent.targetPhone.replace(/[^0-9]/g, '');
+        targetQuery = { phone: { $regex: cleanP } };
+      } else if (parsedIntent.search) {
+        const sRegex = new RegExp(parsedIntent.search, 'i');
+        targetQuery = {
+          $or: [
+            { name: sRegex },
+            { phone: sRegex },
+            { 'customFields.nickname': sRegex },
+            { 'customFields.customer_name': sRegex },
+          ],
+        };
+      }
+
+      if (targetQuery) {
+        const recordToUpdate = await RecordModel.findOne(targetQuery).lean();
+        if (recordToUpdate) {
+          if (parsedIntent.updateFields && Object.keys(parsedIntent.updateFields).length > 0) {
+            const updatedDoc = await RecordModel.findByIdAndUpdate(
+              recordToUpdate._id,
+              { $set: parsedIntent.updateFields },
+              { new: true }
+            ).lean();
+
+            if (updatedDoc) {
+              const changeRows = Object.entries(parsedIntent.updateFields)
+                .map(([k, newVal]) => {
+                  const oldVal = (recordToUpdate as any)[k] ?? 'N/A';
+                  const label = k === 'name' ? 'নাম (Name)' : k === 'location' ? 'লোকেশন (Location)' : k === 'orderCount' ? 'অর্ডার সংখ্যা (Orders)' : k === 'orderAmount' ? 'মোট স্পেন্ড (Spend)' : k === 'tags' ? 'ট্যাগ (Tags)' : k === 'gender' ? 'জেন্ডার (Gender)' : k === 'status' ? 'স্ট্যাটাস (Status)' : k;
+                  return `| **${label}** | \`${Array.isArray(oldVal) ? oldVal.join(', ') : oldVal}\` | **\`${Array.isArray(newVal) ? newVal.join(', ') : newVal}\`** |`;
+                })
+                .join('\n');
+
+              const reply = `✏️ **কাস্টমার তথ্য সফলভাবে ডাটাবেজে আপডেট করা হয়েছে (Updated)!**
+
+**কাস্টমার:** **${updatedDoc.name}** (\`${updatedDoc.phone}\`)
+
+| ফিল্ড | পূর্বের মান | নতুন আপডেট মান |
+|---|---|---|
+${changeRows}
+
+**আপডেট পরবর্তী বর্তমান প্রোফাইল:**
+- 👤 **নাম:** **${updatedDoc.name}**
+- 📱 **ফোন নম্বর:** \`${updatedDoc.phone}\`
+- 📦 **মোট অর্ডার:** **${updatedDoc.orderCount || 0}** টি
+- 💰 **মোট স্পেন্ড:** **৳${Number(updatedDoc.orderAmount || 0).toLocaleString()}** BDT
+- 📍 **লোকেশন:** ${updatedDoc.location || updatedDoc.area || 'Dhaka'}
+- 🏷️ **ট্যাগ:** ${Array.isArray(updatedDoc.tags) && updatedDoc.tags.length > 0 ? updatedDoc.tags.join(', ') : 'None'}`;
+
+              return NextResponse.json({
+                success: true,
+                actionExecuted: 'update',
+                updatedRecord: updatedDoc,
+                result: {
+                  type: 'data_query',
+                  reply,
+                  exportPayload: { search: updatedDoc.phone, limit: 1 },
+                  exportLabel: `Download Record CSV`,
+                  explorerPath: `/data/explorer?search=${encodeURIComponent(updatedDoc.phone || '')}`,
+                  keyMetrics: [
+                    { label: 'অ্যাকশন সম্পন্ন', value: 'সফলভাবে আপডেট', subtext: 'Record Updated' },
+                    { label: 'কাস্টমার নাম', value: updatedDoc.name, subtext: updatedDoc.phone },
+                  ],
+                  suggestedActions: [
+                    { label: `🎯 View ${updatedDoc.name} in Explorer`, path: `/data/explorer?search=${encodeURIComponent(updatedDoc.phone || '')}` },
+                  ],
+                  followUpQuestions: [
+                    'এই কাস্টমারের আর কোনো ফিল্ড আপডেট বা পরিবর্তন করতে চান?',
+                    'এই কাস্টমারের পূর্ববর্তী অর্ডার হিস্ট্রি বিশ্লেষণ করো?',
+                  ],
+                },
+              });
+            }
+          } else {
+            // Interactive guide when no specific update field value is provided yet
+            const reply = `✏️ **কাস্টমার তথ্য আপডেট করার জন্য প্রস্তুত!**
+
+**টার্গেট কাস্টমার:** **${recordToUpdate.name || 'Unnamed Client'}** (\`${recordToUpdate.phone || 'N/A'}\`)
+- 📍 **বর্তমান লোকেশন:** ${recordToUpdate.location || recordToUpdate.area || 'Dhaka'}
+- 📦 **বর্তমান অর্ডার:** **${recordToUpdate.orderCount || 0}** টি
+- 💰 **বর্তমান স্পেন্ড:** **৳${Number(recordToUpdate.orderAmount || 0).toLocaleString()}** BDT
+- 🏷️ **বর্তমান ট্যাগ:** ${Array.isArray(recordToUpdate.tags) && recordToUpdate.tags.length > 0 ? recordToUpdate.tags.join(', ') : 'None'}
+
+👉 **আপনি কোন ফিল্ডটি কী পরিবর্তন করতে চান? নিচের যেকোনোভাবে লিখুন:**
+1. **নাম পরিবর্তন:** \`${recordToUpdate.phone} er name update kore ${recordToUpdate.name} Ahmed dao\`
+2. **লোকেশন পরিবর্তন:** \`${recordToUpdate.phone} location change kore Keraniganj koro\`
+3. **অর্ডার সংখ্যা:** \`${recordToUpdate.phone} order count 25 koro\`
+4. **ট্যাগ যুক্ত:** \`${recordToUpdate.phone} vip tag lagao\`
+5. **জেন্ডার:** \`${recordToUpdate.phone} gender Female set koro\``;
+
+            return NextResponse.json({
+              success: true,
+              actionExecuted: 'update_prompt',
+              result: {
+                type: 'data_query',
+                reply,
+                exportPayload: { search: recordToUpdate.phone, limit: 1 },
+                exportLabel: `Download Record CSV`,
+                explorerPath: `/data/explorer?search=${encodeURIComponent(recordToUpdate.phone || '')}`,
+                keyMetrics: [
+                  { label: 'টার্গেট কাস্টমার', value: recordToUpdate.name, subtext: recordToUpdate.phone },
+                  { label: 'বর্তমান অর্ডার', value: `${recordToUpdate.orderCount || 0} টি`, subtext: `৳${Number(recordToUpdate.orderAmount || 0).toLocaleString()}` },
+                ],
+                suggestedActions: [
+                  { label: `🎯 View ${recordToUpdate.name} in Explorer`, path: `/data/explorer?search=${encodeURIComponent(recordToUpdate.phone || '')}` },
+                ],
+                followUpQuestions: [
+                  `${recordToUpdate.phone} er name update kore ${recordToUpdate.name} Ahmed dao`,
+                  `${recordToUpdate.phone} location change kore Keraniganj koro`,
+                ],
+              },
+            });
+          }
+        } else {
+          return NextResponse.json({
+            success: true,
+            result: {
+              type: 'data_query',
+              reply: `⚠️ না স্যার, আপনার উল্লেখিত ফোন নম্বর বা নামের কোনো কাস্টমার রেকর্ড ডাটাবেজে খুঁজে পাওয়া যায়নি। আপডেট করার জন্য সঠিক ফোন নম্বর বা নাম উল্লেখ করুন।`,
+              explorerPath: '/data/explorer',
+            },
+          });
+        }
+      }
+    }
+
+    // ==========================================
+    // 3. RUN TARGETED LIVE MONGODB READ QUERY FOR THIS SPECIFIC QUESTION
+    // ==========================================
     const targetDbQuery: any = {};
 
     if (!parsedIntent.isConversational && parsedIntent.search) {
@@ -263,7 +472,7 @@ export async function POST(request: NextRequest) {
     };
 
     const systemInstruction = `You are "Morpheus AI Copilot", an elite AI Data Scientist and friendly Executive Assistant powered by OpenAI GPT-4o.
-The user is conversing with you or querying their live business dataset in Bengali, English, or Banglish.
+The user is conversing with you or querying/managing their live business dataset in Bengali, English, or Banglish.
 
 LIVE DATABASE CONTEXT:
 - Total Customer Records in Database: ${totalRecords.toLocaleString()}
@@ -408,6 +617,9 @@ INSTRUCTIONS & CAPABILITIES:
 }
 
 interface QueryIntent {
+  action: 'query' | 'delete' | 'update';
+  targetPhone?: string;
+  updateFields?: Record<string, any>;
   isConversational: boolean;
   search: string;
   searchField: 'name' | 'address' | 'merchant' | 'any';
@@ -438,8 +650,163 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
     .replace(/\bodr\b/gi, 'order')
     .replace(/\bplased\b/gi, 'placed')
     .replace(/\bare\b/gi, 'er')
-    .replace(/\bar\b/gi, 'er');
+    .replace(/\bar\b/gi, 'er')
+    .replace(/\bdea\b/gi, 'diye');
 
+  // Phone number extraction in current query or history
+  const phoneMatch = q.match(/(?:\+?(?:880|0)?1[3-9]\d{8})/);
+  let targetPhone = phoneMatch ? phoneMatch[0].replace(/^\+/, '') : '';
+
+  if (!targetPhone && history.length > 0) {
+    const lastMsgWithPhone = [...history].reverse().find((m) => /(?:\+?(?:880|0)?1[3-9]\d{8})/.test(m.content || ''));
+    if (lastMsgWithPhone) {
+      const pm = lastMsgWithPhone.content.match(/(?:\+?(?:880|0)?1[3-9]\d{8})/);
+      if (pm) targetPhone = pm[0].replace(/^\+/, '');
+    }
+  }
+
+  // ==========================================
+  // A. ACTION DETECTION: DELETE OPERATION
+  // ==========================================
+  const isDeleteAction =
+    q.includes('delete') ||
+    q.includes('remove') ||
+    q.includes('muche') ||
+    q.includes('shoraw') ||
+    q.includes('shoriye') ||
+    q.includes('bad dao') ||
+    q.includes('drop');
+
+  if (isDeleteAction && (targetPhone || q.includes('data') || q.includes('record') || q.includes('customer') || q.includes('ay') || q.includes('ei'))) {
+    return {
+      action: 'delete',
+      targetPhone,
+      isConversational: false,
+      search: targetPhone || '',
+      searchField: 'any',
+      tag: 'All',
+      gender: 'All',
+      minOrderCount: '',
+      maxOrderCount: '',
+      minOrderAmount: '',
+      maxOrderAmount: '',
+      merchant: '',
+      numberStartsWith: '',
+      numberEndsWith: '',
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+      limit: 1,
+    };
+  }
+
+  // ==========================================
+  // B. ACTION DETECTION: UPDATE / EDIT OPERATION
+  // ==========================================
+  const isUpdateAction =
+    q.includes('update') ||
+    q.includes('change') ||
+    q.includes('edit') ||
+    q.includes('bodle') ||
+    q.includes('bodlao') ||
+    q.includes('set koro') ||
+    q.includes('lagao') ||
+    q.includes('banao') ||
+    (targetPhone && (q.includes('koro') || q.includes('dao')) && (q.includes('name') || q.includes('naam') || q.includes('location') || q.includes('address') || q.includes('order') || q.includes('spend') || q.includes('tag') || q.includes('gender') || q.includes('status')));
+
+  if (isUpdateAction && (targetPhone || q.includes('data') || q.includes('name') || q.includes('location') || q.includes('phone') || q.includes('gender') || q.includes('tag') || q.includes('order') || q.includes('ei') || q.includes('tar'))) {
+    const updateFields: Record<string, any> = {};
+
+    const isInvalidValue = (val: string) => {
+      const clean = val.toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]/g, ' ').trim();
+      const words = clean.split(/\s+/).filter(Boolean);
+      const stopWords = new Set(['ta', 'ti', 'ei', 'oi', 'tar', 'ar', 'er', 'update', 'change', 'koro', 'karo', 'kore', 'dao', 'set', 'banao', 'data', 'record', 'customer', 'naam', 'name', 'hobe', 'to', 'ba', 'ja', 'kono', 'field']);
+      return words.length === 0 || words.every((w) => stopWords.has(w));
+    };
+
+    // 1. Name update
+    const nameChangeMatch =
+      question.match(/(?:name|naam|নাম)\s*(?:change|update|kore|bodle|set|banao)?\s*(?:kore|to|hobe|:)?\s*['"]?([a-zA-Z\u0980-\u09FF\s]{2,40})['"]?\s*(?:dao|koro|set|banao)?/i) ||
+      question.match(/['"]([a-zA-Z\u0980-\u09FF\s]{2,40})['"]\s*(?:name|naam)/i);
+
+    if (nameChangeMatch) {
+      let val = nameChangeMatch[1].trim()
+        .replace(/^(change|update|kore|to|set|hobe|koro|dao|banao)\s+/i, '')
+        .replace(/\s+(dao|koro|set|hobe|kore|banao)$/i, '')
+        .trim();
+      if (!isInvalidValue(val)) {
+        updateFields.name = val;
+      }
+    }
+
+    // 2. Location / Area update
+    const locChangeMatch =
+      question.match(/(?:location|area|address|ঠিকানা|এলাকা)\s*(?:change|update|kore|bodle|set|banao)?\s*(?:kore|to|hobe|:)?\s*['"]?([a-zA-Z\u0980-\u09FF\s]{2,30})['"]?\s*(?:dao|koro|set|banao)?/i);
+    if (locChangeMatch) {
+      let val = locChangeMatch[1].trim()
+        .replace(/^(change|update|kore|to|set|hobe|koro|dao|banao)\s+/i, '')
+        .replace(/\s+(dao|koro|set|hobe|kore|banao)$/i, '')
+        .trim();
+      if (!isInvalidValue(val)) {
+        updateFields.location = val;
+      }
+    }
+
+    // 3. Order Count update
+    const orderCountMatch = question.match(/(?:order\s*count|total\s*order|order)\s*(?:count)?\s*(?:change|update|kore|set|banao)?\s*(?:kore|to|hobe|:|=)?\s*(\d+)\s*(?:dao|koro|set|banao|ta|ti)?/i);
+    if (orderCountMatch && !q.includes('nesa') && !q.includes('nise') && !q.includes('besi') && !q.includes('plus')) {
+      updateFields.orderCount = parseInt(orderCountMatch[1], 10);
+    }
+
+    // 4. Spend / Amount update
+    const spendMatch = question.match(/(?:spend|order\s*amount|taka|amount|টাকা)\s*(?:change|update|kore|set|banao)?\s*(?:kore|to|hobe|:|=)?\s*(\d+)/i);
+    if (spendMatch && (q.includes('update') || q.includes('change') || q.includes('set') || q.includes('koro') || q.includes('banao') || q.includes('dao'))) {
+      updateFields.orderAmount = parseFloat(spendMatch[1]);
+    }
+
+    // 5. Tag update
+    if (q.includes('vip')) updateFields.tags = ['VIP Client'];
+    if (q.includes('whatsapp active')) updateFields.tags = ['WhatsApp Active'];
+    if (q.includes('regular')) updateFields.tags = ['Regular'];
+
+    // 6. Gender update
+    if (q.match(/\b(female|মহিলা|নারী)\b/i) && (q.includes('change') || q.includes('set') || q.includes('koro') || q.includes('gender') || q.includes('dao'))) {
+      updateFields.gender = 'Female';
+    } else if (q.match(/\b(male|পুরুষ)\b/i) && (q.includes('change') || q.includes('set') || q.includes('koro') || q.includes('gender') || q.includes('dao'))) {
+      updateFields.gender = 'Male';
+    }
+
+    // 7. Status update
+    if (q.match(/\b(active)\b/i) && (q.includes('change') || q.includes('set') || q.includes('koro') || q.includes('status') || q.includes('dao'))) {
+      updateFields.status = 'active';
+    } else if (q.match(/\b(inactive|blocked)\b/i) && (q.includes('change') || q.includes('set') || q.includes('koro') || q.includes('status') || q.includes('dao'))) {
+      updateFields.status = 'inactive';
+    }
+
+    return {
+      action: 'update',
+      targetPhone,
+      updateFields,
+      isConversational: false,
+      search: targetPhone || '',
+      searchField: 'any',
+      tag: 'All',
+      gender: 'All',
+      minOrderCount: '',
+      maxOrderCount: '',
+      minOrderAmount: '',
+      maxOrderAmount: '',
+      merchant: '',
+      numberStartsWith: '',
+      numberEndsWith: '',
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+      limit: 1,
+    };
+  }
+
+  // ==========================================
+  // C. STANDARD READ & ANALYTICS QUERIES
+  // ==========================================
   // Check for greetings & casual conversation
   const casualGreetingPatterns = [
     /^(hi|hello|hey|hii|helo|hiii|assalamu|salam|kemon|halo|hola|good\s*morning|good\s*evening|good\s*afternoon)\b/i,
@@ -477,6 +844,7 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
 
   if (isConversational) {
     return {
+      action: 'query',
       isConversational: true,
       search: '',
       searchField: 'any',
@@ -785,10 +1153,12 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
     } else if (q.includes('teletalk') || q.includes('টেলিটক')) {
       numberStartsWith = '88015';
     }
+  } else if (targetPhone) {
+    numberStartsWith = targetPhone;
   } else if (q.includes('phone') || q.includes('mobile') || q.includes('number') || q.includes('নম্বর')) {
-    const phoneMatch = q.match(/(?:\+?(?:880|0)?1[3-9]\d{1,11})/);
-    if (phoneMatch) {
-      numberStartsWith = phoneMatch[0].replace(/^\+/, '');
+    const phoneMatchAny = q.match(/(?:\+?(?:880|0)?1[3-9]\d{1,11})/);
+    if (phoneMatchAny) {
+      numberStartsWith = phoneMatchAny[0].replace(/^\+/, '');
     }
   }
 
@@ -880,6 +1250,7 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
   }
 
   return {
+    action: 'query',
     isConversational: false,
     search,
     searchField,
