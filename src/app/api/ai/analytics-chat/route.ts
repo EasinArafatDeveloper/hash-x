@@ -94,7 +94,13 @@ export async function POST(request: NextRequest) {
       targetDbQuery['customFields.primary_merchant'] = new RegExp(parsedIntent.merchant, 'i');
     }
 
-    if (!parsedIntent.isConversational && parsedIntent.numberStartsWith) {
+    // Phone Number Matching (Suffix vs Prefix)
+    if (!parsedIntent.isConversational && parsedIntent.numberEndsWith) {
+      const cleanEnds = parsedIntent.numberEndsWith.replace(/[^0-9]/g, '');
+      if (cleanEnds) {
+        targetDbQuery.phone = { $regex: new RegExp(`${cleanEnds}$`) };
+      }
+    } else if (!parsedIntent.isConversational && parsedIntent.numberStartsWith) {
       const pfx = buildPhonePrefixRegex(parsedIntent.numberStartsWith);
       if (pfx) targetDbQuery.phone = { $regex: pfx };
     }
@@ -255,11 +261,13 @@ INSTRUCTIONS & CAPABILITIES (BEHAVE LIKE A GENUINE HUMAN ASSISTANT / CHATGPT):
      - Suggest 3 concrete, powerful questions they can ask (e.g. VIP clients, top repeat buyers, WhatsApp segmentation).
      - Set "type": "chat".
 
-2. DATA & ANALYTICAL QUERIES (when user asks for specific data, names, orders, spend, areas, phone prefixes/numbers):
+2. DATA & ANALYTICAL QUERIES (when user asks for specific data, names, orders, spend, areas, phone prefixes/suffixes):
    - STRICT ACCURACY RULE: You MUST rely 100% on "userQueryAnalysis" -> "exactMatchingCount" and "topMatchingRecords".
+   - If user asked for phone numbers ending with a digit (e.g. last 2 digits 14), confirm that these numbers end with that specific digit.
+   - If user asked for phone numbers starting with a prefix, confirm that these numbers start with that prefix.
    - NEVER hallucinate, guess, or dump unrelated database records!
    - If "exactMatchingCount" === 0:
-     - Explain politely and honestly in fluent Bengali (e.g. "না স্যার, আপনার ডাটাবেজে এই নির্দিষ্ট ক্রাইটেরিয়া বা ফোন নাম্বার/নামের কোনো ডাটা খুঁজে পাওয়া যায়নি। আপনি কি অন্য কোনো নাম্বার বা ফিল্টার দিয়ে দেখতে চান?").
+     - Explain politely and honestly in fluent Bengali (e.g. "না স্যার, আপনার ডাটাবেজে এই নির্দিষ্ট শর্ত বা ফোন নাম্বার/নামের কোনো ডাটা খুঁজে পাওয়া যায়নি। আপনি কি অন্য কোনো নাম্বার বা ফিল্টার দিয়ে দেখতে চান?").
      - DO NOT render a table of unrelated records when 0 matches exist!
      - Set "type": "data_query".
    - If "exactMatchingCount" > 0:
@@ -286,6 +294,7 @@ OUTPUT ONLY VALID JSON:
     "minOrderCount": "string",
     "merchant": "string",
     "numberStartsWith": "string",
+    "numberEndsWith": "string",
     "sortBy": "orderCount" | "orderAmount" | "createdAt",
     "sortOrder": "desc" | "asc",
     "limit": 10,
@@ -390,7 +399,8 @@ function parseQueryIntent(question: string) {
     !q.includes('list') &&
     !q.includes('kau') &&
     !q.includes('name') &&
-    !q.includes('number');
+    !q.includes('number') &&
+    !q.includes('digit');
 
   let search = '';
   let searchField: 'name' | 'address' | 'merchant' | 'any' = 'any';
@@ -400,6 +410,7 @@ function parseQueryIntent(question: string) {
   let minOrderAmount = '';
   let merchant = '';
   let numberStartsWith = '';
+  let numberEndsWith = '';
   let sortBy = 'createdAt';
   let sortOrder = 'desc';
   let limit = 10;
@@ -415,6 +426,7 @@ function parseQueryIntent(question: string) {
       minOrderAmount: '',
       merchant: '',
       numberStartsWith: '',
+      numberEndsWith: '',
       sortBy: 'createdAt',
       sortOrder: 'desc',
       limit: 10,
@@ -523,7 +535,7 @@ function parseQueryIntent(question: string) {
     'kotojon',
   ];
   const beforeNameMatch = q.match(/([a-zA-Z\u0980-\u09FF]{2,30})\s*(?:name|নাম|নামে|নামের)\b/i);
-  const afterNameMatch = q.match(/(?:name|নাম|নামে|নামের)\s*(?:a|e|er|is|hocche)?\s*([a-zA-Z\u0980-\u09FF]{2,30})\b/i);
+  const afterNameMatch = q.match(/(?:name|নাম|নামে|নামের)\s*(?:a|e|er|is|hocche)?s*([a-zA-Z\u0980-\u09FF]{2,30})\b/i);
 
   if (beforeNameMatch && !stopWords.includes(beforeNameMatch[1].toLowerCase())) {
     extractedName = beforeNameMatch[1].trim();
@@ -604,24 +616,67 @@ function parseQueryIntent(question: string) {
     if (num > 0 && num <= 100) limit = num;
   }
 
-  // 10. Phone Prefix & Custom Phone Search
-  const phonePrefixMatch =
-    q.match(/(?:phone|mobile|number|নম্বর|নাম্বার)?\s*(?:dea|diye|দিয়ে|shuru|sur|suru|শুরু|starts?\s*with)?\s*(\+?(?:880|0)?1[3-9]\d{0,11})\b/i) ||
-    q.match(/(\+?(?:880|0)?1[3-9]\d{0,11})\s*(?:ay\s*number|number|নম্বর|নাম্বার|দিয়ে|শুরু|dea|shuru|sur|diye)/i) ||
-    q.match(/\b(\+?(?:880|0)?1[3-9]\d{0,11})\b/);
+  // 10. Intelligent Phone Number Extraction (Suffix / Ends-With vs Prefix / Starts-With)
+  const isEndsWith =
+    q.includes('last') ||
+    q.includes('লাস্ট') ||
+    q.includes('শেষ') ||
+    q.includes('shesh') ||
+    q.includes('sesh') ||
+    q.includes('ends with') ||
+    q.includes('ending');
 
-  if (phonePrefixMatch && phonePrefixMatch[1]) {
-    numberStartsWith = phonePrefixMatch[1].replace(/^\+/, '');
-  } else if (q.includes('gp') || q.includes('grameenphone') || q.includes('গ্রামীণফোন') || q.includes('জিপি')) {
-    numberStartsWith = '88017';
-  } else if (q.includes('robi') || q.includes('রবি')) {
-    numberStartsWith = '88018';
-  } else if (q.includes('bl') || q.includes('banglalink') || q.includes('বাংলালিংক')) {
-    numberStartsWith = '88019';
-  } else if (q.includes('airtel') || q.includes('এয়ারটেল')) {
-    numberStartsWith = '88016';
-  } else if (q.includes('teletalk') || q.includes('টেলিটক')) {
-    numberStartsWith = '88015';
+  const isStartsWith =
+    q.includes('shuru') ||
+    q.includes('suru') ||
+    q.includes('sur') ||
+    q.includes('starts with') ||
+    q.includes('starting') ||
+    q.includes('শুরু') ||
+    q.includes('dea sur') ||
+    q.includes('diye shuru');
+
+  if (isEndsWith) {
+    const allNumbers = q.match(/\d+/g) || [];
+    if (allNumbers.length === 1) {
+      numberEndsWith = allNumbers[0];
+    } else if (allNumbers.length >= 2) {
+      // In queries like "last a 2 ta digit a 14", the last number is the target sequence
+      numberEndsWith = allNumbers[allNumbers.length - 1];
+    }
+  } else if (isStartsWith) {
+    const prefixMatch =
+      q.match(/(?:\+?(?:880|0)?1[3-9]\d{0,11})/i) ||
+      q.match(/\b(\d{2,11})\b/);
+    if (prefixMatch) {
+      numberStartsWith = prefixMatch[0].replace(/^\+/, '');
+    } else if (q.includes('gp') || q.includes('grameenphone') || q.includes('গ্রামীণফোন') || q.includes('জিপি')) {
+      numberStartsWith = '88017';
+    } else if (q.includes('robi') || q.includes('রবি')) {
+      numberStartsWith = '88018';
+    } else if (q.includes('bl') || q.includes('banglalink') || q.includes('বাংলালিংক')) {
+      numberStartsWith = '88019';
+    } else if (q.includes('airtel') || q.includes('এয়ারটেল')) {
+      numberStartsWith = '88016';
+    } else if (q.includes('teletalk') || q.includes('টেলিটক')) {
+      numberStartsWith = '88015';
+    }
+  } else {
+    // Standard phone match (e.g. "016345...", "017...", "018...")
+    const phoneMatch = q.match(/(?:\+?(?:880|0)?1[3-9]\d{1,11})/);
+    if (phoneMatch) {
+      numberStartsWith = phoneMatch[0].replace(/^\+/, '');
+    } else if (q.includes('gp') || q.includes('grameenphone') || q.includes('গ্রামীণফোন') || q.includes('জিপি')) {
+      numberStartsWith = '88017';
+    } else if (q.includes('robi') || q.includes('রবি')) {
+      numberStartsWith = '88018';
+    } else if (q.includes('bl') || q.includes('banglalink') || q.includes('বাংলালিংক')) {
+      numberStartsWith = '88019';
+    } else if (q.includes('airtel') || q.includes('এয়ারটেল')) {
+      numberStartsWith = '88016';
+    } else if (q.includes('teletalk') || q.includes('টেলিটক')) {
+      numberStartsWith = '88015';
+    }
   }
 
   // 11. Generic Search Keyword Extractor (If unclassified and not an overview request)
@@ -633,11 +688,12 @@ function parseQueryIntent(question: string) {
     q.includes('সব') ||
     q.includes('shob') ||
     q.includes('all') ||
-    (limitMatch && !q.includes('name') && !q.includes('number') && !q.includes('phone'));
+    (limitMatch && !q.includes('name') && !q.includes('number') && !q.includes('phone') && !q.includes('digit'));
 
   if (
     !search &&
     !numberStartsWith &&
+    !numberEndsWith &&
     !minOrderCount &&
     !minOrderAmount &&
     tag === 'All' &&
@@ -689,6 +745,7 @@ function parseQueryIntent(question: string) {
       'user',
       'customer',
       'customers',
+      'kon',
     ];
     const words = q.split(/\s+/).filter((w) => w.length > 1 && !questionStopWords.includes(w));
     if (words.length > 0) {
@@ -706,6 +763,7 @@ function parseQueryIntent(question: string) {
     minOrderAmount,
     merchant,
     numberStartsWith,
+    numberEndsWith,
     sortBy,
     sortOrder,
     limit,
@@ -729,11 +787,14 @@ function ensureExportAndExplorerPaths(parsed: any, intent: any, totalCount: numb
       minOrderAmount: intent.minOrderAmount || undefined,
       merchant: intent.merchant || undefined,
       numberStartsWith: intent.numberStartsWith || undefined,
+      numberEndsWith: intent.numberEndsWith || undefined,
       sortBy: intent.sortBy || 'orderCount',
       sortOrder: intent.sortOrder || 'desc',
       limit: intent.limit || 10,
       customFilename: intent.search
         ? `Records_${intent.search.replace(/\|/g, '_')}`
+        : intent.numberEndsWith
+        ? `Records_Phone_Ends_${intent.numberEndsWith}`
         : intent.numberStartsWith
         ? `Records_Phone_${intent.numberStartsWith}`
         : `Filtered_Dataset`,
@@ -751,6 +812,7 @@ function ensureExportAndExplorerPaths(parsed: any, intent: any, totalCount: numb
     if (res.exportPayload.gender) params.set('gender', res.exportPayload.gender);
     if (res.exportPayload.tag) params.set('tag', res.exportPayload.tag);
     if (res.exportPayload.numberStartsWith) params.set('numberStartsWith', res.exportPayload.numberStartsWith);
+    if (res.exportPayload.numberEndsWith) params.set('numberEndsWith', res.exportPayload.numberEndsWith);
     if (res.exportPayload.minOrderCount) params.set('minOrderCount', String(res.exportPayload.minOrderCount));
     if (res.exportPayload.minOrderAmount) params.set('minOrderAmount', String(res.exportPayload.minOrderAmount));
     if (res.exportPayload.sortBy) params.set('sortBy', res.exportPayload.sortBy);
@@ -792,7 +854,12 @@ function buildDynamicLiveResponse(
   let title = `📊 **আপনার রিকোয়েস্ট অনুযায়ী ডাটাবেজ অ্যানালাইসিস:**`;
   let description = '';
 
-  if (intent.numberStartsWith) {
+  if (intent.numberEndsWith) {
+    title = `📱 **"${intent.numberEndsWith}" দিয়ে শেষ হওয়া ফোন নম্বরের কাস্টমারদের তথ্য:**`;
+    description = matchingCount > 0
+      ? `আপনার লাইভ ডাটাবেজে শেষে "${intent.numberEndsWith}" রয়েছে এমন মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের প্রিভিউ তালিকা নিচে দেওয়া হলো:`
+      : `না স্যার, আপনার ডাটাবেজে শেষে "${intent.numberEndsWith}" রয়েছে এমন কোনো ফোন নম্বরের কাস্টমার খুঁজে পাওয়া যায়নি।`;
+  } else if (intent.numberStartsWith) {
     title = `📱 **"${intent.numberStartsWith}" দিয়ে শুরু হওয়া ফোন নম্বরের কাস্টমারদের তথ্য:**`;
     description = matchingCount > 0
       ? `আপনার লাইভ ডাটাবেজে "${intent.numberStartsWith}" দিয়ে শুরু এমন মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের প্রিভিউ তালিকা নিচে দেওয়া হলো:`
@@ -843,11 +910,14 @@ function buildDynamicLiveResponse(
     minOrderAmount: intent.minOrderAmount || undefined,
     merchant: intent.merchant || undefined,
     numberStartsWith: intent.numberStartsWith || undefined,
+    numberEndsWith: intent.numberEndsWith || undefined,
     sortBy: intent.sortBy || 'orderCount',
     sortOrder: intent.sortOrder || 'desc',
     limit: intent.limit || 10,
     customFilename: intent.search
       ? `Records_${intent.search.replace(/\|/g, '_')}`
+      : intent.numberEndsWith
+      ? `Records_Phone_Ends_${intent.numberEndsWith}`
       : intent.numberStartsWith
       ? `Records_Phone_${intent.numberStartsWith}`
       : 'Filtered_Records',
@@ -859,6 +929,7 @@ function buildDynamicLiveResponse(
   if (exportPayload.gender) params.set('gender', exportPayload.gender);
   if (exportPayload.tag) params.set('tag', exportPayload.tag);
   if (exportPayload.numberStartsWith) params.set('numberStartsWith', exportPayload.numberStartsWith);
+  if (exportPayload.numberEndsWith) params.set('numberEndsWith', exportPayload.numberEndsWith);
   if (exportPayload.minOrderCount) params.set('minOrderCount', String(exportPayload.minOrderCount));
   if (exportPayload.sortBy) params.set('sortBy', exportPayload.sortBy);
   if (exportPayload.sortOrder) params.set('sortOrder', exportPayload.sortOrder);
@@ -877,6 +948,8 @@ function buildDynamicLiveResponse(
         value:
           intent.searchField === 'name'
             ? 'Name Matching'
+            : intent.numberEndsWith
+            ? 'Phone Suffix'
             : intent.numberStartsWith
             ? 'Phone Prefix'
             : intent.sortBy === 'orderCount'

@@ -85,6 +85,7 @@ function DataExplorerContent() {
     const maxAge = searchParams.get('maxAge');
     const avatarType = searchParams.get('avatarType');
     const numberStartsWith = searchParams.get('numberStartsWith');
+    const numberEndsWith = searchParams.get('numberEndsWith');
     const maxActiveDays = searchParams.get('maxActiveDays');
     const lastOnlineFrom = searchParams.get('lastOnlineFrom');
     const lastOnlineTo = searchParams.get('lastOnlineTo');
@@ -109,6 +110,7 @@ function DataExplorerContent() {
     if (maxAge !== null) newFilters.maxAge = maxAge;
     if (avatarType !== null) newFilters.avatarType = avatarType;
     if (numberStartsWith !== null) newFilters.numberStartsWith = numberStartsWith;
+    if (numberEndsWith !== null) newFilters.numberEndsWith = numberEndsWith;
     if (maxActiveDays !== null) newFilters.maxActiveDays = maxActiveDays;
     if (lastOnlineFrom !== null) newFilters.lastOnlineFrom = lastOnlineFrom;
     if (lastOnlineTo !== null) newFilters.lastOnlineTo = lastOnlineTo;
@@ -161,6 +163,7 @@ function DataExplorerContent() {
       if (currentFilters.maxAge) params.set('maxAge', String(currentFilters.maxAge));
       if (currentFilters.avatarType && currentFilters.avatarType !== 'All') params.set('avatarType', currentFilters.avatarType);
       if (currentFilters.numberStartsWith) params.set('numberStartsWith', currentFilters.numberStartsWith);
+      if (currentFilters.numberEndsWith) params.set('numberEndsWith', currentFilters.numberEndsWith);
       if (currentFilters.maxActiveDays) params.set('maxActiveDays', String(currentFilters.maxActiveDays));
       if (currentFilters.lastOnlineFrom) params.set('lastOnlineFrom', currentFilters.lastOnlineFrom);
       if (currentFilters.lastOnlineTo) params.set('lastOnlineTo', currentFilters.lastOnlineTo);

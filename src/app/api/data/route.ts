@@ -199,8 +199,14 @@ export async function GET(request: NextRequest) {
       if (maxAge) query.age.$lte = parseInt(maxAge, 10);
     }
 
-    // 5. Number starts with (e.g. 88017 / 017 / 88018 / 018)
-    if (numberStartsWith && numberStartsWith.trim()) {
+    // 5. Number starts with / ends with
+    const numberEndsWith = searchParams.get('numberEndsWith');
+    if (numberEndsWith && numberEndsWith.trim()) {
+      const cleanEnds = numberEndsWith.trim().replace(/[^0-9]/g, '');
+      if (cleanEnds) {
+        query.phone = { $regex: `${cleanEnds}$` };
+      }
+    } else if (numberStartsWith && numberStartsWith.trim()) {
       const prefixRegexStr = buildPhonePrefixRegex(numberStartsWith);
       if (prefixRegexStr) {
         query.phone = { $regex: prefixRegexStr };

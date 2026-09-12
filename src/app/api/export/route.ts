@@ -34,6 +34,7 @@ async function handleExportLogic(body: any) {
     maxAge,
     avatarType,
     numberStartsWith,
+    numberEndsWith,
     maxActiveDays,
     lastOnlineFrom,
     lastOnlineTo,
@@ -177,7 +178,12 @@ async function handleExportLogic(body: any) {
     if (maxAge) query.age.$lte = parseInt(String(maxAge), 10);
   }
 
-  if (numberStartsWith && String(numberStartsWith).trim()) {
+  if (numberEndsWith && String(numberEndsWith).trim()) {
+    const cleanEnds = String(numberEndsWith).trim().replace(/[^0-9]/g, '');
+    if (cleanEnds) {
+      query.phone = { $regex: `${cleanEnds}$` };
+    }
+  } else if (numberStartsWith && String(numberStartsWith).trim()) {
     const prefixRegexStr = buildPhonePrefixRegex(String(numberStartsWith));
     if (prefixRegexStr) {
       query.phone = { $regex: prefixRegexStr };

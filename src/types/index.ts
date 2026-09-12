@@ -123,6 +123,7 @@ export interface FilterQueryState {
   maxAge?: number | string;
   avatarType?: string;
   numberStartsWith?: string;
+  numberEndsWith?: string;
   maxActiveDays?: number | string;
   lastOnlineFrom?: string;
   lastOnlineTo?: string;
