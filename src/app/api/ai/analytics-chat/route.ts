@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
 
     await connectToDatabase();
 
-    // 1. DYNAMIC USER INTENT & PARAMETER EXTRACTION
-    const parsedIntent = parseQueryIntent(lastMessage);
+    // 1. DYNAMIC USER INTENT & MULTI-TURN CONVERSATION MEMORY EXTRACTION
+    const parsedIntent = parseQueryIntent(lastMessage, messages);
 
     // 2. RUN TARGETED LIVE MONGODB QUERY FOR THIS SPECIFIC QUESTION
     const targetDbQuery: any = {};
@@ -272,13 +272,14 @@ INSTRUCTIONS & CAPABILITIES (BEHAVE LIKE A GENUINE HUMAN ASSISTANT / CHATGPT):
      - Suggest 3 concrete, powerful questions they can ask (e.g. VIP clients, top repeat buyers, WhatsApp segmentation).
      - Set "type": "chat".
 
-2. DATA & ANALYTICAL QUERIES (when user asks for specific data, names, orders, spend, areas, phone prefixes/suffixes):
+2. DATA & ANALYTICAL QUERIES (orders placed, spend, areas, landmarks, categories, phone prefixes/suffixes):
    - STRICT ACCURACY RULE: You MUST rely 100% on "userQueryAnalysis" -> "exactMatchingCount" and "topMatchingRecords".
+   - If user asked for order counts (e.g. 100+ orders placed), state the exact count from exactMatchingCount.
    - If user asked for phone numbers ending with a digit (e.g. last 2 digits 14), confirm that these numbers end with that specific digit.
    - If user asked for phone numbers starting with a prefix, confirm that these numbers start with that prefix.
    - NEVER hallucinate, guess, or dump unrelated database records!
    - If "exactMatchingCount" === 0:
-     - Explain politely and honestly in fluent Bengali (e.g. "না স্যার, আপনার ডাটাবেজে এই নির্দিষ্ট শর্ত বা ফোন নাম্বার/নামের কোনো ডাটা খুঁজে পাওয়া যায়নি। আপনি কি অন্য কোনো নাম্বার বা ফিল্টার দিয়ে দেখতে চান?").
+     - Explain politely and honestly in fluent Bengali (e.g. "না স্যার, আপনার ডাটাবেজে এই নির্দিষ্ট শর্ত বা তথ্যের কোনো ডাটা খুঁজে পাওয়া যায়নি। আপনি কি অন্য কোনো ফিল্টার বা নাম্বার দিয়ে দেখতে চান?").
      - DO NOT render a table of unrelated records when 0 matches exist!
      - Set "type": "data_query".
    - If "exactMatchingCount" > 0:
@@ -386,7 +387,7 @@ OUTPUT ONLY VALID JSON:
   }
 }
 
-function parseQueryIntent(question: string) {
+function parseQueryIntent(question: string, history: any[] = []) {
   const normalizedQ = question
     .replace(/[০-৯]/g, (d) => String(['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'].indexOf(d)))
     .toLowerCase()
@@ -444,11 +445,13 @@ function parseQueryIntent(question: string) {
     };
   }
 
-  // 1. Order Count Detection (e.g. 20+ order, ২০টি অর্ডার, ২০ টির বেশি অর্ডার, 3+ orders, order >= 5)
+  // 1. Order Count Detection (handles "order plased 100", "order placed 100", "100 order", "order >= 50", "20+ order", "২০টি অর্ডার", "order 100")
   const orderCountMatch =
-    q.match(/(\d+)\s*(?:টির|টি|ta|er|বারের|বার)?\s*(?:বেশি|besi|অধিক|\+)?\s*(?:order|অর্ডার)/i) ||
-    q.match(/(?:order|অর্ডার)\s*(?:>=|>|count|সংখ্যা|besi|বেশি|অধিক)?\s*(\d+)/i) ||
-    q.match(/(\d+)\s*\+\s*order/i);
+    q.match(/(?:order|অর্ডার)\s*(?:placed|plased|count|সংখ্যা|complete|কমপ্লিট|kora|করা|হয়েছে|hoise|besi|বেশি|অধিক|>=|>|:|=)?\s*(\d+)/i) ||
+    q.match(/(\d+)\s*(?:টির|টি|ta|er|বারের|বার)?\s*(?:besi|বেশি|অধিক|placed|plased|\+)?\s*(?:order|অর্ডার)/i) ||
+    q.match(/(\d+)\s*\+\s*order/i) ||
+    q.match(/(?:order|অর্ডার)\s*(\d+)/i);
+
   if (orderCountMatch) {
     const num = parseInt(orderCountMatch[1], 10);
     if (!isNaN(num) && num > 0) {
@@ -458,11 +461,13 @@ function parseQueryIntent(question: string) {
     }
   }
 
-  // 2. Spend / Amount Detection (e.g. 10k+, spend > 5000, ৳10000)
-  const spendMatch = q.match(/(?:spend|টাকা|খরচ|gmv|amount|>=|>|tk|bdt)\s*(\d+)/i) || q.match(/(\d+)\s*k/i);
+  // 2. Spend / Amount Detection (e.g. 10k+, spend > 5000, ৳10000, 50000 taka)
+  const spendMatch =
+    q.match(/(?:spend|টাকা|খরচ|gmv|amount|খরচ\s*করেছে|>=|>|tk|bdt)\s*(\d+)/i) ||
+    q.match(/(\d+)\s*(?:taka|টাকা|tk|bdt|k\b)/i);
   if (spendMatch) {
     let val = spendMatch[1];
-    if (spendMatch[0].toLowerCase().includes('k')) {
+    if (spendMatch[0].toLowerCase().includes('k') && !spendMatch[0].toLowerCase().includes('taka')) {
       val = String(parseInt(val, 10) * 1000);
     }
     minOrderAmount = val;
@@ -492,7 +497,7 @@ function parseQueryIntent(question: string) {
     tag = 'WhatsApp Active';
   }
 
-  // 5. Gender
+  // 5. Gender (with word boundaries to prevent 'rahman' or 'permanent' false positives)
   if (q.match(/\b(female|woman|women|নারী|মহিলা|মেয়ে)\b/i)) {
     gender = 'Female';
   } else if (q.match(/\b(male|man|men|পুরুষ|ছেলে)\b/i) && !q.match(/\b(female|woman|women)\b/i)) {
@@ -510,30 +515,11 @@ function parseQueryIntent(question: string) {
 
   let extractedName = '';
   const stopWords = [
-    'ki',
-    'ke',
-    'ka',
-    'keu',
-    'kono',
-    'user',
-    'koto',
-    'list',
-    'dau',
-    'dao',
-    'bolo',
-    'onek',
-    'amek',
-    'amake',
-    'amader',
-    'tader',
-    'oy',
-    'ta',
-    'data',
-    'customer',
-    'kotojon',
+    'ki', 'ke', 'ka', 'keu', 'kono', 'user', 'koto', 'list', 'dau', 'dao', 'bolo',
+    'onek', 'amek', 'amake', 'amader', 'tader', 'oy', 'ta', 'data', 'customer', 'kotojon'
   ];
   const beforeNameMatch = q.match(/([a-zA-Z\u0980-\u09FF]{2,30})\s*(?:name|নাম|নামে|নামের)\b/i);
-  const afterNameMatch = q.match(/(?:name|নাম|নামে|নামের)\s*(?:a|e|er|is|hocche)?s*([a-zA-Z\u0980-\u09FF]{2,30})\b/i);
+  const afterNameMatch = q.match(/(?:name|নাম|নামে|নামের)\s*(?:a|e|er|is|hocche)?\s*([a-zA-Z\u0980-\u09FF]{2,30})\b/i);
 
   if (beforeNameMatch && !stopWords.includes(beforeNameMatch[1].toLowerCase())) {
     extractedName = beforeNameMatch[1].trim();
@@ -547,18 +533,7 @@ function parseQueryIntent(question: string) {
 
   // If common personal names mentioned directly
   const commonNames = [
-    'easin',
-    'yeasin',
-    'iasin',
-    'musa',
-    'samiya',
-    'maria',
-    'karim',
-    'rahim',
-    'abdullah',
-    'arafat',
-    'tasnim',
-    'tanvir',
+    'easin', 'yeasin', 'iasin', 'musa', 'samiya', 'maria', 'karim', 'rahim', 'abdullah', 'arafat', 'tasnim', 'tanvir'
   ];
   if (!extractedName) {
     for (const cn of commonNames) {
@@ -675,25 +650,38 @@ function parseQueryIntent(question: string) {
     } else if (q.includes('teletalk') || q.includes('টেলিটক')) {
       numberStartsWith = '88015';
     }
-  } else {
-    // Standard phone match (e.g. "016345...", "017...", "018...")
+  } else if (q.includes('phone') || q.includes('mobile') || q.includes('number') || q.includes('নম্বর')) {
     const phoneMatch = q.match(/(?:\+?(?:880|0)?1[3-9]\d{1,11})/);
     if (phoneMatch) {
       numberStartsWith = phoneMatch[0].replace(/^\+/, '');
-    } else if (q.includes('gp') || q.includes('grameenphone') || q.includes('গ্রামীণফোন') || q.includes('জিপি')) {
-      numberStartsWith = '88017';
-    } else if (q.includes('robi') || q.includes('রবি')) {
-      numberStartsWith = '88018';
-    } else if (q.includes('bl') || q.includes('banglalink') || q.includes('বাংলালিংক')) {
-      numberStartsWith = '88019';
-    } else if (q.includes('airtel') || q.includes('এয়ারটেল')) {
-      numberStartsWith = '88016';
-    } else if (q.includes('teletalk') || q.includes('টেলিটক')) {
-      numberStartsWith = '88015';
     }
   }
 
-  // 11. Generic Search Keyword Extractor (If unclassified and not an overview request)
+  // 11. Multi-turn Merge / Follow-up support: If user asks a refinement ("ar moddhe jara female", "merge koro", "ager data r eita")
+  if (history && history.length > 0) {
+    const isRefinement =
+      q.includes('ar moddhe') ||
+      q.includes('tader moddhe') ||
+      q.includes('ager') ||
+      q.includes('uporer') ||
+      q.includes('merge') ||
+      q.includes('also');
+
+    if (isRefinement) {
+      const lastUserMsg = [...history].reverse().find((m) => (m.role === 'user' && m.content !== question) || m.content !== question);
+      if (lastUserMsg && lastUserMsg.content) {
+        const prevIntent = parseQueryIntent(lastUserMsg.content, []);
+        if (!search && prevIntent.search) search = prevIntent.search;
+        if (!minOrderCount && prevIntent.minOrderCount) minOrderCount = prevIntent.minOrderCount;
+        if (!minOrderAmount && prevIntent.minOrderAmount) minOrderAmount = prevIntent.minOrderAmount;
+        if (!merchant && prevIntent.merchant) merchant = prevIntent.merchant;
+        if (gender === 'All' && prevIntent.gender !== 'All') gender = prevIntent.gender;
+        if (tag === 'All' && prevIntent.tag !== 'All') tag = prevIntent.tag;
+      }
+    }
+  }
+
+  // 12. Generic Search Keyword Extractor (If unclassified and not an overview request)
   const isOverviewRequest =
     q.includes('total') ||
     q.includes('overview') ||
@@ -716,50 +704,11 @@ function parseQueryIntent(question: string) {
     !isOverviewRequest
   ) {
     const questionStopWords = [
-      'koy',
-      'koyta',
-      'koto',
-      'kotojon',
-      'koto_jon',
-      'data',
-      'record',
-      'records',
-      'asa',
-      'ase',
-      'ache',
-      'ki',
-      'ke',
-      'keu',
-      'kono',
-      'show',
-      'dekhao',
-      'dau',
-      'dao',
-      'deba',
-      'bolo',
-      'list',
-      'details',
-      'khuje',
-      'pawa',
-      'geche',
-      'ay',
-      'ei',
-      'oi',
-      'rakomer',
-      'morpheus',
-      'bujso',
-      'sir',
-      'bhai',
-      'please',
-      'help',
-      'information',
-      'info',
-      'koro',
-      'kortasi',
-      'user',
-      'customer',
-      'customers',
-      'kon',
+      'koy', 'koyta', 'koto', 'kotojon', 'koto_jon', 'data', 'record', 'records',
+      'asa', 'ase', 'ache', 'ki', 'ke', 'keu', 'kono', 'show', 'dekhao', 'dau',
+      'dao', 'deba', 'bolo', 'list', 'details', 'khuje', 'pawa', 'geche', 'ay',
+      'ei', 'oi', 'rakomer', 'morpheus', 'bujso', 'sir', 'bhai', 'please', 'help',
+      'information', 'info', 'koro', 'kortasi', 'user', 'customer', 'customers', 'kon',
     ];
     const words = q.split(/\s+/).filter((w) => w.length > 1 && !questionStopWords.includes(w));
     if (words.length > 0) {
@@ -847,7 +796,7 @@ function buildDynamicLiveResponse(
   if (intent.isConversational) {
     return {
       type: 'chat',
-      reply: `👋 **হ্যালো! আমি Morpheus AI Analytics Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${(stats.totalRecords || 2361).toLocaleString()} টি রিয়েল-টাইম রেকর্ডের** সম্পূর্ণ তথ্য আমার কাছে সংযুক্ত আছে।\n\nআপনি বাংলায় বা ইংরেজিতে যেকোনো প্রশ্ন করতে পারেন—যেমন:\n- 👑 **টপ ৫ জন সর্বোচ্চ স্পেন্ড করা VIP কাস্টমার কারা?**\n- 📦 **২০টির বেশি অর্ডার করেছে এমন কাস্টমারদের তালিকা দাও?**\n- 💬 **হোয়াটসঅ্যাপে সক্রিয় ও ঢাকার কাস্টমারদের ডাটা কত?**\n\nআমি সাথে সাথে অ্যানালাইসিস করে আপনাকে সর্ট করা ডাটা এবং ১-ক্লিকে CSV ডাউনলোড ফাইল তৈরি করে দেব!`,
+      reply: `👋 **হ্যালো! আমি Morpheus AI Analytics Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${(stats.totalRecords || 2361).toLocaleString()} টি রিয়েল-টাইম রেকর্ডের** সম্পূর্ণ তথ্য আমার কাছে সংযুক্ত আছে।\n\nআপনি বাংলায় বা ইংরেজিতে যেকোনো প্রশ্ন করতে পারেন—যেমন:\n- 👑 **টপ ৫ জন সর্বোচ্চ স্পেন্ড করা VIP কাস্টমার কারা?**\n- 📦 **১০০টির বেশি অর্ডার করেছে এমন কাস্টমারদের তালিকা দাও?**\n- 💬 **হোয়াটসঅ্যাপে সক্রিয় ও ঢাকার কাস্টমারদের ডাটা কত?**\n\nআমি সাথে সাথে অ্যানালাইসিস করে আপনাকে সর্ট করা ডাটা এবং ১-ক্লিকে CSV ডাউনলোড ফাইল তৈরি করে দেব!`,
       keyMetrics: [
         { label: 'মোট ডাটাবেজ', value: `${(stats.totalRecords || 2361).toLocaleString()} টি`, subtext: 'Live Records' },
         { label: 'লাইফটাইম GMV', value: `৳${Number(stats.totalGMV_BDT || 0).toLocaleString()}`, subtext: 'Total spend' },
@@ -868,7 +817,12 @@ function buildDynamicLiveResponse(
   let title = `📊 **আপনার রিকোয়েস্ট অনুযায়ী ডাটাবেজ অ্যানালাইসিস:**`;
   let description = '';
 
-  if (intent.numberEndsWith) {
+  if (intent.minOrderCount) {
+    title = `📦 **${intent.minOrderCount}+ অর্ডার সম্পন্নকারী কাস্টমারদের তথ্য:**`;
+    description = matchingCount > 0
+      ? `আপনার লাইভ ডাটাবেজে **${intent.minOrderCount} টির বেশি অর্ডার সম্পন্ন করেছে এমন মোট ${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের মধ্যে শীর্ষ কাস্টমারদের তালিকা নিচে দেওয়া হলো:`
+      : `না স্যার, আপনার ডাটাবেজে **${intent.minOrderCount} টির বেশি অর্ডার করেছে এমন কোনো কাস্টমার খুঁজে পাওয়া যায়নি।`;
+  } else if (intent.numberEndsWith) {
     title = `📱 **"${intent.numberEndsWith}" দিয়ে শেষ হওয়া ফোন নম্বরের কাস্টমারদের তথ্য:**`;
     description = matchingCount > 0
       ? `আপনার লাইভ ডাটাবেজে শেষে "${intent.numberEndsWith}" রয়েছে এমন মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের প্রিভিউ তালিকা নিচে দেওয়া হলো:`
@@ -878,9 +832,6 @@ function buildDynamicLiveResponse(
     description = matchingCount > 0
       ? `আপনার লাইভ ডাটাবেজে "${intent.numberStartsWith}" দিয়ে শুরু এমন মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের প্রিভিউ তালিকা নিচে দেওয়া হলো:`
       : `না স্যার, আপনার ডাটাবেজে "${intent.numberStartsWith}" দিয়ে শুরু এমন কোনো ফোন নম্বরের কাস্টমার খুঁজে পাওয়া যায়নি।`;
-  } else if (intent.minOrderCount) {
-    title = `📦 **${intent.minOrderCount}+ অর্ডার সম্পন্নকারী কাস্টমারদের তথ্য:**`;
-    description = `আপনার লাইভ ডাটাবেজে **${intent.minOrderCount} টির বেশি অর্ডার সম্পন্ন করেছে এমন মোট ${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের মধ্যে শীর্ষ কাস্টমারদের তালিকা নিচে দেওয়া হলো:`;
   } else if (intent.search) {
     const searchDisplay = intent.search.replace(/\|/g, ' / ');
     const fieldLabel = intent.searchField === 'name' ? 'নামে' : 'কীওয়ার্ডে';
@@ -930,6 +881,8 @@ function buildDynamicLiveResponse(
     limit: intent.limit || 10,
     customFilename: intent.search
       ? `Records_${intent.search.replace(/\|/g, '_')}`
+      : intent.minOrderCount
+      ? `Records_Min_${intent.minOrderCount}_Orders`
       : intent.numberEndsWith
       ? `Records_Phone_Ends_${intent.numberEndsWith}`
       : intent.numberStartsWith
@@ -962,6 +915,8 @@ function buildDynamicLiveResponse(
         value:
           intent.searchField === 'name'
             ? 'Name Matching'
+            : intent.minOrderCount
+            ? `${intent.minOrderCount}+ Orders`
             : intent.numberEndsWith
             ? 'Phone Suffix'
             : intent.numberStartsWith
