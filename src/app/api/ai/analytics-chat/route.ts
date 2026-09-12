@@ -650,7 +650,7 @@ function buildDynamicLiveResponse(
       records.map((r, idx) => `| ${idx + 1} | **${r.name}** | \`${r.phone}\` | **${r.orderCount}** টি | ৳${Number(r.orderAmount || 0).toLocaleString()} | ${r.location} (${r.primaryMerchant}) |`).join('\n');
   }
 
-  const reply = `${title}\n\n${description}${tableMarkdown}\n\n💡 *নিচের বাটনগুলোতে ক্লিক করে আপনি সম্পূর্ণ ${matchingCount.toLocaleString()} টি রেকর্ডের CSV ডাউনলোড করতে পারবেন অথবা Data Explorer-এ লাইভ দেখতে পারবেন।*`;
+  const reply = `${title}\n\n${description}${tableMarkdown}`;
 
   const exportPayload = {
     search: intent.search || undefined,

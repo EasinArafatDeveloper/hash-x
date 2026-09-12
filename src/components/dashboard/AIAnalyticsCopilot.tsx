@@ -110,12 +110,7 @@ export function AIAnalyticsCopilot({
     {
       id: 'welcome-msg',
       role: 'assistant',
-      content: `👋 **হ্যালো! আমি Morpheus AI Analytics Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${totalRecords.toLocaleString()} টি রিয়েল-টাইম রেকর্ডের** সম্পূর্ণ তথ্য আমার কাছে লাইভ সংযুক্ত আছে।\n\nআপনি বাংলায় বা ইংরেজিতে যেকোনো প্রশ্ন করতে পারেন—আমি সাথে সাথে অ্যানালাইসিস করে আপনাকে **সর্ট করা ডাটা**, **সরাসরি CSV ডাউনলোড ফাইল** এবং **Data Explorer এ দেখার লিংক** তৈরি করে দেব!`,
-      followUpQuestions: [
-        'টপ ৫ জন সর্বোচ্চ খরচ করা VIP কাস্টমার কারা?',
-        'আমাদের ডাটার জেন্ডার ও স্পেন্ড হিসাব কেমন?',
-        'কেরানীগঞ্জ ও ঢাকার কাস্টমারদের সেলস কত?',
-      ],
+      content: `👋 **হ্যালো! আমি Morpheus AI Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${totalRecords.toLocaleString()} টি রিয়েল-টাইম কাস্টমার রেকর্ড** লাইভ সংযুক্ত আছে।\n\nযেকোনো ফিল্টার, কাস্টমার অ্যানালাইসিস বা সেলস রিপোর্ট জানতে বাংলায় বা ইংরেজিতে লিখুন!`,
       isStreaming: false,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
@@ -383,104 +378,38 @@ export function AIAnalyticsCopilot({
                         )}
                       </div>
 
-                      {/* Prominent Action Bar (Fades in when streaming completes): CSV Download & Data Explorer View */}
+                      {/* 2 Clean & Compact Action Buttons: Download CSV & Data Explorer View */}
                       {msg.role === 'assistant' && !msg.isStreaming && (msg.exportPayload || msg.explorerPath) && (
                         <motion.div
-                          initial={{ opacity: 0, y: 6 }}
+                          initial={{ opacity: 0, y: 4 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-900/10 via-indigo-900/5 to-emerald-900/10 dark:from-purple-950/50 dark:via-indigo-950/30 dark:to-slate-900 border border-purple-200 dark:border-purple-800/60 shadow-xs space-y-2.5"
+                          className="flex flex-wrap items-center gap-2 pt-0.5"
                         >
-                          <div className="flex items-center justify-between">
-                            <span className="block text-[10px] font-black text-purple-700 dark:text-purple-300 uppercase tracking-wider">
-                              ⚡ ডেটা অ্যাকশন & এক্সপোর্ট (Instant 1-Click Action):
-                            </span>
-                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> Ready
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            {/* 1. Download Sorted CSV Button */}
-                            {msg.exportPayload && (
-                              <button
-                                type="button"
-                                onClick={() => handleDownloadCSV(msg.exportPayload, msg.exportLabel)}
-                                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                <span>{msg.exportLabel || '📥 Download Sorted CSV'}</span>
-                              </button>
-                            )}
-
-                            {/* 2. View in Data Explorer Button */}
-                            {msg.explorerPath && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsOpen(false);
-                                  router.push(msg.explorerPath || '/data/explorer');
-                                }}
-                                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-md shadow-purple-600/20 active:scale-95 cursor-pointer"
-                              >
-                                <SlidersHorizontal className="w-3.5 h-3.5" />
-                                <span>🔍 Data Explorer এ সর্ট করা ডেটা দেখুন</span>
-                                <ArrowRight className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-
-                      {/* Embedded Mini Metric Badges (Fades in when streaming completes) */}
-                      {msg.role === 'assistant' && !msg.isStreaming && msg.keyMetrics && msg.keyMetrics.length > 0 && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1"
-                        >
-                          {msg.keyMetrics.map((met, idx) => (
-                            <div
-                              key={idx}
-                              className="p-2.5 rounded-xl bg-purple-50/90 dark:bg-purple-950/40 border border-purple-200/70 dark:border-purple-900/50 text-left shadow-2xs"
+                          {msg.exportPayload && (
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadCSV(msg.exportPayload, msg.exportLabel)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
                             >
-                              <span className="block text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
-                                {met.label}
-                              </span>
-                              <span className="block text-sm font-black text-gray-900 dark:text-white mt-0.5">
-                                {met.value}
-                              </span>
-                              {met.subtext && (
-                                <span className="block text-[10px] text-gray-500 dark:text-gray-400">
-                                  {met.subtext}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </motion.div>
-                      )}
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Download CSV</span>
+                            </button>
+                          )}
 
-                      {/* Suggested Follow-up Questions (Fades in when streaming completes) */}
-                      {msg.role === 'assistant' && !msg.isStreaming && msg.followUpQuestions && msg.followUpQuestions.length > 0 && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="space-y-1.5 pt-1"
-                        >
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                            <Lightbulb className="w-3 h-3 text-amber-500" /> সম্পর্কিত প্রশ্ন:
-                          </span>
-                          <div className="flex flex-col gap-1">
-                            {msg.followUpQuestions.map((fq, fIdx) => (
-                              <button
-                                key={fIdx}
-                                type="button"
-                                onClick={() => handleSendMessage(fq)}
-                                className="text-left text-[11px] font-semibold text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 hover:bg-purple-50 dark:hover:bg-purple-950/40 p-2 rounded-xl border border-purple-100 dark:border-purple-900/40 transition-colors flex items-center justify-between group cursor-pointer"
-                              >
-                                <span>{fq}</span>
-                                <ChevronRight className="w-3 h-3 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </button>
-                            ))}
-                          </div>
+                          {msg.explorerPath && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsOpen(false);
+                                router.push(msg.explorerPath || '/data/explorer');
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                            >
+                              <SlidersHorizontal className="w-3.5 h-3.5" />
+                              <span>Data Explorer</span>
+                              <ArrowRight className="w-3 h-3 ml-0.5" />
+                            </button>
+                          )}
                         </motion.div>
                       )}
 
