@@ -93,12 +93,26 @@ export async function POST(request: NextRequest) {
       targetDbQuery.gender = parsedIntent.gender;
     }
 
-    if (!parsedIntent.isConversational && parsedIntent.minOrderCount) {
-      targetDbQuery.orderCount = { $gte: parseInt(parsedIntent.minOrderCount, 10) };
+    // Order Count range / comparisons (min vs max / less than vs greater than)
+    if (!parsedIntent.isConversational && (parsedIntent.minOrderCount || parsedIntent.maxOrderCount)) {
+      targetDbQuery.orderCount = {};
+      if (parsedIntent.minOrderCount && !isNaN(parseInt(parsedIntent.minOrderCount, 10))) {
+        targetDbQuery.orderCount.$gte = parseInt(parsedIntent.minOrderCount, 10);
+      }
+      if (parsedIntent.maxOrderCount && !isNaN(parseInt(parsedIntent.maxOrderCount, 10))) {
+        targetDbQuery.orderCount.$lte = parseInt(parsedIntent.maxOrderCount, 10);
+      }
     }
 
-    if (!parsedIntent.isConversational && parsedIntent.minOrderAmount) {
-      targetDbQuery.orderAmount = { $gte: parseFloat(parsedIntent.minOrderAmount) };
+    // Order Amount / Spend range / comparisons (min vs max / less than vs greater than)
+    if (!parsedIntent.isConversational && (parsedIntent.minOrderAmount || parsedIntent.maxOrderAmount)) {
+      targetDbQuery.orderAmount = {};
+      if (parsedIntent.minOrderAmount && !isNaN(parseFloat(parsedIntent.minOrderAmount))) {
+        targetDbQuery.orderAmount.$gte = parseFloat(parsedIntent.minOrderAmount);
+      }
+      if (parsedIntent.maxOrderAmount && !isNaN(parseFloat(parsedIntent.maxOrderAmount))) {
+        targetDbQuery.orderAmount.$lte = parseFloat(parsedIntent.maxOrderAmount);
+      }
     }
 
     if (!parsedIntent.isConversational && parsedIntent.merchant) {
@@ -118,7 +132,7 @@ export async function POST(request: NextRequest) {
 
     const sortField = parsedIntent.sortBy || 'createdAt';
     const sortDir = parsedIntent.sortOrder === 'asc' ? 1 : -1;
-    const fetchLimit = parsedIntent.limit || 10;
+    const fetchLimit = parsedIntent.limit || 15;
 
     // Execute targeted query + global stats in parallel
     const [
@@ -263,35 +277,39 @@ LIVE DATABASE CONTEXT:
 CURRENT USER REQUEST ANALYSIS & FILTER STATE:
 ${JSON.stringify(liveStatsSummary.userQueryAnalysis, null, 2)}
 
-INSTRUCTIONS & CAPABILITIES (BEHAVE LIKE A GENUINE HUMAN ASSISTANT / CHATGPT):
+BANGLISH & BANGLA PHONETIC UNDERSTANDING RULES:
+1. UNDERSTAND LESS THAN / BELOW / UNDER / NICHE:
+   - "nesa", "nise", "niche", "nece", "kom", "under", "below", "less than", "max", "upto", "porjonto" = LESS THAN OR EQUAL (<=).
+   - Example: "20 are nesa" / "20 er niche" -> ORDER COUNT <= 20 (NOT >= 20!).
+2. UNDERSTAND GREATER THAN / ABOVE / BESHI / PLUS:
+   - "besi", "beshi", "plus", "+", "above", "over", "more than", "min", "at least", "upore" = GREATER THAN OR EQUAL (>=).
+   - Example: "20 plus" / "20 er beshi" -> ORDER COUNT >= 20.
+3. UNDERSTAND TYPOS & PHONETIC SPELLINGS:
+   - "cout" = "count"
+   - "oder", "odr" = "order"
+   - "plased" = "placed"
+   - "are nesa" / "ar nesa" = "এর নিচে (below/under)"
+
+INSTRUCTIONS & CAPABILITIES:
 1. HUMAN CONVERSATION & GREETINGS:
-   - If the user sends a greeting (e.g. "hi", "hello", "kemon aso", "who are you", "what can you do", "thanks", "bujso"):
-     - Respond warmly, naturally, and smartly in fluent Bengali/English.
-     - NEVER say "no keyword data found" for greetings!
-     - Introduce yourself as their live Morpheus AI Copilot with ${totalRecords.toLocaleString()} real-time customer records connected.
-     - Suggest 3 concrete, powerful questions they can ask (e.g. VIP clients, top repeat buyers, WhatsApp segmentation).
+   - If greeting ("hi", "hello", "kemon aso", "thanks", "bujso"):
+     - Respond warmly, naturally in fluent Bengali/English. Introduce live dataset of ${totalRecords.toLocaleString()} records.
      - Set "type": "chat".
 
 2. MULTI-TURN CONVERSATIONS & MICRO-REFINEMENTS (CONTEXT RETENTION):
-   - When the user asks a follow-up or refinement on previous data (e.g., "ar modde jader order 15 plus tader ta sud dua", "tader modde female kara", "017 number kotojon"):
-     - UNDERSTAND that this query is a micro-filter applied to the PREVIOUS customer set (e.g., matching the specific name/keyword previously queried).
-     - Clearly acknowledge the active search/name context and explain how many of those specific customers meet the new condition.
-     - STRICT ACCURACY RULE: Always use "userQueryAnalysis" -> "exactMatchingCount" as the single source of truth for the exact number of matching customers.
+   - When the user refines previous data (e.g., "acha ay data modde jader total order cout 20 are nesa asa tader list ta dau"):
+     - Maintain the PREVIOUS name/keyword filter (e.g. "Easin / Yeasin / Iasin").
+     - Confirm that you are showing customers whose order count is LESS THAN OR EQUAL TO 20 (২০ বা তার নিচে).
+     - STRICT ACCURACY RULE: Always use "userQueryAnalysis" -> "exactMatchingCount" (${targetedCount}) as the single source of truth!
 
 3. DATA & ANALYTICAL QUERIES:
-   - If user asked for order counts, phone prefix/suffix, areas, categories, or names:
-     - STRICT ACCURACY: Use the exact count from exactMatchingCount.
-     - NEVER hallucinate, guess, or dump unrelated database records!
-     - If "exactMatchingCount" === 0:
-       - Explain politely and honestly in fluent Bengali (e.g. "না স্যার, আপনার ডাটাবেজে এই নির্দিষ্ট শর্ত বা তথ্যের কোনো ডাটা খুঁজে পাওয়া যায়নি। আপনি কি অন্য কোনো ফিল্টার বা নাম্বার দিয়ে দেখতে চান?").
-       - DO NOT render a table of unrelated records when 0 matches exist!
-       - Set "type": "data_query".
-     - If "exactMatchingCount" > 0:
-       - Clearly state the exact count in bold Bengali.
-       - If exactMatchingCount > formattedTargetedRecords.length:
-         - State clearly: "নিচে শীর্ষ ${formattedTargetedRecords.length} জনের তালিকা দেওয়া হলো (সম্পূর্ণ ${targetedCount} জনের ফাইল দেখতে নিচের বাটনে ক্লিক করুন):"
-       - Render a clean Markdown Table (# | Name | Phone Number | Orders | Spend BDT | Location/Store).
-       - Provide accurate "exportPayload", "exportLabel", and "explorerPath".
+   - If "exactMatchingCount" === 0:
+     - Explain politely that no matching records were found with that criteria.
+     - Set "type": "data_query".
+   - If "exactMatchingCount" > 0:
+     - Clearly state the exact count in bold Bengali.
+     - Render a clean Markdown Table (# | Name | Phone Number | Orders | Spend BDT | Location/Store).
+     - Provide accurate "exportPayload", "exportLabel", and "explorerPath".
 
 4. OUTPUT ONLY VALID JSON:
 {
@@ -303,13 +321,15 @@ INSTRUCTIONS & CAPABILITIES (BEHAVE LIKE A GENUINE HUMAN ASSISTANT / CHATGPT):
     "tag": "string",
     "gender": "Female" | "Male" | "All",
     "minOrderAmount": "string",
+    "maxOrderAmount": "string",
     "minOrderCount": "string",
+    "maxOrderCount": "string",
     "merchant": "string",
     "numberStartsWith": "string",
     "numberEndsWith": "string",
     "sortBy": "orderCount" | "orderAmount" | "createdAt",
     "sortOrder": "desc" | "asc",
-    "limit": 10,
+    "limit": 15,
     "customFilename": "Custom_Filename"
   },
   "exportLabel": "Download CSV (${targetedCount} rows)",
@@ -394,7 +414,9 @@ interface QueryIntent {
   tag: string;
   gender: string;
   minOrderCount: string;
+  maxOrderCount: string;
   minOrderAmount: string;
+  maxOrderAmount: string;
   merchant: string;
   numberStartsWith: string;
   numberEndsWith: string;
@@ -408,7 +430,15 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
     .replace(/[০-৯]/g, (d) => String(['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'].indexOf(d)))
     .toLowerCase()
     .trim();
-  const q = normalizedQ;
+
+  // Normalize phonetic Banglish typos & variations
+  const q = normalizedQ
+    .replace(/\bcout\b/gi, 'count')
+    .replace(/\boder\b/gi, 'order')
+    .replace(/\bodr\b/gi, 'order')
+    .replace(/\bplased\b/gi, 'placed')
+    .replace(/\bare\b/gi, 'er')
+    .replace(/\bar\b/gi, 'er');
 
   // Check for greetings & casual conversation
   const casualGreetingPatterns = [
@@ -435,13 +465,15 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
   let tag = 'All';
   let gender = 'All';
   let minOrderCount = '';
+  let maxOrderCount = '';
   let minOrderAmount = '';
+  let maxOrderAmount = '';
   let merchant = '';
   let numberStartsWith = '';
   let numberEndsWith = '';
   let sortBy = 'createdAt';
   let sortOrder: 'asc' | 'desc' = 'desc';
-  let limit = 10;
+  let limit = 15;
 
   if (isConversational) {
     return {
@@ -451,7 +483,9 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
       tag: 'All',
       gender: 'All',
       minOrderCount: '',
+      maxOrderCount: '',
       minOrderAmount: '',
+      maxOrderAmount: '',
       merchant: '',
       numberStartsWith: '',
       numberEndsWith: '',
@@ -461,35 +495,120 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
     };
   }
 
-  // 1. Order Count Detection (handles "order plased 100", "order placed 100", "100 order", "order >= 50", "20+ order", "২০টি অর্ডার", "order 15 plus", "15+ order")
-  const orderCountMatch =
-    q.match(/(?:order|অর্ডার)\s*(?:placed|plased|count|সংখ্যা|complete|কমপ্লিট|kora|করা|হয়েছে|hoise|besi|বেশি|অধিক|>=|>|:|=)?\s*(\d+)\s*(?:\+|plus)?/i) ||
-    q.match(/(\d+)\s*(?:টির|টি|ta|er|বারের|বার)?\s*(?:besi|বেশি|অধিক|placed|plased|\+|plus)?\s*(?:order|অর্ডার)/i) ||
-    q.match(/(\d+)\s*(?:\+|plus)\s*order/i) ||
-    q.match(/(?:order|অর্ডার)\s*(\d+)\s*(?:\+|plus)?/i);
+  // 1. Order Count Detection (handles ranges, less-than/nise/nesa/kom, and greater-than/beshi/plus)
+  const orderRangeMatch =
+    q.match(/(\d+)\s*(?:theke|to|-|থেকে)\s*(\d+)\s*(?:ta|ti|টির|টি)?\s*(?:order|অর্ডার)/i) ||
+    q.match(/(?:order|অর্ডার)\s*(?:count|সংখ্যা|placed)?\s*(\d+)\s*(?:theke|to|-|থেকে)\s*(\d+)/i);
 
-  if (orderCountMatch) {
-    const num = parseInt(orderCountMatch[1], 10);
-    if (!isNaN(num) && num > 0) {
-      minOrderCount = String(num);
+  const hasLessOrderKeyword =
+    q.includes('nesa') ||
+    q.includes('nise') ||
+    q.includes('niche') ||
+    q.includes('neeche') ||
+    q.includes('nece') ||
+    q.includes('kom') ||
+    q.includes('কম') ||
+    q.includes('নিচে') ||
+    q.includes('under') ||
+    q.includes('below') ||
+    q.includes('less') ||
+    q.includes('upto') ||
+    q.includes('porjonto') ||
+    q.includes('max') ||
+    q.includes('<=') ||
+    q.includes('<');
+
+  const hasMoreOrderKeyword =
+    q.includes('besi') ||
+    q.includes('beshi') ||
+    q.includes('বেশি') ||
+    q.includes('অধিক') ||
+    q.includes('upore') ||
+    q.includes('upor') ||
+    q.includes('plus') ||
+    q.includes('+') ||
+    q.includes('above') ||
+    q.includes('over') ||
+    q.includes('more') ||
+    q.includes('min') ||
+    q.includes('>=') ||
+    q.includes('>');
+
+  if (orderRangeMatch) {
+    const low = parseInt(orderRangeMatch[1], 10);
+    const high = parseInt(orderRangeMatch[2], 10);
+    if (!isNaN(low) && !isNaN(high)) {
+      minOrderCount = String(Math.min(low, high));
+      maxOrderCount = String(Math.max(low, high));
       sortBy = 'orderCount';
       sortOrder = 'desc';
     }
+  } else if ((q.includes('order') || q.includes('অর্ডার') || q.includes('count') || q.includes('সংখ্যা')) && hasLessOrderKeyword) {
+    const numMatch = q.match(/(\d+)/);
+    if (numMatch) {
+      maxOrderCount = numMatch[1];
+      sortBy = 'orderCount';
+      sortOrder = 'asc';
+    }
+  } else if (hasLessOrderKeyword && !hasMoreOrderKeyword && q.match(/(\d+)/)) {
+    const numMatch = q.match(/(\d+)/);
+    if (numMatch) {
+      maxOrderCount = numMatch[1];
+      sortBy = 'orderCount';
+      sortOrder = 'asc';
+    }
+  } else {
+    const orderCountMatch =
+      q.match(/(?:order|অর্ডার)\s*(?:placed|count|সংখ্যা|complete|কমপ্লিট|kora|করা|হয়েছে|hoise|besi|বেশি|অধিক|>=|>|:|=)?\s*(\d+)\s*(?:\+|plus)?/i) ||
+      q.match(/(\d+)\s*(?:টির|টি|ta|er|বারের|বার)?\s*(?:besi|বেশি|অধিক|placed|\+|plus)?\s*(?:order|অর্ডার)/i) ||
+      q.match(/(\d+)\s*(?:\+|plus)\s*order/i) ||
+      q.match(/(?:order|অর্ডার)\s*(\d+)\s*(?:\+|plus)?/i);
+
+    if (orderCountMatch) {
+      const num = parseInt(orderCountMatch[1], 10);
+      if (!isNaN(num) && num > 0) {
+        minOrderCount = String(num);
+        sortBy = 'orderCount';
+        sortOrder = 'desc';
+      }
+    }
   }
 
-  // 2. Spend / Amount Detection (e.g. 10k+, spend > 5000, ৳10000, 50000 taka)
-  const spendMatch =
-    q.match(/(?:spend|টাকা|খরচ|gmv|amount|খরচ\s*করেছে|>=|>|tk|bdt)\s*(\d+)/i) ||
-    q.match(/(\d+)\s*(?:taka|টাকা|tk|bdt|k\b)/i);
-  if (spendMatch) {
-    let val = spendMatch[1];
-    if (spendMatch[0].toLowerCase().includes('k') && !spendMatch[0].toLowerCase().includes('taka')) {
-      val = String(parseInt(val, 10) * 1000);
-    }
-    minOrderAmount = val;
-    if (!sortBy || sortBy === 'createdAt') {
+  // 2. Spend / Amount Detection (ranges, less-than, and greater-than)
+  const spendRangeMatch =
+    q.match(/(\d+)\s*(?:theke|to|-|থেকে)\s*(\d+)\s*(?:taka|টাকা|tk|bdt|k\b)/i) ||
+    q.match(/(?:spend|টাকা|খরচ|gmv|amount)\s*(\d+)\s*(?:theke|to|-|থেকে)\s*(\d+)/i);
+
+  if (spendRangeMatch) {
+    let low = spendRangeMatch[1];
+    let high = spendRangeMatch[2];
+    minOrderAmount = low;
+    maxOrderAmount = high;
+    sortBy = 'orderAmount';
+    sortOrder = 'desc';
+  } else if ((q.includes('spend') || q.includes('টাকা') || q.includes('খরচ') || q.includes('tk') || q.includes('bdt') || q.includes('amount')) && hasLessOrderKeyword) {
+    const numMatch = q.match(/(\d+)/);
+    if (numMatch) {
+      let val = numMatch[1];
+      if (q.includes('k') && !q.includes('taka')) val = String(parseInt(val, 10) * 1000);
+      maxOrderAmount = val;
       sortBy = 'orderAmount';
-      sortOrder = 'desc';
+      sortOrder = 'asc';
+    }
+  } else {
+    const spendMatch =
+      q.match(/(?:spend|টাকা|খরচ|gmv|amount|খরচ\s*করেছে|>=|>|tk|bdt)\s*(\d+)/i) ||
+      q.match(/(\d+)\s*(?:taka|টাকা|tk|bdt|k\b)/i);
+    if (spendMatch) {
+      let val = spendMatch[1];
+      if (spendMatch[0].toLowerCase().includes('k') && !spendMatch[0].toLowerCase().includes('taka')) {
+        val = String(parseInt(val, 10) * 1000);
+      }
+      minOrderAmount = val;
+      if (!sortBy || sortBy === 'createdAt') {
+        sortBy = 'orderAmount';
+        sortOrder = 'desc';
+      }
     }
   }
 
@@ -679,14 +798,15 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
       q.includes('ar moddhe') ||
       q.includes('ar modde') ||
       q.includes('ar modhe') ||
+      q.includes('er moddhe') ||
+      q.includes('er modde') ||
+      q.includes('er modhe') ||
       q.includes('tader moddhe') ||
       q.includes('tader modde') ||
       q.includes('tader modhe') ||
       q.includes('tader') ||
       q.includes('ar maje') ||
-      q.includes('er moddhe') ||
-      q.includes('er modde') ||
-      q.includes('er modhe') ||
+      q.includes('er maje') ||
       q.includes('ager') ||
       q.includes('uporer') ||
       q.includes('merge') ||
@@ -697,7 +817,7 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
       q.includes('just') ||
       q.includes('jader') ||
       q.includes('jara') ||
-      (!search && (minOrderCount || minOrderAmount || gender !== 'All' || tag !== 'All' || numberStartsWith || numberEndsWith));
+      (!search && (minOrderCount || maxOrderCount || minOrderAmount || maxOrderAmount || gender !== 'All' || tag !== 'All' || numberStartsWith || numberEndsWith));
 
     if (isRefinement) {
       const lastUserMsg = [...history].reverse().find(
@@ -709,8 +829,10 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
           search = prevIntent.search;
           searchField = prevIntent.searchField || 'any';
         }
-        if (!minOrderCount && prevIntent.minOrderCount) minOrderCount = prevIntent.minOrderCount;
-        if (!minOrderAmount && prevIntent.minOrderAmount) minOrderAmount = prevIntent.minOrderAmount;
+        if (!minOrderCount && !maxOrderCount && prevIntent.minOrderCount) minOrderCount = prevIntent.minOrderCount;
+        if (!minOrderCount && !maxOrderCount && prevIntent.maxOrderCount) maxOrderCount = prevIntent.maxOrderCount;
+        if (!minOrderAmount && !maxOrderAmount && prevIntent.minOrderAmount) minOrderAmount = prevIntent.minOrderAmount;
+        if (!minOrderAmount && !maxOrderAmount && prevIntent.maxOrderAmount) maxOrderAmount = prevIntent.maxOrderAmount;
         if (!merchant && prevIntent.merchant) merchant = prevIntent.merchant;
         if (gender === 'All' && prevIntent.gender !== 'All') gender = prevIntent.gender;
         if (tag === 'All' && prevIntent.tag !== 'All') tag = prevIntent.tag;
@@ -736,7 +858,9 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
     !numberStartsWith &&
     !numberEndsWith &&
     !minOrderCount &&
+    !maxOrderCount &&
     !minOrderAmount &&
+    !maxOrderAmount &&
     tag === 'All' &&
     gender === 'All' &&
     !merchant &&
@@ -762,7 +886,9 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
     tag,
     gender,
     minOrderCount,
+    maxOrderCount,
     minOrderAmount,
+    maxOrderAmount,
     merchant,
     numberStartsWith,
     numberEndsWith,
@@ -786,15 +912,21 @@ function ensureExportAndExplorerPaths(parsed: any, intent: any, totalCount: numb
       tag: intent.tag !== 'All' ? intent.tag : undefined,
       gender: intent.gender !== 'All' ? intent.gender : undefined,
       minOrderCount: intent.minOrderCount || undefined,
+      maxOrderCount: intent.maxOrderCount || undefined,
       minOrderAmount: intent.minOrderAmount || undefined,
+      maxOrderAmount: intent.maxOrderAmount || undefined,
       merchant: intent.merchant || undefined,
       numberStartsWith: intent.numberStartsWith || undefined,
       numberEndsWith: intent.numberEndsWith || undefined,
       sortBy: intent.sortBy || 'orderCount',
       sortOrder: intent.sortOrder || 'desc',
-      limit: intent.limit || 10,
+      limit: intent.limit || 15,
       customFilename: intent.search
         ? `Records_${intent.search.replace(/\|/g, '_')}`
+        : intent.maxOrderCount
+        ? `Records_Max_${intent.maxOrderCount}_Orders`
+        : intent.minOrderCount
+        ? `Records_Min_${intent.minOrderCount}_Orders`
         : intent.numberEndsWith
         ? `Records_Phone_Ends_${intent.numberEndsWith}`
         : intent.numberStartsWith
@@ -816,7 +948,9 @@ function ensureExportAndExplorerPaths(parsed: any, intent: any, totalCount: numb
     if (res.exportPayload.numberStartsWith) params.set('numberStartsWith', res.exportPayload.numberStartsWith);
     if (res.exportPayload.numberEndsWith) params.set('numberEndsWith', res.exportPayload.numberEndsWith);
     if (res.exportPayload.minOrderCount) params.set('minOrderCount', String(res.exportPayload.minOrderCount));
+    if (res.exportPayload.maxOrderCount) params.set('maxOrderCount', String(res.exportPayload.maxOrderCount));
     if (res.exportPayload.minOrderAmount) params.set('minOrderAmount', String(res.exportPayload.minOrderAmount));
+    if (res.exportPayload.maxOrderAmount) params.set('maxOrderAmount', String(res.exportPayload.maxOrderAmount));
     if (res.exportPayload.sortBy) params.set('sortBy', res.exportPayload.sortBy);
     if (res.exportPayload.sortOrder) params.set('sortOrder', res.exportPayload.sortOrder);
     res.explorerPath = `/data/explorer?${params.toString()}`;
@@ -858,16 +992,26 @@ function buildDynamicLiveResponse(
 
   const searchDisplay = intent.search ? intent.search.replace(/\|/g, ' / ') : '';
 
-  if (intent.search && intent.minOrderCount) {
+  if (intent.search && intent.minOrderCount && intent.maxOrderCount) {
+    title = `📦 **"${searchDisplay}" নাম/কীওয়ার্ডে ${intent.minOrderCount} থেকে ${intent.maxOrderCount} টি অর্ডার সম্পন্নকারী কাস্টমারদের তথ্য:**`;
+    description = matchingCount > 0
+      ? `আপনার ডাটাবেজে **"${searchDisplay}"** যাদের অর্ডার সংখ্যা **${intent.minOrderCount} থেকে ${intent.maxOrderCount}-এর মধ্যে** রয়েছে এমন মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের তালিকা নিচে দেওয়া হলো:`
+      : `না স্যার, আপনার ডাটাবেজে "${searchDisplay}" নাম/কীওয়ার্ডে ${intent.minOrderCount} থেকে ${intent.maxOrderCount} টি অর্ডার করেছে এমন কোনো কাস্টমার খুঁজে পাওয়া যায়নি।`;
+  } else if (intent.search && intent.maxOrderCount) {
+    title = `📦 **"${searchDisplay}" নাম/কীওয়ার্ডে ${intent.maxOrderCount} বা তার নিচে অর্ডার সম্পন্নকারী কাস্টমারদের তথ্য:**`;
+    description = matchingCount > 0
+      ? `আপনার ডাটাবেজে **"${searchDisplay}"** যাদের মধ্যে মোট অর্ডার সংখ্যা **${intent.maxOrderCount} বা তার নিচে** রয়েছে এমন মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের তালিকা নিচে দেওয়া হলো:`
+      : `না স্যার, আপনার ডাটাবেজে "${searchDisplay}" নাম/কীওয়ার্ডে ${intent.maxOrderCount} বা তার নিচে অর্ডার করেছে এমন কোনো কাস্টমার খুঁজে পাওয়া যায়নি।`;
+  } else if (intent.search && intent.minOrderCount) {
     title = `📦 **"${searchDisplay}" নাম/কীওয়ার্ডে ${intent.minOrderCount}+ অর্ডার সম্পন্নকারী কাস্টমারদের তথ্য:**`;
     description = matchingCount > 0
       ? `আপনার ডাটাবেজে **"${searchDisplay}"** যাদের মধ্যে **${intent.minOrderCount} টির বেশি অর্ডার** রয়েছে এমন মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের প্রিভিউ তালিকা নিচে দেওয়া হলো:`
       : `না স্যার, আপনার ডাটাবেজে "${searchDisplay}" নাম/কীওয়ার্ডে ${intent.minOrderCount} টির বেশি অর্ডার করেছে এমন কোনো কাস্টমার খুঁজে পাওয়া যায়নি।`;
-  } else if (intent.search && intent.gender && intent.gender !== 'All') {
-    title = `👩 **"${searchDisplay}" নাম/কীওয়ার্ডে ${intent.gender} কাস্টমারদের তথ্য:**`;
+  } else if (intent.maxOrderCount) {
+    title = `📦 **${intent.maxOrderCount} বা তার নিচে অর্ডার সম্পন্নকারী কাস্টমারদের তথ্য:**`;
     description = matchingCount > 0
-      ? `আপনার ডাটাবেজে **"${searchDisplay}"** এর মধ্যে **${intent.gender}** মোট **${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!`
-      : `না স্যার, "${searchDisplay}" এর মধ্যে কোনো ${intent.gender} কাস্টমার পাওয়া যায়নি।`;
+      ? `আপনার লাইভ ডাটাবেজে **${intent.maxOrderCount} বা তার নিচে অর্ডার সম্পন্ন করেছে এমন মোট ${matchingCount.toLocaleString()} জন কাস্টমার** পাওয়া গেছে!\n\nতাদের মধ্যে শীর্ষ কাস্টমারদের তালিকা নিচে দেওয়া হলো:`
+      : `না স্যার, আপনার ডাটাবেজে ${intent.maxOrderCount} বা তার নিচে অর্ডার করেছে এমন কোনো কাস্টমার খুঁজে পাওয়া যায়নি।`;
   } else if (intent.minOrderCount) {
     title = `📦 **${intent.minOrderCount}+ অর্ডার সম্পন্নকারী কাস্টমারদের তথ্য:**`;
     description = matchingCount > 0
@@ -922,15 +1066,19 @@ function buildDynamicLiveResponse(
     tag: intent.tag !== 'All' ? intent.tag : undefined,
     gender: intent.gender !== 'All' ? intent.gender : undefined,
     minOrderCount: intent.minOrderCount || undefined,
+    maxOrderCount: intent.maxOrderCount || undefined,
     minOrderAmount: intent.minOrderAmount || undefined,
+    maxOrderAmount: intent.maxOrderAmount || undefined,
     merchant: intent.merchant || undefined,
     numberStartsWith: intent.numberStartsWith || undefined,
     numberEndsWith: intent.numberEndsWith || undefined,
     sortBy: intent.sortBy || 'orderCount',
     sortOrder: intent.sortOrder || 'desc',
-    limit: intent.limit || 10,
+    limit: intent.limit || 15,
     customFilename: intent.search
       ? `Records_${intent.search.replace(/\|/g, '_')}`
+      : intent.maxOrderCount
+      ? `Records_Max_${intent.maxOrderCount}_Orders`
       : intent.minOrderCount
       ? `Records_Min_${intent.minOrderCount}_Orders`
       : intent.numberEndsWith
@@ -948,6 +1096,9 @@ function buildDynamicLiveResponse(
   if (exportPayload.numberStartsWith) params.set('numberStartsWith', exportPayload.numberStartsWith);
   if (exportPayload.numberEndsWith) params.set('numberEndsWith', exportPayload.numberEndsWith);
   if (exportPayload.minOrderCount) params.set('minOrderCount', String(exportPayload.minOrderCount));
+  if (exportPayload.maxOrderCount) params.set('maxOrderCount', String(exportPayload.maxOrderCount));
+  if (exportPayload.minOrderAmount) params.set('minOrderAmount', String(exportPayload.minOrderAmount));
+  if (exportPayload.maxOrderAmount) params.set('maxOrderAmount', String(exportPayload.maxOrderAmount));
   if (exportPayload.sortBy) params.set('sortBy', exportPayload.sortBy);
   if (exportPayload.sortOrder) params.set('sortOrder', exportPayload.sortOrder);
 
@@ -965,6 +1116,8 @@ function buildDynamicLiveResponse(
         value:
           intent.searchField === 'name'
             ? 'Name Matching'
+            : intent.maxOrderCount
+            ? `≤ ${intent.maxOrderCount} Orders`
             : intent.minOrderCount
             ? `${intent.minOrderCount}+ Orders`
             : intent.numberEndsWith
