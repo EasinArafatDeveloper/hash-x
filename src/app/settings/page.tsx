@@ -1442,17 +1442,17 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                    Link Boss&apos;s Phone / 2nd Device
+                    Link Phone / Authenticator Device
                   </h4>
                   <p className="text-[11px] text-gray-500">
-                    {targetDeviceForShare ? targetDeviceForShare.name : 'Synchronize Google Authenticator'}
+                    {targetDeviceForShare ? targetDeviceForShare.name : 'Synchronize 2nd / 3rd Phone with this account'}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsShareModalOpen(false)}
-                className="w-7 h-7 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center text-base"
+                className="w-7 h-7 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center text-base cursor-pointer"
               >
                 ×
               </button>
@@ -1460,10 +1460,10 @@ export default function SettingsPage() {
 
             <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-800 dark:text-emerald-300 space-y-1">
               <p className="font-bold flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-emerald-600" /> How to connect:
+                <Sparkles className="w-4 h-4 text-emerald-600" /> যেকোনো ফোনে (১ম, ২য় বা ৩য় ফোন) কানেক্ট করার নিয়ম:
               </p>
               <p className="text-[11px] leading-relaxed">
-                Open <strong>Google Authenticator</strong> on your boss&apos;s phone, tap <strong>+ &rarr; Scan a QR code</strong>, and scan the QR code below. Both phones will now show the identical code!
+                যেকোনো ফোনে <strong>Google Authenticator</strong> ওপেন করে <strong>+ &rarr; Scan a QR code</strong> দিয়ে নিচের QR কোডটি স্ক্যান করুন (অথবা নিচে থাকা Key টি ম্যানুয়ালি যোগ করুন)। সবকটি ফোনেই একই লাইভ ৬ ডিজিটের কোড উঠবে এবং যেকোনো ফোন থেকেই লগইন করা যাবে!
               </p>
             </div>
 

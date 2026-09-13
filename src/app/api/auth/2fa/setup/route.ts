@@ -19,7 +19,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
-    // Generate a fresh 160-bit Base32 secret for TOTP
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {}
+    const { mode } = body || {};
+
+    // If 2FA is already active and we are linking a 2nd, 3rd, or team phone -> Return the ACTIVE secret
+    if (user.twoFactorEnabled && user.twoFactorSecret && mode !== 'reset') {
+      const activeSecret = user.twoFactorSecret;
+      const accountLabel = user.email || user.username || 'admin';
+      const otpAuthUri = generateOtpAuthUri(accountLabel, activeSecret, 'MORPHEUS');
+      const qrCodeDataUrl = await generateQRCodeDataUrl(otpAuthUri);
+
+      return NextResponse.json({
+        success: true,
+        isExistingSecret: true,
+        qrCodeDataUrl,
+        secretKey: activeSecret,
+        otpAuthUri,
+        accountName: accountLabel,
+        issuer: 'MORPHEUS',
+      });
+    }
+
+    // Otherwise: Generate a fresh 160-bit Base32 secret for initial setup or full reset
     const secret = generateTotpSecret(20);
 
     // Save temporary secret until the user verifies with their first 6-digit code
@@ -32,6 +56,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      isExistingSecret: false,
       qrCodeDataUrl,
       secretKey: secret,
       otpAuthUri,
