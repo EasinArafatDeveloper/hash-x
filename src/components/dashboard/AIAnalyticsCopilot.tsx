@@ -86,7 +86,7 @@ interface AIAnalyticsCopilotProps {
 }
 
 export function AIAnalyticsCopilot({
-  totalRecords = 2361,
+  totalRecords: initialTotalRecords,
   isOpen: controlledIsOpen,
   onClose: controlledOnClose,
   onOpen: controlledOnOpen,
@@ -103,6 +103,35 @@ export function AIAnalyticsCopilot({
     }
   };
 
+  const [liveTotalRecords, setLiveTotalRecords] = useState<number>(initialTotalRecords || 0);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchLiveCount() {
+      try {
+        const res = await fetch('/api/stats');
+        if (res.ok) {
+          const data = await res.json();
+          if (typeof data.totalRecords === 'number' && isMounted) {
+            setLiveTotalRecords(data.totalRecords);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch live total records for AI copilot:', err);
+      }
+    }
+    fetchLiveCount();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (typeof initialTotalRecords === 'number' && initialTotalRecords > 0) {
+      setLiveTotalRecords(initialTotalRecords);
+    }
+  }, [initialTotalRecords]);
+
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -110,11 +139,28 @@ export function AIAnalyticsCopilot({
     {
       id: 'welcome-msg',
       role: 'assistant',
-      content: `👋 **হ্যালো! আমি Morpheus AI Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${totalRecords.toLocaleString()} টি রিয়েল-টাইম কাস্টমার রেকর্ড** লাইভ সংযুক্ত আছে।\n\nযেকোনো ফিল্টার, কাস্টমার অ্যানালাইসিস বা সেলস রিপোর্ট জানতে বাংলায় বা ইংরেজিতে লিখুন!`,
+      content: `👋 **হ্যালো! আমি Morpheus AI Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${(liveTotalRecords || initialTotalRecords || 0).toLocaleString()} টি রিয়েল-টাইম কাস্টমার রেকর্ড** লাইভ সংযুক্ত আছে।\n\nযেকোনো ফিল্টার, কাস্টমার অ্যানালাইসিস বা সেলস রিপোর্ট জানতে বাংলায় বা ইংরেজিতে লিখুন!`,
       isStreaming: false,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
+
+  // Update welcome message dynamically when live count is loaded
+  useEffect(() => {
+    if (liveTotalRecords > 0) {
+      setMessages((prev) => {
+        if (prev.length === 1 && prev[0].id === 'welcome-msg') {
+          return [
+            {
+              ...prev[0],
+              content: `👋 **হ্যালো! আমি Morpheus AI Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${liveTotalRecords.toLocaleString()} টি রিয়েল-টাইম কাস্টমার রেকর্ড** লাইভ সংযুক্ত আছে।\n\nযেকোনো ফিল্টার, কাস্টমার অ্যানালাইসিস বা সেলস রিপোর্ট জানতে বাংলায় বা ইংরেজিতে লিখুন!`,
+            },
+          ];
+        }
+        return prev;
+      });
+    }
+  }, [liveTotalRecords]);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -306,7 +352,7 @@ export function AIAnalyticsCopilot({
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                       <span className="text-[11px] text-purple-100 font-medium">
-                        {totalRecords.toLocaleString()} records synced
+                        {liveTotalRecords > 0 ? `${liveTotalRecords.toLocaleString()} records synced` : 'Connecting database...'}
                       </span>
                     </div>
                   </div>

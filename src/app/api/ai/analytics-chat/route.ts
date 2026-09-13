@@ -1616,9 +1616,9 @@ function buildDynamicLiveResponse(
   if (intent.isConversational) {
     return {
       type: 'chat',
-      reply: `👋 **হ্যালো! আমি Morpheus AI Analytics Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${(stats.totalRecords || 2361).toLocaleString()} টি রিয়েল-টাইম রেকর্ডের** সম্পূর্ণ তথ্য আমার কাছে সংযুক্ত আছে।\n\nআপনি বাংলায় বা ইংরেজিতে যেকোনো প্রশ্ন করতে পারেন—যেমন:\n- 👑 **টপ ৫ জন সর্বোচ্চ স্পেন্ড করা VIP কাস্টমার কারা?**\n- 📦 **১০০টির বেশি অর্ডার করেছে এমন কাস্টমারদের তালিকা দাও?**\n- 💬 **হোয়াটসঅ্যাপে সক্রিয় ও ঢাকার কাস্টমারদের ডাটা কত?**\n\nআমি সাথে সাথে অ্যানালাইসিস করে আপনাকে সর্ট করা ডাটা এবং ১-ক্লিকে CSV ডাউনলোড ফাইল তৈরি করে দেব!`,
+      reply: `👋 **হ্যালো! আমি Morpheus AI Analytics Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${Number(stats.totalRecords || 0).toLocaleString()} টি রিয়েল-টাইম রেকর্ডের** সম্পূর্ণ তথ্য আমার কাছে সংযুক্ত আছে।\n\nআপনি বাংলায় বা ইংরেজিতে যেকোনো প্রশ্ন করতে পারেন—যেমন:\n- 👑 **টপ ৫ জন সর্বোচ্চ স্পেন্ড করা VIP কাস্টমার কারা?**\n- 📦 **১০০টির বেশি অর্ডার করেছে এমন কাস্টমারদের তালিকা দাও?**\n- 💬 **হোয়াটসঅ্যাপে সক্রিয় ও ঢাকার কাস্টমারদের ডাটা কত?**\n\nআমি সাথে সাথে অ্যানালাইসিস করে আপনাকে সর্ট করা ডাটা এবং ১-ক্লিকে CSV ডাউনলোড ফাইল তৈরি করে দেব!`,
       keyMetrics: [
-        { label: 'মোট ডাটাবেজ', value: `${(stats.totalRecords || 2361).toLocaleString()} টি`, subtext: 'Live Records' },
+        { label: 'মোট ডাটাবেজ', value: `${Number(stats.totalRecords || 0).toLocaleString()} টি`, subtext: 'Live Records' },
         { label: 'লাইফটাইম GMV', value: `৳${Number(stats.totalGMV_BDT || 0).toLocaleString()}`, subtext: 'Total spend' },
         { label: 'VIP ক্রেতা', value: `${(stats.vipCustomersCount || 0).toLocaleString()} জন`, subtext: 'Spend ≥ ৳10k' },
       ],
@@ -1757,7 +1757,7 @@ function buildDynamicLiveResponse(
     explorerPath: `/data/explorer?${params.toString()}`,
     keyMetrics: [
       { label: 'ম্যাচিং কাস্টমার', value: `${matchingCount.toLocaleString()} জন`, subtext: 'Matching criteria' },
-      { label: 'মোট ডাটাবেজ', value: `${(stats.totalRecords || 2361).toLocaleString()} জন`, subtext: 'Full dataset' },
+      { label: 'মোট ডাটাবেজ', value: `${Number(stats.totalRecords || 0).toLocaleString()} জন`, subtext: 'Full dataset' },
       {
         label: 'ফিল্টার টাইপ',
         value:
