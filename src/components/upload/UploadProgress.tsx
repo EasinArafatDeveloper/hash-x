@@ -418,7 +418,7 @@ export function UploadProgress({
                   <span className="text-slate-500 shrink-0 text-[10px] font-mono">
                     [{log.timestamp}]
                   </span>
-                  <span className={`px-1.5 py-0.2 rounded border text-[9px] font-bold uppercase tracking-wider shrink-0 ${badgeColor}`}>
+                  <span className={`px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider shrink-0 ${badgeColor}`}>
                     {log.type}
                   </span>
                   <div className={`flex-1 break-words ${textColor}`}>

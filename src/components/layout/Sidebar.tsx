@@ -13,8 +13,8 @@ import {
   Settings,
   X,
   ChevronRight,
-  PanelLeftClose,
   Sparkles,
+  Bot,
 } from 'lucide-react';
 import { UserProfileDropdown } from './UserProfileDropdown';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,15 +40,15 @@ const NAV_SECTIONS = [
   {
     title: 'Management',
     items: [
-      { label: 'Saved Filters', href: '/filters/saved', icon: Bookmark,  color: 'text-amber-500 dark:text-amber-400',   bg: 'bg-amber-50 dark:bg-amber-950/60' },
-      { label: 'Downloads',     href: '/downloads',     icon: Download,  color: 'text-teal-500 dark:text-teal-400',     bg: 'bg-teal-50 dark:bg-teal-950/60' },
+      { label: 'Saved Filters', href: '/saved-filters', icon: Bookmark,  color: 'text-amber-500 dark:text-amber-400',     bg: 'bg-amber-50 dark:bg-amber-950/60' },
+      { label: 'Downloads',     href: '/downloads',     icon: Download,  color: 'text-teal-500 dark:text-teal-400',       bg: 'bg-teal-50 dark:bg-teal-950/60' },
       { label: 'Activity',      href: '/activity',      icon: Activity,  color: 'text-emerald-500 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/60' },
     ],
   },
   {
     title: 'System',
     items: [
-      { label: 'Settings', href: '/settings', icon: Settings, color: 'text-gray-500 dark:text-gray-400', bg: 'bg-gray-100 dark:bg-slate-800' },
+      { label: 'Settings', href: '/settings', icon: Settings, color: 'text-slate-500 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800/60' },
     ],
   },
 ];
@@ -64,81 +64,67 @@ export function Sidebar({
 
   const renderContent = (collapsed: boolean) => (
     <div
-      className={`flex flex-col h-full transition-all duration-300 ease-in-out relative overflow-hidden
-        bg-white/90 dark:bg-[#0a0e1a]/95 backdrop-blur-2xl
-        border-r border-gray-200/50 dark:border-white/[0.06]
+      className={`flex flex-col h-full relative overflow-hidden
+        bg-white dark:bg-[#0A0E1A]
+        border-r border-gray-200/60 dark:border-white/[0.06]
+        transition-all duration-300 ease-in-out
         ${collapsed ? 'w-[72px]' : 'w-[256px]'}`}
     >
-      {/* Decorative ambient glow — top right */}
-      <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-brand-400/10 dark:bg-brand-600/15 blur-3xl pointer-events-none" />
-      {/* Decorative ambient glow — bottom left */}
-      <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-accent-400/10 dark:bg-accent-600/12 blur-3xl pointer-events-none" />
+      {/* Ambient glow blobs */}
+      <div className="absolute -top-20 -right-20 w-52 h-52 rounded-full bg-brand-400/8 dark:bg-brand-600/12 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-20 -left-20 w-52 h-52 rounded-full bg-violet-400/8 dark:bg-violet-600/10 blur-3xl pointer-events-none" />
 
-      {/* ── Brand Header ──────────────────────────────────────── */}
-      <div className={`relative z-10 h-16 flex items-center shrink-0
-        ${collapsed ? 'justify-center px-2' : 'justify-between px-4'}
-        border-b border-gray-100/80 dark:border-white/[0.05]`}
+      {/* ── Brand header ── */}
+      <div className={`relative z-10 h-16 flex items-center shrink-0 border-b border-gray-100/80 dark:border-white/[0.05]
+        ${collapsed ? 'justify-center px-2' : 'px-4'}`}
       >
         <Link
           href="/dashboard"
-          className="flex items-center gap-2.5 group py-1 min-w-0"
+          className="flex items-center gap-2.5 min-w-0"
           title={collapsed ? 'Morpheus' : undefined}
           onClick={onMobileClose}
         >
           <MorpheusLogo variant={collapsed ? 'icon-only' : 'full'} size="md" />
         </Link>
 
-        {/* Desktop collapse toggle */}
-        {onToggleCollapse && !collapsed && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="hidden md:flex p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
-            title="Collapse Sidebar"
-          >
-            <PanelLeftClose className="w-4 h-4" />
-          </button>
-        )}
-
-        {/* Collapsed expand button — floating on edge */}
+        {/* Collapsed expand chip on edge */}
         {onToggleCollapse && collapsed && (
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="hidden md:flex absolute -right-3.5 top-5 w-7 h-7 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-md items-center justify-center z-40 hover:border-brand-400 transition-colors"
+            className="hidden md:flex absolute -right-3.5 top-6 w-7 h-7 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-md items-center justify-center z-40 hover:border-brand-400 dark:hover:border-brand-600 transition-colors"
             title="Expand Sidebar"
           >
-            <ChevronRight className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+            <ChevronRight className="w-3.5 h-3.5 text-brand-500 dark:text-brand-400" />
           </button>
         )}
 
-        {/* Mobile close button */}
+        {/* Mobile close */}
         {onMobileClose && (
           <button
             onClick={onMobileClose}
-            className="md:hidden p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-white/8"
+            className="md:hidden ml-auto p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         )}
       </div>
 
-      {/* ── Navigation ────────────────────────────────────────── */}
-      <div className="relative z-10 flex-1 overflow-y-auto py-4 px-2.5 space-y-5 no-scrollbar">
+      {/* ── Navigation ── */}
+      <div className="relative z-10 flex-1 overflow-y-auto py-3 px-2 space-y-4 no-scrollbar">
         {NAV_SECTIONS.map((section, sIdx) => (
           <div key={section.title}>
             {/* Section label */}
-            {!collapsed && (
-              <div className="flex items-center gap-2 px-2 mb-2">
-                <span className="text-[10px] font-black text-gray-400 dark:text-white/25 uppercase tracking-[0.12em]">
+            {!collapsed ? (
+              <div className="flex items-center gap-2 px-2 mb-1.5">
+                <span className="text-[9px] font-black text-gray-300 dark:text-white/20 uppercase tracking-[0.15em]">
                   {section.title}
                 </span>
                 <div className="flex-1 h-px bg-gray-100 dark:bg-white/[0.05]" />
               </div>
-            )}
-            {collapsed && sIdx > 0 && (
+            ) : sIdx > 0 ? (
               <div className="mx-3 mb-3 h-px bg-gray-100 dark:bg-white/[0.06]" />
-            )}
+            ) : null}
 
             <div className="space-y-0.5">
               {section.items.map((item) => {
@@ -153,27 +139,27 @@ export function Sidebar({
                     <Link
                       href={item.href}
                       onClick={onMobileClose}
-                      className={`relative flex items-center gap-3 rounded-xl text-xs font-semibold transition-all duration-200 outline-none
-                        ${collapsed ? 'justify-center p-2.5' : 'px-2.5 py-2.5'}
+                      className={`relative flex items-center gap-3 rounded-xl text-[11px] font-semibold transition-all duration-200 outline-none
+                        ${collapsed ? 'justify-center p-2.5' : 'px-2.5 py-2'}
                         ${isActive
-                          ? 'bg-gradient-to-r from-brand-600/10 via-brand-500/8 to-transparent dark:from-brand-500/20 dark:via-brand-500/10 dark:to-transparent text-brand-700 dark:text-brand-300'
-                          : 'text-gray-500 dark:text-white/50 hover:text-gray-800 dark:hover:text-white/80 hover:bg-gray-50 dark:hover:bg-white/[0.05]'
+                          ? 'bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-300'
+                          : 'text-gray-500 dark:text-white/45 hover:text-gray-800 dark:hover:text-white/80 hover:bg-gray-50 dark:hover:bg-white/[0.04]'
                         }`}
                     >
                       {/* Active left accent bar */}
                       {isActive && !collapsed && (
                         <motion.div
                           layoutId="sidebarActiveBar"
-                          className="absolute left-0 inset-y-1.5 w-[3px] rounded-r-full bg-gradient-to-b from-brand-500 to-accent-500 shadow-[0_0_8px_rgba(var(--brand-glow-rgb),0.7)]"
-                          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                          className="absolute left-0 inset-y-2 w-[3px] rounded-r-full bg-gradient-to-b from-brand-500 to-violet-500"
+                          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                         />
                       )}
 
-                      {/* Icon with colored bg */}
+                      {/* Icon */}
                       <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200
                         ${isActive
-                          ? `${item.bg} ${item.color} shadow-sm scale-105`
-                          : 'bg-transparent group-hover:bg-gray-100 dark:group-hover:bg-white/8 text-gray-400 dark:text-white/30 group-hover:text-gray-600 dark:group-hover:text-white/60'
+                          ? `${item.bg} ${item.color} shadow-sm`
+                          : 'bg-transparent group-hover:bg-gray-100 dark:group-hover:bg-white/[0.07] text-gray-400 dark:text-white/25 group-hover:text-gray-600 dark:group-hover:text-white/55'
                         }`}
                       >
                         <Icon className="w-3.5 h-3.5" />
@@ -181,24 +167,24 @@ export function Sidebar({
 
                       {/* Label */}
                       {!collapsed && (
-                        <span className={`truncate font-semibold transition-colors ${isActive ? 'text-brand-700 dark:text-brand-300 font-bold' : ''}`}>
+                        <span className={`truncate transition-colors ${isActive ? 'font-bold' : 'font-medium'}`}>
                           {item.label}
                         </span>
                       )}
 
-                      {/* Active dot for collapsed */}
+                      {/* Active dot (collapsed mode) */}
                       {isActive && collapsed && (
                         <motion.div
                           layoutId="sidebarActiveDot"
                           className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-brand-500"
-                          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                         />
                       )}
                     </Link>
 
-                    {/* Tooltip for collapsed mode */}
+                    {/* Tooltip (collapsed only) */}
                     {collapsed && (
-                      <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-gray-900 dark:bg-slate-700 text-white text-xs font-semibold rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                      <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-gray-900 dark:bg-slate-700 text-white text-[11px] font-semibold rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 z-50 whitespace-nowrap">
                         {item.label}
                         <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900 dark:border-r-slate-700" />
                       </div>
@@ -211,31 +197,35 @@ export function Sidebar({
         ))}
       </div>
 
-      {/* ── AI Personal Assistant Launcher Card ────────────────────── */}
-      <div className={`relative z-10 shrink-0 px-2.5 pb-2 ${collapsed ? 'px-1.5' : 'px-2.5'}`}>
+      {/* ── AI Copilot launcher ── */}
+      <div className={`relative z-10 shrink-0 ${collapsed ? 'px-1.5 pb-2' : 'px-2.5 pb-2'}`}>
         <button
           type="button"
           onClick={() => {
-            if (onOpenAiCopilot) onOpenAiCopilot();
-            if (onMobileClose) onMobileClose();
+            onOpenAiCopilot?.();
+            onMobileClose?.();
           }}
-          className={`w-full flex items-center rounded-2xl bg-gradient-to-r from-purple-600/15 via-indigo-600/10 to-brand-600/15 dark:from-purple-950/50 dark:to-indigo-950/40 border border-purple-300/60 dark:border-purple-800/60 text-purple-900 dark:text-purple-200 hover:border-purple-400 dark:hover:border-purple-700 transition-all cursor-pointer group shadow-xs active:scale-[0.98] ${
-            collapsed ? 'justify-center p-2.5' : 'p-3 gap-2.5'
-          }`}
-          title={collapsed ? 'AI Executive Copilot (Ctrl+J)' : undefined}
+          title={collapsed ? 'AI Copilot (Ctrl+J)' : undefined}
+          className={`group w-full flex items-center rounded-2xl transition-all active:scale-[0.98] cursor-pointer
+            bg-gradient-to-br from-violet-500/10 via-indigo-500/8 to-brand-500/10
+            dark:from-violet-950/60 dark:via-indigo-950/40 dark:to-brand-950/50
+            border border-violet-200/60 dark:border-violet-800/40
+            hover:border-violet-300 dark:hover:border-violet-700/60
+            hover:shadow-md hover:shadow-violet-500/10
+            ${collapsed ? 'justify-center p-2.5' : 'gap-2.5 p-3'}`}
         >
-          <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-purple-600/30 group-hover:scale-110 transition-transform">
-            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+          <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-violet-600/30 group-hover:scale-105 transition-transform">
+            <Bot className="w-3.5 h-3.5" />
           </div>
           {!collapsed && (
             <div className="text-left flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold truncate">AI Copilot</span>
-                <span className="text-[9px] font-extrabold uppercase px-1 py-0.2 rounded bg-purple-200/60 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[11px] font-bold text-violet-800 dark:text-violet-200 truncate">AI Copilot</span>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-300 shrink-0">
                   Ctrl+J
                 </span>
               </div>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
                 Live Data Assistant
               </p>
             </div>
@@ -243,10 +233,8 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* ── User Profile ──────────────────────────────────────── */}
-      <div className={`relative z-10 shrink-0 border-t border-gray-100/80 dark:border-white/[0.05]
-        ${collapsed ? 'p-2' : 'p-3'}`}
-      >
+      {/* ── User profile ── */}
+      <div className={`relative z-10 shrink-0 border-t border-gray-100/80 dark:border-white/[0.05] ${collapsed ? 'p-2' : 'p-3'}`}>
         <UserProfileDropdown isCollapsed={collapsed} />
       </div>
     </div>
@@ -254,7 +242,7 @@ export function Sidebar({
 
   return (
     <>
-      {/* Desktop Sidebar */}
+      {/* Desktop fixed sidebar */}
       <aside
         className={`hidden md:block fixed inset-y-0 left-0 z-30 transition-all duration-300 ease-in-out ${
           isCollapsed ? 'w-[72px]' : 'w-[256px]'
@@ -263,7 +251,7 @@ export function Sidebar({
         {renderContent(isCollapsed)}
       </aside>
 
-      {/* Mobile Drawer */}
+      {/* Mobile drawer */}
       <AnimatePresence>
         {mobileOpen && (
           <div className="fixed inset-0 z-50 md:hidden flex">
@@ -278,7 +266,7 @@ export function Sidebar({
               initial={{ x: -270 }}
               animate={{ x: 0 }}
               exit={{ x: -270 }}
-              transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 260 }}
               className="relative z-10"
             >
               {renderContent(false)}

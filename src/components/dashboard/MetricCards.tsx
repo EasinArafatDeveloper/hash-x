@@ -100,70 +100,65 @@ export function MetricCards({ stats, isLoading }: MetricCardsProps) {
   const cards = [
     {
       title: 'Total Records',
-      numValue: stats.totalRecords,
       displayValue: stats.totalRecords,
-      subtext: 'Normalized live customers',
-      badge: '+100% Verified',
+      subtext: 'Verified live customers',
+      badge: 'Verified',
       icon: Database,
-      gradient: 'from-blue-500 via-indigo-500 to-brand-600',
-      glowColor: 'shadow-blue-500/25',
-      badgeClass: 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900',
+      accentBar: 'from-blue-500 to-indigo-500',
+      hoverGlow: 'hover:shadow-blue-500/20',
+      ambientGrad: 'from-blue-500 via-indigo-500 to-brand-600',
+      badgeClass: 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 border-blue-200/80 dark:border-blue-900/60',
       iconClass: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50',
-      accentColor: 'from-blue-500 to-indigo-500',
     },
     {
-      title: 'Total Lifetime GMV',
-      numValue: gmv > 0 ? gmv : stats.totalRecords * 8500,
+      title: 'Lifetime GMV',
       displayValue: formattedGMV,
       subtext: stats.financials?.avgOrderValue
         ? `Avg ৳${stats.financials.avgOrderValue.toLocaleString()} / customer`
-        : 'Customer spend projection',
-      badge: '৳ BDT Revenue',
+        : 'Total revenue generated',
+      badge: '৳ BDT',
       icon: Coins,
-      gradient: 'from-emerald-500 via-teal-500 to-cyan-500',
-      glowColor: 'shadow-emerald-500/25',
-      badgeClass: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900',
+      accentBar: 'from-emerald-500 to-teal-400',
+      hoverGlow: 'hover:shadow-emerald-500/20',
+      ambientGrad: 'from-emerald-500 via-teal-500 to-cyan-500',
+      badgeClass: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-900/60',
       iconClass: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50',
-      accentColor: 'from-emerald-500 to-teal-500',
     },
     {
-      title: 'Total Orders Placed',
-      numValue: stats.financials?.totalOrders || stats.totalRecords * 2,
+      title: 'Orders Placed',
       displayValue: stats.financials?.totalOrders || stats.totalRecords * 2,
-      subtext: `${stats.channels?.frequentBuyerCount || Math.round(stats.totalRecords * 0.35)} frequent multi-buyers`,
-      badge: 'Processed Orders',
+      subtext: `${stats.channels?.frequentBuyerCount || Math.round(stats.totalRecords * 0.35)} repeat buyers`,
+      badge: 'Orders',
       icon: ShoppingBag,
-      gradient: 'from-purple-500 via-violet-500 to-fuchsia-500',
-      glowColor: 'shadow-purple-500/25',
-      badgeClass: 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-900',
-      iconClass: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50',
-      accentColor: 'from-purple-500 to-fuchsia-500',
+      accentBar: 'from-violet-500 to-fuchsia-500',
+      hoverGlow: 'hover:shadow-violet-500/20',
+      ambientGrad: 'from-purple-500 via-violet-500 to-fuchsia-500',
+      badgeClass: 'bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-300 border-violet-200/80 dark:border-violet-900/60',
+      iconClass: 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/50',
     },
     {
-      title: '⭐ VIP Clients',
-      numValue: stats.channels?.vipCount || Math.round(stats.totalRecords * 0.25),
+      title: 'VIP Clients',
       displayValue: stats.channels?.vipCount || Math.round(stats.totalRecords * 0.25),
       subtext: `${stats.channels?.vipRatio || 25}% of customer base`,
       badge: 'High Value',
       icon: Star,
-      gradient: 'from-amber-400 via-orange-500 to-red-500',
-      glowColor: 'shadow-amber-500/25',
-      badgeClass: 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900',
+      accentBar: 'from-amber-400 to-orange-500',
+      hoverGlow: 'hover:shadow-amber-500/20',
+      ambientGrad: 'from-amber-400 via-orange-500 to-red-500',
+      badgeClass: 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300 border-amber-200/80 dark:border-amber-900/60',
       iconClass: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50',
-      accentColor: 'from-amber-400 to-orange-500',
     },
     {
-      title: '💬 WhatsApp Active',
-      numValue: stats.channels?.whatsappCount || Math.round(stats.totalRecords * 0.58),
+      title: 'WhatsApp Active',
       displayValue: stats.channels?.whatsappCount || Math.round(stats.totalRecords * 0.58),
       subtext: `${stats.channels?.whatsappRatio || 58}% direct reach rate`,
-      badge: 'WP Ready',
+      badge: 'WA Ready',
       icon: MessageCircle,
-      gradient: 'from-teal-500 via-emerald-500 to-green-500',
-      glowColor: 'shadow-teal-500/25',
-      badgeClass: 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-900',
+      accentBar: 'from-teal-500 to-emerald-400',
+      hoverGlow: 'hover:shadow-teal-500/20',
+      ambientGrad: 'from-teal-500 via-emerald-500 to-green-500',
+      badgeClass: 'bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-300 border-teal-200/80 dark:border-teal-900/60',
       iconClass: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50',
-      accentColor: 'from-teal-500 to-emerald-500',
     },
   ];
 
@@ -174,41 +169,43 @@ export function MetricCards({ stats, isLoading }: MetricCardsProps) {
         return (
           <motion.div
             key={card.title}
-            initial={{ opacity: 0, y: 20, scale: 0.97 }}
+            initial={{ opacity: 0, y: 18, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.35, delay: idx * 0.07, ease: [0.22, 1, 0.36, 1] }}
-            className={`group relative p-5 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 overflow-hidden cursor-default
-              hover:shadow-xl hover:${card.glowColor} hover:-translate-y-1
+            transition={{ duration: 0.35, delay: idx * 0.06, ease: [0.22, 1, 0.36, 1] }}
+            className={`group relative p-5 rounded-2xl bg-white dark:bg-[#0E1320]
+              border border-gray-200/80 dark:border-white/[0.07]
+              overflow-hidden cursor-default
+              hover:shadow-xl ${card.hoverGlow} hover:-translate-y-0.5
               transition-all duration-300`}
           >
-            {/* Gradient top bar */}
-            <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${card.accentColor} opacity-70 group-hover:opacity-100 transition-opacity`} />
+            {/* Gradient top accent bar */}
+            <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${card.accentBar} opacity-80 group-hover:opacity-100 transition-opacity`} />
 
-            {/* Ambient background glow on hover */}
-            <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-[0.04] transition-opacity duration-300 rounded-3xl`} />
+            {/* Hover ambient glow */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${card.ambientGrad} opacity-0 group-hover:opacity-[0.04] dark:group-hover:opacity-[0.07] transition-opacity duration-300`} />
 
-            {/* Top Row: Icon + Badge */}
-            <div className="relative flex items-center justify-between gap-2">
-              <div className={`p-2.5 rounded-2xl ${card.iconClass} group-hover:scale-110 transition-transform duration-300`}>
+            {/* Icon + badge row */}
+            <div className="relative flex items-start justify-between gap-2">
+              <div className={`p-2.5 rounded-xl ${card.iconClass} group-hover:scale-105 transition-transform duration-300 shrink-0`}>
                 <Icon className="w-4 h-4" />
               </div>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${card.badgeClass} whitespace-nowrap`}>
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${card.badgeClass} whitespace-nowrap mt-0.5`}>
                 {card.badge}
               </span>
             </div>
 
             {/* Value block */}
-            <div className="relative mt-4 space-y-1">
-              <span className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+            <div className="relative mt-4 space-y-0.5">
+              <span className="block text-[9px] font-extrabold text-gray-400 dark:text-white/30 uppercase tracking-[0.12em]">
                 {card.title}
               </span>
-              <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight tabular-nums">
+              <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight tabular-nums leading-none">
                 <AnimatedValue
                   rawValue={card.displayValue}
                   isLoading={isLoading || false}
                 />
               </h3>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium truncate">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium truncate pt-0.5">
                 {card.subtext}
               </p>
             </div>

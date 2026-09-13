@@ -377,7 +377,7 @@ export function DatasetDeleteModal({
                     <Terminal className="w-3 h-3 text-rose-400" />
                     <span>PURGE TELEMETRY FEED</span>
                   </div>
-                  <span className="px-1.5 py-0.2 rounded bg-rose-950/80 text-rose-300 font-bold border border-rose-900/60">
+                  <span className="px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-300 font-bold border border-rose-900/60">
                     LIVE
                   </span>
                 </div>
