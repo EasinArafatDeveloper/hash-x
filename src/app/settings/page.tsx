@@ -101,9 +101,12 @@ export default function SettingsPage() {
   const [deviceTypeInput, setDeviceTypeInput] = useState<'iphone' | 'android' | 'desktop' | 'phone'>('iphone');
   const [isSavingDevice, setIsSavingDevice] = useState(false);
 
-  // Share QR Drawer / Modal (e.g. for Boss's Phone)
+  // Share QR Drawer / Modal (e.g. for Boss's Phone / 2nd / 3rd Phone)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [targetDeviceForShare, setTargetDeviceForShare] = useState<TwoFactorDevice | null>(null);
+  const [shareDeviceNameInput, setShareDeviceNameInput] = useState('');
+  const [shareDeviceTypeInput, setShareDeviceTypeInput] = useState<'iphone' | 'android' | 'desktop' | 'phone'>('phone');
+  const [isSavingShareDevice, setIsSavingShareDevice] = useState(false);
 
   // 2FA Disable Modal State
   const [isDisableModalOpen, setIsDisableModalOpen] = useState(false);
@@ -242,6 +245,36 @@ export default function SettingsPage() {
       setIsShareModalOpen(false);
     } finally {
       setIsInitializingSetup(false);
+    }
+  };
+
+  const handleSaveShareDevice = async () => {
+    const name = shareDeviceNameInput.trim();
+    if (!name) {
+      setIsShareModalOpen(false);
+      return;
+    }
+
+    setIsSavingShareDevice(true);
+    try {
+      const res = await fetch('/api/auth/2fa/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          deviceType: shareDeviceTypeInput,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to register device label');
+      setConnectedDevices(data.devices || []);
+      toast.success(`"${name}" added to authorized 2FA devices!`);
+      setShareDeviceNameInput('');
+      setIsShareModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Could not save device name');
+    } finally {
+      setIsSavingShareDevice(false);
     }
   };
 
@@ -1513,14 +1546,28 @@ export default function SettingsPage() {
               </code>
             </div>
 
-            <div className="pt-1 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setIsShareModalOpen(false)}
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20"
-              >
-                Done
-              </button>
+            {/* Quick Device Name Labeling */}
+            <div className="pt-2 border-t border-gray-100 dark:border-slate-800 space-y-2">
+              <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 block">
+                Phone Label (এই ফোনটির নাম দিন):
+              </span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={shareDeviceNameInput}
+                  onChange={(e) => setShareDeviceNameInput(e.target.value)}
+                  placeholder="e.g. Easin's Phone, 2nd Mobile..."
+                  className="flex-1 px-3 py-2 rounded-xl border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveShareDevice}
+                  disabled={isSavingShareDevice}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 shrink-0 cursor-pointer disabled:opacity-50"
+                >
+                  {shareDeviceNameInput.trim() ? 'Save Label & Done' : 'Done'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
