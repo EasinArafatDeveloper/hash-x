@@ -138,9 +138,6 @@ export async function aiSuggestColumnMapping(
   columnNames: string[],
   sampleRows: any[] = []
 ): Promise<Record<string, AIMappingRecommendation>> {
-  const apiKey = process.env.DEEPSEEK_API_KEY || 'sk-8fd0df2b25bb4509a6166f42ff224a3e';
-  const apiUrl = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions';
-
   // Build fallback mapping using deterministic heuristics
   const fallbackResult: Record<string, AIMappingRecommendation> = {};
   columnNames.forEach((col) => {
@@ -250,9 +247,6 @@ export async function aiAuditDataBatch(
   existingRecordsMap: Map<string, any>,
   columnMapping?: Record<string, string>
 ): Promise<AIAuditSummary> {
-  const apiKey = process.env.DEEPSEEK_API_KEY || 'sk-8fd0df2b25bb4509a6166f42ff224a3e';
-  const apiUrl = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions';
-
   // 1. Deterministic baseline computation
   let createCount = 0;
   let updateCount = 0;

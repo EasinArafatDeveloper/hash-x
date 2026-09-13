@@ -204,12 +204,20 @@ OUTPUT ONLY VALID JSON (no markdown, no explanation outside JSON):
     }
 
     if (parsedResult.tag && parsedResult.tag !== 'All') {
-      const tagRegex = new RegExp(`^${parsedResult.tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-      dbQuery.$or = [
-        { tags: tagRegex },
-        { category: tagRegex },
-        { 'customFields.Tag / Label': tagRegex },
-      ];
+      if (parsedResult.tag.toLowerCase().includes('whatsapp')) {
+        dbQuery.$or = [
+          { tags: { $regex: '(^|,\\s*)WhatsApp Active(,\\s*|$)', $options: 'i' } },
+          { 'customFields.whatsapp_status': { $regex: '^(active|yes|true|valid)$', $options: 'i' } },
+          { 'customFields.WhatsApp Status': { $regex: '^(active|yes|true|valid)$', $options: 'i' } },
+        ];
+      } else {
+        const tagRegex = new RegExp(`(^|,\\s*)${parsedResult.tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(,\\s*|$)`, 'i');
+        dbQuery.$or = [
+          { tags: tagRegex },
+          { category: tagRegex },
+          { 'customFields.Tag / Label': tagRegex },
+        ];
+      }
     }
 
     if (parsedResult.gender && parsedResult.gender !== 'All') {

@@ -406,7 +406,7 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
         const data = await res.json();
         if (Array.isArray(data.smartTags) && data.smartTags.length > 0) {
           setDiscoveredSmartTags(data.smartTags);
-          toast.success(`DeepSeek AI discovered ${data.smartTags.length} smart segmentation tags!`);
+          toast.success(`Smart AI discovered ${data.smartTags.length} segmentation tags!`);
         }
       }
     } catch (err) {
@@ -1108,7 +1108,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-bold text-gray-900 dark:text-white">
-                          ✨ DeepSeek AI Auto-Detected Smart Tags
+                          ✨ AI Auto-Detected Smart Tags
                         </span>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                           {discoveredSmartTags.length} Discovered
@@ -1135,7 +1135,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                       onClick={handleDeepSeekScanTags}
                       disabled={isAiTagsLoading}
                       className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
-                      title="Run DeepSeek AI Deep Scan"
+                      title="Run AI Deep Scan"
                     >
                       <RefreshCw className={`w-3 h-3 ${isAiTagsLoading ? 'animate-spin' : ''}`} />
                       <span>{isAiTagsLoading ? 'Scanning...' : 'AI Deep Scan'}</span>

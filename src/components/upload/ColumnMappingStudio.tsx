@@ -366,7 +366,7 @@ export function ColumnMappingStudio({
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               {isOpen
-                ? 'Review column connections. Use DeepSeek AI Auto-Map for semantic matching or 🚫 Skip to ignore.'
+                ? 'Review column connections. Use Smart AI Auto-Map for semantic matching or 🚫 Skip to ignore.'
                 : `Smart mapping active (${activeMappedCount} columns importing, ${skippedColumnsCount} skipped). Click to customize.`}
             </p>
           </div>
@@ -416,12 +416,12 @@ export function ColumnMappingStudio({
             <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
               <Info className="w-4 h-4 text-brand-500 shrink-0" />
               <span className="font-medium">
-                Use DeepSeek AI for smart semantic recognition, or <strong>🚫 Skip</strong> to ignore columns.
+                Use Smart AI for semantic recognition, or <strong>🚫 Skip</strong> to ignore columns.
               </span>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap self-start sm:self-center">
-              {/* DeepSeek AI Auto-Map Button */}
+              {/* Smart AI Auto-Map Button */}
               <button
                 type="button"
                 onClick={handleDeepSeekAutoMap}
@@ -536,7 +536,7 @@ export function ColumnMappingStudio({
                                 title={aiRecommendations[colName].reasoning}
                               >
                                 <Sparkles className="w-2.5 h-2.5" />
-                                {aiRecommendations[colName].confidence}% DeepSeek Match
+                                {aiRecommendations[colName].confidence}% AI Match
                               </span>
                             ) : null}
                           </div>

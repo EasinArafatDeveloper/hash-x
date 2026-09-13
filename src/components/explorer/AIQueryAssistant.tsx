@@ -333,7 +333,7 @@ export function AIQueryAssistant({
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 glow-pulse" />
                     <span className="text-[10px] font-semibold text-purple-200 uppercase tracking-wider">
-                      DeepSeek · Live
+                      OpenAI GPT-4o · Live
                     </span>
                   </div>
                 </div>

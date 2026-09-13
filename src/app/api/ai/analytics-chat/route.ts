@@ -322,17 +322,27 @@ ${tableRows}
     }
 
     if (!parsedIntent.isConversational && parsedIntent.tag && parsedIntent.tag !== 'All') {
-      const tagRegex = new RegExp(`^${parsedIntent.tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
       targetDbQuery.$and = targetDbQuery.$and || [];
-      targetDbQuery.$and.push({
-        $or: [
-          { tags: tagRegex },
-          { category: tagRegex },
-          { 'customFields.Tag / Label': tagRegex },
-          { 'customFields.Tags / Labels': tagRegex },
-          { 'customFields.tag': tagRegex },
-        ],
-      });
+      if (parsedIntent.tag.toLowerCase().includes('whatsapp')) {
+        targetDbQuery.$and.push({
+          $or: [
+            { tags: { $regex: '(^|,\\s*)WhatsApp Active(,\\s*|$)', $options: 'i' } },
+            { 'customFields.whatsapp_status': { $regex: '^(active|yes|true|valid)$', $options: 'i' } },
+            { 'customFields.WhatsApp Status': { $regex: '^(active|yes|true|valid)$', $options: 'i' } },
+          ],
+        });
+      } else {
+        const tagRegex = new RegExp(`(^|,\\s*)${parsedIntent.tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(,\\s*|$)`, 'i');
+        targetDbQuery.$and.push({
+          $or: [
+            { tags: tagRegex },
+            { category: tagRegex },
+            { 'customFields.Tag / Label': tagRegex },
+            { 'customFields.Tags / Labels': tagRegex },
+            { 'customFields.tag': tagRegex },
+          ],
+        });
+      }
     }
 
     if (!parsedIntent.isConversational && parsedIntent.gender && parsedIntent.gender !== 'All') {
@@ -441,8 +451,9 @@ ${tableRows}
         .lean(),
       RecordModel.countDocuments({
         $or: [
-          { tags: { $regex: 'WhatsApp Active', $options: 'i' } },
-          { 'customFields.whatsapp_status': { $regex: 'active', $options: 'i' } },
+          { tags: { $regex: '(^|,\\s*)WhatsApp Active(,\\s*|$)', $options: 'i' } },
+          { 'customFields.whatsapp_status': { $regex: '^(active|yes|true|valid)$', $options: 'i' } },
+          { 'customFields.WhatsApp Status': { $regex: '^(active|yes|true|valid)$', $options: 'i' } },
         ],
       }),
       RecordModel.countDocuments({
@@ -508,7 +519,7 @@ ${tableRows}
       },
     };
 
-    const systemInstruction = `You are "Morpheus AI Copilot", an elite AI Data Scientist and friendly Executive Assistant powered by OpenAI GPT-4o.
+    const systemInstruction = `You are "Morpheus AI Copilot", an elite AI Data Scientist and Executive Business Assistant powered by OpenAI GPT-4o.
 The user is conversing with you or querying/managing their live business dataset in Bengali, English, or Banglish.
 
 LIVE DATABASE CONTEXT:
@@ -605,7 +616,7 @@ INSTRUCTIONS & CAPABILITIES:
       conversationPayload.push({ role: 'user', content: lastMessage });
     }
 
-    // 3. CALL FLAGSHIP AI (OPENAI GPT-4o / DEEPSEEK)
+    // 3. CALL FLAGSHIP AI (OPENAI GPT-4o)
     try {
       const { content, provider, model } = await callAIModel({
         messages: conversationPayload,
@@ -802,18 +813,20 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
   }
 
   // ==========================================
-  // C. ACTION: DELETE OPERATION
+  // C. ACTION: DELETE OPERATION (STRICT & SAFE GUARDED)
   // ==========================================
-  const isDeleteAction =
-    q.includes('delete') ||
-    q.includes('remove') ||
-    q.includes('muche') ||
-    q.includes('shoraw') ||
-    q.includes('shoriye') ||
-    q.includes('bad dao') ||
-    q.includes('drop');
+  const isExplicitDeleteVerb =
+    /\b(?:delete\s*(?:koro|kore\s*dao|karo|korun|felo|din|kore\s*den)|muche\s*(?:felo|dao|din|felun|den)|shoriye\s*(?:felo|dao|din|felun)|bad\s*(?:dao|din|deya\s*hok)|kete\s*(?:dao|felo|din))\b/i.test(question) ||
+    /(?:মুছে\s*(?:ফেলুন|ফেলো|দিন)|ডিলিট\s*(?:করুন|করো|করে\s*দিন)|বাদ\s*(?:দিন|দাও))/i.test(question) ||
+    (/\b(?:delete|remove)\b/i.test(q) && (targetPhones.length > 0 || /\b(?:now|please|koro|dao|felo)\b/i.test(q)));
 
-  if (isDeleteAction && (targetPhones.length > 0 || q.includes('data') || q.includes('record') || q.includes('customer') || q.includes('ay') || q.includes('ei') || q.includes('tar'))) {
+  const isConversationalQuestion =
+    /\b(?:ki|kivabe|ki\s*babe|option|kora\s*jabe|lagbe\s*na|koro\s*na|hoy\s*kina|parbo|drop\s*down|drop-down|how\s*to)\b/i.test(q) ||
+    /(\?|কীভাবে|কিভাবে|যাবে\s*কি)/i.test(question);
+
+  const hasSpecificTarget = targetPhones.length > 0 || Boolean(targetPhone);
+
+  if (isExplicitDeleteVerb && !isConversationalQuestion && hasSpecificTarget) {
     return {
       action: 'delete',
       targetPhone,
@@ -837,15 +850,53 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
   }
 
   // ==========================================
-  // D. ACTION: ADD / REMOVE TAG
+  // D. ACTION: ADD / REMOVE TAG (DYNAMIC CUSTOM TAGS)
   // ==========================================
-  if (q.includes('tag') && (q.includes('lagao') || q.includes('add') || q.includes('set') || q.includes('koro') || q.includes('dao'))) {
-    let tagVal = 'VIP Client';
-    if (q.includes('whatsapp')) tagVal = 'WhatsApp Active';
-    if (q.includes('hot leads') || q.includes('hot lead')) tagVal = 'Hot Leads';
-    if (q.includes('regular')) tagVal = 'Regular';
+  const isTagAction =
+    (q.includes('tag') || q.includes('ট্যাগ') || q.includes('label')) &&
+    (q.includes('lagao') || q.includes('lagay') || q.includes('add') || q.includes('jog') || q.includes('set') || q.includes('koro') || q.includes('dao') || q.includes('banao') || q.includes('remove') || q.includes('bad') || q.includes('muche') || q.includes('shoriye'));
+
+  if (isTagAction && (targetPhones.length > 0 || targetPhone || q.includes('user') || q.includes('customer') || q.includes('data') || q.includes('record') || q.includes('sob'))) {
+    let tagVal = '';
+    const quotedTagMatch = question.match(/['"]([a-zA-Z\u0980-\u09FF0-9\s_-]{2,35})['"]/i);
+    if (quotedTagMatch && quotedTagMatch[1]) {
+      tagVal = quotedTagMatch[1].trim();
+    } else {
+      const tagMatch =
+        question.match(/(?:tag|label|ট্যাগ)\s*(?:hisebe|name|হিসেবে)?\s*[:=]?\s*['"]?([a-zA-Z\u0980-\u09FF0-9\s_-]{2,30}?)['"]?\s*(?:tag|label)?\s*(?:lagao|lagay|add|jog|set|koro|dao|banao|shoriye|remove|bad)/i) ||
+        question.match(/['"]?([a-zA-Z\u0980-\u09FF0-9\s_-]{2,30}?)['"]?\s*(?:tag|label|ট্যাগ)\s*(?:lagao|lagay|add|jog|set|koro|dao|banao|shoriye|remove|bad)/i);
+
+      if (tagMatch && tagMatch[1]) {
+        let rawTag = tagMatch[1].trim()
+          .replace(/^(a|e|er|te|ar|ay|ei|oi|tar|akta|akta\s+notun|notun)\s+/i, '')
+          .replace(/\s+(a|e|er|te|ar|hisebe|tag|label)$/i, '')
+          .trim();
+
+        if (rawTag && !['lagao', 'lagay', 'add', 'jog', 'set', 'koro', 'dao', 'banao', 'data', 'customer', 'user', 'sob'].includes(rawTag.toLowerCase())) {
+          tagVal = rawTag;
+        }
+      }
+    }
+
+    const lkTag = tagVal.toLowerCase();
+    if (lkTag.includes('vip') || lkTag === 'vip') {
+      tagVal = 'VIP Client';
+    } else if (lkTag.includes('whatsapp') || lkTag === 'wa') {
+      tagVal = 'WhatsApp Active';
+    } else if (lkTag.includes('hot lead') || lkTag.includes('hot leads') || lkTag === 'hot') {
+      tagVal = 'Hot Leads';
+    } else if (lkTag.includes('regular')) {
+      tagVal = 'Regular';
+    } else if (tagVal) {
+      tagVal = properCase(tagVal);
+    } else {
+      tagVal = 'VIP Client';
+    }
+
+    const isRemoveTag = q.includes('remove') || q.includes('bad') || q.includes('muche') || q.includes('shoriye') || q.includes('shoraw');
+
     return {
-      action: 'add_tag',
+      action: isRemoveTag ? 'remove_tag' : 'add_tag',
       field: 'tags',
       value: tagVal,
       targetPhone,

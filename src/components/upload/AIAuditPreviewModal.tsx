@@ -220,7 +220,7 @@ export function AIAuditPreviewModal({
                 {auditSummary?.aiInsights && auditSummary.aiInsights.length > 0 && (
                   <div className="p-4 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-900/60 space-y-2">
                     <span className="text-xs font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> DeepSeek AI Recommendations
+                      <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Smart AI Recommendations
                     </span>
                     <ul className="space-y-1 text-xs text-purple-950 dark:text-purple-300">
                       {auditSummary.aiInsights.map((insight, idx) => (
