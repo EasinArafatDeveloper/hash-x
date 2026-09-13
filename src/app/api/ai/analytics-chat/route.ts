@@ -378,7 +378,7 @@ ${tableRows}
 
     const sortField = parsedIntent.sortBy || 'createdAt';
     const sortDir = parsedIntent.sortOrder === 'asc' ? 1 : -1;
-    const fetchLimit = parsedIntent.limit || 15;
+    const fetchLimit = parsedIntent.limit && parsedIntent.limit <= 10 ? parsedIntent.limit : 10;
 
     // Execute targeted query + global stats in parallel
     const [
@@ -575,7 +575,7 @@ INSTRUCTIONS & CAPABILITIES:
     "numberEndsWith": "string",
     "sortBy": "orderCount" | "orderAmount" | "createdAt",
     "sortOrder": "desc" | "asc",
-    "limit": 15,
+    "limit": "number | undefined (omit or leave undefined to export all matching records)",
     "customFilename": "Custom_Filename"
   },
   "exportLabel": "Download CSV (${targetedCount} rows)",
@@ -679,7 +679,7 @@ interface QueryIntent {
   numberEndsWith: string;
   sortBy: string;
   sortOrder: 'asc' | 'desc';
-  limit: number;
+  limit?: number;
 }
 
 function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
@@ -1010,7 +1010,7 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
   let numberEndsWith = '';
   let sortBy = 'createdAt';
   let sortOrder: 'asc' | 'desc' = 'desc';
-  let limit = 15;
+  let limit: number | undefined = undefined;
 
   if (isConversational) {
     return {
@@ -1029,7 +1029,7 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
       numberEndsWith: '',
       sortBy: 'createdAt',
       sortOrder: 'desc',
-      limit: 10,
+      limit: undefined,
     };
   }
 
@@ -1271,11 +1271,14 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
     }
   }
 
-  // 9. Limit
-  const limitMatch = q.match(/(?:top|সেরা|টপ|\b)(\d+)\s*(?:জন|joner|ta|records|customers|buyers)?/i);
+  // 9. Explicit Limit Requested by User (e.g. "top 5", "first 10", "50 ta data")
+  const limitMatch =
+    q.match(/(?:top|first|সেরা|টপ|প্রথম)\s*(\d+)/i) ||
+    q.match(/(\d+)\s*(?:ta\s*data|ta\s*record|jon\s*customer|ta\s*row|jon\s*user|ta\s*lead|joner)/i);
+
   if (limitMatch && limitMatch[1]) {
     const num = parseInt(limitMatch[1], 10);
-    if (num > 0 && num <= 100) limit = num;
+    if (num > 0 && num <= 100000) limit = num;
   }
 
   // 10. Intelligent Phone Number Extraction (Suffix / Ends-With vs Prefix / Starts-With)
@@ -1461,7 +1464,7 @@ function ensureExportAndExplorerPaths(parsed: any, intent: any, totalCount: numb
       numberEndsWith: intent.numberEndsWith || undefined,
       sortBy: intent.sortBy || 'orderCount',
       sortOrder: intent.sortOrder || 'desc',
-      limit: intent.limit || 15,
+      limit: intent.limit || undefined,
       customFilename: intent.search
         ? `Records_${intent.search.replace(/\|/g, '_')}`
         : intent.maxOrderCount
@@ -1615,7 +1618,7 @@ function buildDynamicLiveResponse(
     numberEndsWith: intent.numberEndsWith || undefined,
     sortBy: intent.sortBy || 'orderCount',
     sortOrder: intent.sortOrder || 'desc',
-    limit: intent.limit || 15,
+    limit: intent.limit || undefined,
     customFilename: intent.search
       ? `Records_${intent.search.replace(/\|/g, '_')}`
       : intent.maxOrderCount

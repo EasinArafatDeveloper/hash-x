@@ -296,10 +296,14 @@ OUTPUT ONLY VALID JSON (no markdown, no explanation outside JSON):
           merchant: parsedResult.merchant,
           sortBy: parsedResult.sortBy,
           sortOrder: parsedResult.sortOrder,
-          limit: parsedResult.limit || fetchLimit,
-          customFilename: `Top_${recordsPreview.length}_Results`,
+          limit: parsedResult.limit || undefined,
+          customFilename: parsedResult.search
+            ? `Records_${parsedResult.search}`
+            : parsedResult.numberStartsWith
+            ? `Records_Phone_${parsedResult.numberStartsWith}`
+            : `AI_Export_Dataset`,
         },
-        exportLabel,
+        exportLabel: `Download All ${totalCount.toLocaleString()} Records CSV`,
       },
     });
   } catch (error: any) {
