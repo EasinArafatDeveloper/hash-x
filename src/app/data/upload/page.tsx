@@ -133,6 +133,24 @@ export default function UploadDataPage() {
     }
   };
 
+  const handleToggleAuditTag = (tag: string) => {
+    if (!pendingUploadData) return;
+    const currentTags = Array.isArray(pendingUploadData.tags)
+      ? [...pendingUploadData.tags]
+      : typeof pendingUploadData.tags === 'string' && pendingUploadData.tags.trim()
+      ? pendingUploadData.tags.split(',').map((t) => t.trim()).filter(Boolean)
+      : [];
+
+    const updated = currentTags.includes(tag)
+      ? currentTags.filter((t) => t !== tag)
+      : [...currentTags, tag];
+
+    setPendingUploadData({
+      ...pendingUploadData,
+      tags: updated,
+    });
+  };
+
   const executeStreamingIngestion = async (overrideData?: typeof pendingUploadData) => {
     const targetData = overrideData || pendingUploadData;
     if (!targetData) return;
@@ -476,6 +494,14 @@ export default function UploadDataPage() {
         auditSummary={auditSummary}
         isLoading={isAuditLoading}
         totalRowsInFile={pendingUploadData?.rows?.length || 0}
+        selectedTags={
+          Array.isArray(pendingUploadData?.tags)
+            ? pendingUploadData.tags
+            : typeof pendingUploadData?.tags === 'string' && pendingUploadData.tags.trim()
+            ? pendingUploadData.tags.split(',').map((t) => t.trim())
+            : []
+        }
+        onToggleTag={handleToggleAuditTag}
       />
     </div>
   );

@@ -72,6 +72,9 @@ export interface AIAuditDecisionItem {
 export interface AIAuditSummary {
   qualityScore: number; // 0 - 100
   totalAnalyzed: number;
+  datasetProfile?: string;
+  summaryBn?: string;
+  suggestedTags?: Array<{ tag: string; label: string; reason: string }>;
   decisions: {
     create: number;
     update: number;
@@ -367,23 +370,42 @@ export async function aiAuditDataBatch(
     return baselineSummary;
   }
 
-  // Enhance insights with AI reasoning
+  // Enhance insights with OpenAI GPT-4o reasoning
   try {
-    const auditPrompt = `You are an AI Data Auditor for Morpheus DataFlow.
-Review this ingestion batch statistics:
-- Total Analyzed: ${evaluatedRows.length}
-- New Contacts (CREATE): ${createCount}
-- Updates to Existing (UPDATE): ${updateCount}
+    const samplePreview = evaluatedRows.slice(0, 5).map((r) => {
+      const sanitized: Record<string, any> = {};
+      Object.entries(r).forEach(([k, v]) => {
+        sanitized[k] = anonymizeSample(v, k);
+      });
+      return sanitized;
+    });
+
+    const auditPrompt = `You are an elite Data Scientist and Chief Data Auditor for Morpheus DataFlow powered by OpenAI GPT-4o.
+Analyze this user-uploaded dataset sample and ingestion metrics:
+- Sample Records: ${JSON.stringify(samplePreview, null, 2)}
+- Total Evaluated Rows: ${evaluatedRows.length}
+- New Contacts to Create: ${createCount}
+- Existing Contacts to Update: ${updateCount}
 - Unchanged Records (KEEP): ${keepCount}
 - Flagged for Review: ${flagCount}
-- Detected Anomalies: ${JSON.stringify(anomalies)}
+- Detected Column Mappings: ${JSON.stringify(columnMapping || {})}
 
-Provide 2-3 concise, expert bullet insights (max 15 words each) assessing dataset readiness, data cleanliness, and safety recommendations.
+Provide an Executive Ingestion Summary in JSON:
+1. "datasetProfile": A high-level description of this customer cohort (e.g. "Keraniganj Boutique High Spenders", "Retail E-Commerce Buyers", "Telecom Contacts")
+2. "summaryBn": A clear, professional 1-2 sentence Bengali summary of the dataset content, data cleanliness, and ingestion safety. (e.g. "আপলোডকৃত ফাইলে মোট ৫০টি রেকর্ড সফলভাবে পরীক্ষা করা হয়েছে। কোনো অনাকাঙ্ক্ষিত ট্যাগ ছাড়া শুধুমাত্র আপনার অনুমোদিত ট্যাগ যুক্ত করা হবে।")
+3. "insights": 3 concise bullet points assessing data quality, revenue potential, and schema integrity.
+4. "cleanlinessRating": "Excellent" | "Good" | "Requires Attention"
+5. "suggestedTags": 2-4 high-relevance recommended tags with reasons (e.g. [{"tag": "Boutique Fashion", "label": "👗 Boutique Fashion", "reason": "High frequency in boutique and apparel purchases"}]). Note: these are recommendations only for the user to confirm.
 
-OUTPUT FORMAT (JSON):
+OUTPUT FORMAT (JSON ONLY):
 {
+  "datasetProfile": "Cohort profile summary",
+  "summaryBn": "বাংলা সামারি",
   "insights": ["insight 1", "insight 2", "insight 3"],
-  "cleanlinessRating": "Excellent" | "Good" | "Requires Attention"
+  "cleanlinessRating": "Excellent",
+  "suggestedTags": [
+    { "tag": "Tag Name", "label": "Emoji + Tag Name", "reason": "Brief reason" }
+  ]
 }`;
 
     const { content } = await callAIModel({
@@ -391,14 +413,19 @@ OUTPUT FORMAT (JSON):
       preferredModel: 'gpt-4o',
       jsonMode: true,
       temperature: 0.2,
-      maxTokens: 500,
-      timeoutMs: 6000,
+      maxTokens: 800,
+      timeoutMs: 8000,
     });
 
     if (content) {
       const parsed = JSON.parse(content);
+      if (parsed.datasetProfile) baselineSummary.datasetProfile = parsed.datasetProfile;
+      if (parsed.summaryBn) baselineSummary.summaryBn = parsed.summaryBn;
       if (Array.isArray(parsed.insights) && parsed.insights.length > 0) {
         baselineSummary.aiInsights = parsed.insights;
+      }
+      if (Array.isArray(parsed.suggestedTags) && parsed.suggestedTags.length > 0) {
+        baselineSummary.suggestedTags = parsed.suggestedTags;
       }
     }
   } catch {}

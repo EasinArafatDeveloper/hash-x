@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Sparkles,
   ShieldCheck,
@@ -13,6 +13,8 @@ import {
   PlusCircle,
   HelpCircle,
   TrendingUp,
+  Plus,
+  Tag,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AIAuditSummary } from '@/lib/deepseek';
@@ -24,6 +26,8 @@ interface AIAuditPreviewModalProps {
   auditSummary: AIAuditSummary | null;
   isLoading: boolean;
   totalRowsInFile: number;
+  selectedTags?: string[];
+  onToggleTag?: (tag: string) => void;
 }
 
 export function AIAuditPreviewModal({
@@ -33,7 +37,11 @@ export function AIAuditPreviewModal({
   auditSummary,
   isLoading,
   totalRowsInFile,
+  selectedTags = [],
+  onToggleTag,
 }: AIAuditPreviewModalProps) {
+  const [customTagInput, setCustomTagInput] = useState('');
+
   if (!isOpen) return null;
 
   const score = auditSummary?.qualityScore || 95;
@@ -43,6 +51,17 @@ export function AIAuditPreviewModal({
     keep: 0,
     skip: 0,
     flagForReview: 0,
+  };
+
+  const handleAddCustomTag = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = customTagInput.trim();
+    if (trimmed && onToggleTag) {
+      if (!selectedTags.includes(trimmed)) {
+        onToggleTag(trimmed);
+      }
+      setCustomTagInput('');
+    }
   };
 
   return (
@@ -74,14 +93,14 @@ export function AIAuditPreviewModal({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold text-gray-900 dark:text-white">
-                    AI Pre-Flight Ingestion Audit
+                    OpenAI GPT-4o Ingestion Audit & Summary
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 uppercase tracking-wider">
-                    GPT-4o Verified
+                    GPT-4o Live
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  Pre-ingestion conflict resolution & schema safety check for {totalRowsInFile.toLocaleString()} rows
+                  Pre-ingestion analysis, dataset profile & tag permissions for {totalRowsInFile.toLocaleString()} rows
                 </p>
               </div>
             </div>
@@ -104,16 +123,136 @@ export function AIAuditPreviewModal({
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                    AI Ingestion Reasoning in Progress...
+                    OpenAI GPT-4o Analyzing Ingestion Dataset...
                   </h4>
                   <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                    Analyzing duplicate mobile numbers, conflicting fields, and categorizing into CREATE / UPDATE / KEEP / SKIP
+                    Analyzing duplicate mobile numbers, data cohort profiles, and generating executive summary
                   </p>
                 </div>
               </div>
             ) : (
               <>
-                {/* Score & Quality Banner */}
+                {/* 1. EXECUTIVE AI DATASET SUMMARY */}
+                {auditSummary?.datasetProfile && (
+                  <div className="p-4.5 rounded-2xl bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 border border-purple-200/80 dark:border-purple-900/60 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-purple-950 dark:text-purple-200 flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <span>Executive AI Dataset Profile</span>
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-purple-600 text-white font-extrabold text-[10px]">
+                        {auditSummary.datasetProfile}
+                      </span>
+                    </div>
+                    {auditSummary.summaryBn && (
+                      <p className="text-xs text-gray-800 dark:text-gray-200 leading-relaxed bg-white/70 dark:bg-slate-800/70 p-3 rounded-xl border border-purple-100 dark:border-purple-950 font-medium">
+                        {auditSummary.summaryBn}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* 2. USER-CONTROLLED TAG PERMISSIONS (Strict Permission Safeguard) */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-gray-900 dark:text-white block">
+                        🏷️ Approved Tags for this Ingestion
+                      </span>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                        শুধুমাত্র আপনার অনুমোদিত ট্যাগগুলো ডেটাসেটে যুক্ত হবে। কোনো অনাকাঙ্ক্ষিত বা অটো-ট্যাগ যোগ হবে না।
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      {selectedTags.length} Approved
+                    </span>
+                  </div>
+
+                  {/* Current Active Tags */}
+                  <div className="flex flex-wrap gap-1.5 min-h-[30px] items-center p-2 rounded-xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800">
+                    {selectedTags.length > 0 ? (
+                      selectedTags.map((t, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 text-xs font-bold border border-purple-200 dark:border-purple-800 shadow-xs"
+                        >
+                          <Tag className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                          <span>{t}</span>
+                          {onToggleTag && (
+                            <button
+                              type="button"
+                              onClick={() => onToggleTag(t)}
+                              className="p-0.5 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/60 rounded-full transition-colors cursor-pointer"
+                              title="Remove tag"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-gray-400 italic px-1">
+                        কোনো ট্যাগ সিলেক্ট করা নেই (Clean Ingestion — জিরো ট্যাগ যুক্ত হবে)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Custom Tag Input */}
+                  {onToggleTag && (
+                    <form onSubmit={handleAddCustomTag} className="flex items-center gap-2 pt-1">
+                      <div className="relative flex-1">
+                        <Tag className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={customTagInput}
+                          onChange={(e) => setCustomTagInput(e.target.value)}
+                          placeholder="Add custom tag (e.g. Dhaka Wholesale, Eid Campaign)..."
+                          className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-hidden focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={!customTagInput.trim()}
+                        className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Tag</span>
+                      </button>
+                    </form>
+                  )}
+
+                  {/* AI Recommended Tags (User can click + to approve) */}
+                  {auditSummary?.suggestedTags && auditSummary.suggestedTags.length > 0 && onToggleTag && (
+                    <div className="pt-2 border-t border-gray-200/60 dark:border-slate-700/60 space-y-1.5">
+                      <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" /> AI Recommended Tags (ক্লিক করে অনুমোদন করুন):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {auditSummary.suggestedTags.map((st, sIdx) => {
+                          const isAttached = selectedTags.includes(st.tag);
+                          return (
+                            <button
+                              key={sIdx}
+                              type="button"
+                              onClick={() => onToggleTag(st.tag)}
+                              title={st.reason}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                                isAttached
+                                  ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                  : 'bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-300 border-dashed border-gray-300 dark:border-slate-700 hover:border-purple-500 hover:bg-purple-50/50 dark:hover:bg-purple-950/30'
+                              }`}
+                            >
+                              <span>{isAttached ? '✓' : '+'}</span>
+                              <span>{st.label || st.tag}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Score & Quality Banner */}
                 <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/90 to-teal-50/70 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200/80 dark:border-emerald-900/60 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 shrink-0">
@@ -141,7 +280,7 @@ export function AIAuditPreviewModal({
                   </div>
                 </div>
 
-                {/* 5 Decision Breakdown Grid */}
+                {/* 4. 5 Decision Breakdown Grid */}
                 <div className="space-y-2">
                   <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block">
                     ⚡ Smart Ingestion Lifecycle Decisions
@@ -216,11 +355,11 @@ export function AIAuditPreviewModal({
                   </div>
                 </div>
 
-                {/* AI Insights Card */}
+                {/* 5. AI Insights Card */}
                 {auditSummary?.aiInsights && auditSummary.aiInsights.length > 0 && (
                   <div className="p-4 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-900/60 space-y-2">
                     <span className="text-xs font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Smart AI Recommendations
+                      <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> GPT-4o Insights
                     </span>
                     <ul className="space-y-1 text-xs text-purple-950 dark:text-purple-300">
                       {auditSummary.aiInsights.map((insight, idx) => (
@@ -233,7 +372,7 @@ export function AIAuditPreviewModal({
                   </div>
                 )}
 
-                {/* Evaluated Sample Rows List */}
+                {/* 6. Evaluated Sample Rows List */}
                 {auditSummary?.sampleItems && auditSummary.sampleItems.length > 0 && (
                   <div className="space-y-2">
                     <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block">
@@ -294,7 +433,7 @@ export function AIAuditPreviewModal({
               disabled={isLoading}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-700 hover:to-purple-700 text-white font-bold text-xs shadow-md shadow-brand-600/25 flex items-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
             >
-              <span>Confirm & Ingest Data</span>
+              <span>Confirm & Ingest Data ({selectedTags.length} tags)</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

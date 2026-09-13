@@ -479,14 +479,8 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
     setColumnMapping(initialMapping);
     setIsMappingStudioOpen(analysis.columnNames.length > 2);
 
-    // Smart tag suggestions
-    const lowerName = fileName.toLowerCase();
-    const initialTags: string[] = [];
-    if (lowerName.includes('iphone')) initialTags.push('iPhone User');
-    if (lowerName.includes('whatsapp') || lowerName.includes('wa')) initialTags.push('WhatsApp Active');
-    if (lowerName.includes('viber')) initialTags.push('Viber Contact');
-    if (lowerName.includes('vip')) initialTags.push('VIP Client');
-    setSelectedTags(initialTags);
+    // Tags start empty so user has 100% control over which tags to apply
+    setSelectedTags([]);
   };
 
   const processFile = (file: File) => {
