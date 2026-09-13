@@ -66,6 +66,51 @@ export async function POST(request: NextRequest) {
 
         // A. DELETE ACTION
         if (parsedIntent.action === 'delete') {
+          if (!parsedIntent.isConfirmedDelete) {
+            // SAFEGUARD CONFIRMATION STEP
+            const single = matchedDocs[0];
+            const confirmReply = matchedDocs.length === 1
+              ? `⚠️ **সতর্কতা: আপনি কি নিশ্চিত যে এই কাস্টমার রেকর্ডটি স্থায়ীভাবে ডাটাবেজ থেকে মুছে ফেলতে চান?**
+
+**টার্গেট কাস্টমার প্রোফাইল:**
+- 👤 **নাম:** **${single.name || 'Unnamed Client'}**
+- 📱 **ফোন নম্বর:** \`${single.phone || 'N/A'}\`
+- 📦 **মোট অর্ডার:** **${single.orderCount || 0}** টি
+- 💰 **মোট স্পেন্ড:** **৳${Number(single.orderAmount || 0).toLocaleString()}** BDT
+- 📍 **লোকেশন:** ${single.location || single.area || 'Dhaka'}
+
+👉 **স্থায়ীভাবে মুছে ফেলতে নিশ্চিত করুন:**
+- লিখুন: \`${single.phone} delete confirm\` অথবা \`হ্যাঁ, ডিলিট করো\``
+              : `⚠️ **সতর্কতা: মোট ${matchedDocs.length} টি কাস্টমার রেকর্ড স্থায়ীভাবে মুছে ফেলার রিকোয়েস্ট এসেছে!**
+
+👉 **স্থায়ীভাবে মুছে ফেলতে নিশ্চিত করুন:**
+- লিখুন: \`bulk delete confirm\` অথবা \`হ্যাঁ, ডিলিট করো\``;
+
+            return NextResponse.json({
+              success: true,
+              actionExecuted: 'delete_confirmation_required',
+              result: {
+                type: 'data_query',
+                reply: confirmReply,
+                exportPayload: { search: single.phone, limit: 1 },
+                exportLabel: `Download Record CSV`,
+                explorerPath: `/data/explorer?search=${encodeURIComponent(single.phone || '')}`,
+                keyMetrics: [
+                  { label: 'টার্গেট রেকর্ড', value: `${matchedDocs.length} টি`, subtext: single.phone || 'Customer' },
+                  { label: 'স্ট্যাটাস', value: 'নিশ্চিতকরণ প্রয়োজন', subtext: 'Confirmation Required' },
+                ],
+                suggestedActions: [
+                  { label: `🎯 View Record in Explorer`, path: `/data/explorer?search=${encodeURIComponent(single.phone || '')}` },
+                ],
+                followUpQuestions: [
+                  `${single.phone} delete confirm`,
+                  'না, বাতিল করো',
+                ],
+              },
+            });
+          }
+
+          // EXPLICITLY CONFIRMED -> EXECUTE DELETE!
           await RecordModel.deleteMany({ _id: { $in: docIds } });
           const totalRemaining = await RecordModel.countDocuments({});
 
@@ -671,6 +716,7 @@ function properCase(str: string): string {
 
 interface QueryIntent {
   action: 'query' | 'delete' | 'update' | 'append_suffix' | 'prepend_prefix' | 'add_tag' | 'remove_tag';
+  isConfirmedDelete?: boolean;
   field?: string;
   value?: any;
   targetPhone?: string;
@@ -826,9 +872,16 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
 
   const hasSpecificTarget = targetPhones.length > 0 || Boolean(targetPhone);
 
+  const isConfirmedDelete =
+    /\b(?:confirm|confirmed|sure|yes|ha|haan|হাঁ|হ্যাঁ|কনফার্ম|force|force\s*delete|এখনই\s*ডিলিট)\b/i.test(question) ||
+    (history.length > 0 &&
+      /(?:confirm|নিশ্চিত|muche\s*felo|ডিলিট\s*করতে\s*চান|স্থায়ীভাবে\s*মুছে)/i.test(history[history.length - 1]?.content || '') &&
+      /\b(?:ha|haan|yes|ok|koro|dao|felo|হাঁ|হ্যাঁ|করুন|করো|দিন)\b/i.test(q));
+
   if (isExplicitDeleteVerb && !isConversationalQuestion && hasSpecificTarget) {
     return {
       action: 'delete',
+      isConfirmedDelete,
       targetPhone,
       targetPhones,
       isConversational: false,
@@ -920,20 +973,19 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
   }
 
   // ==========================================
-  // E. ACTION: UPDATE / EDIT OPERATION
+  // E. ACTION: UPDATE / EDIT OPERATION (STRICT & SAFE)
   // ==========================================
-  const isUpdateAction =
-    q.includes('update') ||
-    q.includes('change') ||
-    q.includes('edit') ||
-    q.includes('bodle') ||
-    q.includes('bodlao') ||
-    q.includes('set koro') ||
-    q.includes('lagao') ||
-    q.includes('banao') ||
-    (targetPhone && (q.includes('koro') || q.includes('dao')) && (q.includes('name') || q.includes('naam') || q.includes('location') || q.includes('address') || q.includes('order') || q.includes('spend') || q.includes('tag') || q.includes('gender') || q.includes('status')));
+  const isExplicitUpdateVerb =
+    /\b(?:update\s*(?:koro|kore\s*dao|karo|korun|din|kore\s*den)|change\s*(?:koro|kore\s*dao|karo|korun|din)|edit\s*(?:koro|kore\s*dao|karo|korun|din)|bodle\s*(?:felo|dao|din)|bodlao|set\s*(?:koro|kore\s*dao|karo|korun|din)|আপডেট\s*(?:করুন|করো|করে\s*দিন)|পরিবর্তন\s*(?:করুন|করো|করে\s*দিন))\b/i.test(question) ||
+    (/\b(?:update|change|edit)\b/i.test(q) && (targetPhones.length > 0 || Boolean(targetPhone)));
 
-  if (isUpdateAction && (targetPhones.length > 0 || targetPhone || q.includes('data') || q.includes('name') || q.includes('location') || q.includes('phone') || q.includes('gender') || q.includes('tag') || q.includes('order') || q.includes('ei') || q.includes('tar'))) {
+  const isConversationalUpdateQuestion =
+    /\b(?:ki|kivabe|ki\s*babe|option|kora\s*jabe|lagbe\s*na|koro\s*na|hoy\s*kina|parbo|how\s*to)\b/i.test(q) ||
+    /(\?|কীভাবে|কিভাবে|যাবে\s*কি)/i.test(question);
+
+  const hasUpdateTarget = targetPhones.length > 0 || Boolean(targetPhone);
+
+  if (isExplicitUpdateVerb && !isConversationalUpdateQuestion && hasUpdateTarget) {
     const updateFields: Record<string, any> = {};
 
     const isInvalidValue = (val: string) => {
