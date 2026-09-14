@@ -25,16 +25,16 @@ export function UploadSummaryModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
+      <div className="fixed inset-0 bg-gray-900/50 dark:bg-black/60 backdrop-blur-sm" />
 
       {/* Modal Card */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative z-10 w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 p-6 shadow-2xl space-y-6"
+        className="relative z-10 w-full max-w-md bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/10 p-6 shadow-xl space-y-6"
       >
         <div className="text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center mb-4 ring-8 ring-emerald-50 dark:ring-emerald-950/30">
+          <div className="mx-auto w-16 h-16 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
             <CheckCircle2 className="w-8 h-8" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -46,7 +46,7 @@ export function UploadSummaryModal({
         </div>
 
         {/* Stats List */}
-        <div className="p-4 rounded-2xl bg-gray-50 dark:bg-slate-800/50 space-y-3 text-xs font-semibold">
+        <div className="p-4 rounded-xl bg-gray-50 dark:bg-white/[0.03] space-y-3 text-xs font-semibold">
           {/* New records */}
           <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
             <span className="flex items-center gap-1.5">
@@ -74,11 +74,11 @@ export function UploadSummaryModal({
           )}
 
           {/* Total in DB */}
-          <div className="flex justify-between items-center text-gray-900 dark:text-white pt-2.5 border-t border-gray-200 dark:border-slate-700">
+          <div className="flex justify-between items-center text-gray-900 dark:text-white pt-2.5 border-t border-gray-200 dark:border-white/10">
             <span className="flex items-center gap-1.5 font-bold">
               <Database className="w-4 h-4 text-brand-600 dark:text-brand-400" /> Total Active Records Now
             </span>
-            <span className="text-sm font-extrabold text-brand-600 dark:text-brand-400">
+            <span className="text-sm font-bold text-brand-600 dark:text-brand-400">
               {totalCount.toLocaleString()}
             </span>
           </div>
@@ -89,13 +89,13 @@ export function UploadSummaryModal({
           <button
             type="button"
             onClick={onReset}
-            className="w-1/3 py-2.5 rounded-xl border border-gray-200 dark:border-slate-800 text-gray-700 dark:text-gray-300 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+            className="w-1/3 py-2.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
           >
             Upload Another
           </button>
           <Link
             href="/data/explorer"
-            className="w-2/3 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-md shadow-brand-600/30 flex items-center justify-center gap-1.5 transition-all"
+            className="w-2/3 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-card flex items-center justify-center gap-1.5 transition-colors"
           >
             Explore Data <ArrowRight className="w-4 h-4" />
           </Link>

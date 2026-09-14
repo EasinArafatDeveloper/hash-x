@@ -27,6 +27,7 @@ import {
   ShieldCheck,
   TrendingUp,
   MessageSquare,
+  Search,
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -47,14 +48,14 @@ interface DropZoneProps {
 }
 
 const DEFAULT_PRESET_TAGS = [
-  { label: '📱 iPhone User', value: 'iPhone User' },
-  { label: '💬 WhatsApp Active', value: 'WhatsApp Active' },
-  { label: '🟣 Viber Contact', value: 'Viber Contact' },
-  { label: '⭐ VIP Client', value: 'VIP Client' },
-  { label: '🏢 Corporate Lead', value: 'Corporate Lead' },
-  { label: '🔥 Hot Leads', value: 'Hot Leads' },
-  { label: '📍 Dhaka Zone', value: 'Dhaka Zone' },
-  { label: '💼 Business Account', value: 'Business Account' },
+  { label: 'iPhone User', value: 'iPhone User' },
+  { label: 'WhatsApp Active', value: 'WhatsApp Active' },
+  { label: 'Viber Contact', value: 'Viber Contact' },
+  { label: 'VIP Client', value: 'VIP Client' },
+  { label: 'Corporate Lead', value: 'Corporate Lead' },
+  { label: 'Hot Leads', value: 'Hot Leads' },
+  { label: 'Dhaka Zone', value: 'Dhaka Zone' },
+  { label: 'Business Account', value: 'Business Account' },
 ];
 
 interface StatusOption {
@@ -567,7 +568,7 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
     // Populate textarea with lightweight content if huge, or full content if small
     if (textAreaRef.current) {
       if (lineCount > 100) {
-        textAreaRef.current.value = `${sampleSnippet}\n\n... [⚡ and ${(lineCount - lines.length).toLocaleString()} more rows loaded safely in memory] ...`;
+        textAreaRef.current.value = `${sampleSnippet}\n\n... [and ${(lineCount - lines.length).toLocaleString()} more rows loaded safely in memory] ...`;
       } else {
         textAreaRef.current.value = trimmed;
       }
@@ -587,7 +588,7 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
   const handleTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     // If it's the truncated indicator, don't overwrite ref
-    if (val.includes('... [⚡ and')) return;
+    if (val.includes('... [and')) return;
     ingestRawText(val);
   };
 
@@ -724,19 +725,19 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
 
   return (
     <div className="space-y-6">
-      {/* 🌟 2-Way Upload Mode Switcher (File Upload vs Direct Copy-Paste) */}
+      {/* 2-Way Upload Mode Switcher (File Upload vs Direct Copy-Paste) */}
       {!selectedFile && (
         <div className="flex items-center justify-center">
-          <div className="p-1.5 bg-gray-100 dark:bg-slate-800/90 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs flex items-center gap-1.5 w-full max-w-md">
+          <div className="p-1.5 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 flex items-center gap-1.5 w-full max-w-md">
             <button
               type="button"
               onClick={() => {
                 setUploadMode('file');
                 setError(null);
               }}
-              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 uploadMode === 'file'
-                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-sm'
+                  ? 'bg-white dark:bg-[#111113] text-brand-600 dark:text-brand-400 shadow-sm'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
@@ -750,9 +751,9 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                 setUploadMode('paste');
                 setError(null);
               }}
-              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 uploadMode === 'paste'
-                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-sm'
+                  ? 'bg-white dark:bg-[#111113] text-brand-600 dark:text-brand-400 shadow-sm'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
@@ -771,10 +772,10 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
           onDragLeave={handleDrag}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
-          className={`relative border-2 border-dashed rounded-3xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 ${
+          className={`relative border-2 border-dashed rounded-xl p-8 sm:p-12 text-center cursor-pointer transition-colors duration-200 ${
             dragActive
-              ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-950/30 scale-[1.01]'
-              : 'border-gray-300 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-brand-400 dark:hover:border-slate-700 shadow-sm'
+              ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-500/5'
+              : 'border-gray-300 dark:border-white/10 bg-white dark:bg-[#111113] hover:border-brand-400 dark:hover:border-white/20 shadow-card'
           }`}
         >
           <input
@@ -785,7 +786,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
             className="hidden"
           />
 
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/25 mb-4">
+          <div className="mx-auto w-16 h-16 rounded-xl bg-brand-600 text-white flex items-center justify-center mb-4">
             <UploadCloud className="w-8 h-8" />
           </div>
 
@@ -798,7 +799,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
               browse files
             </span>
           </p>
-          <span className="inline-block mt-3 px-3 py-1 rounded-full bg-gray-100 dark:bg-slate-800 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+          <span className="inline-block mt-3 px-3 py-1 rounded-full bg-gray-100 dark:bg-white/5 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
             Supported: CSV, XLSX, XLS (Single-column or Multi-column, up to 50MB)
           </span>
         </div>
@@ -806,11 +807,11 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
 
       {/* MODE 2: Direct Paste Data / Raw Text Input (Lag-Free Engine) */}
       {!selectedFile && uploadMode === 'paste' && (
-        <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 shadow-sm space-y-4 animate-in fade-in duration-200">
+        <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 shadow-card space-y-4 animate-in fade-in duration-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Clipboard className="w-4 h-4 text-brand-600" />
+                <Clipboard className="w-4 h-4 text-brand-600 dark:text-brand-400" />
                 Paste Raw Data / Contact List (Ultra Fast & Lag-Free)
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -823,7 +824,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
               <button
                 type="button"
                 onClick={handlePasteFromClipboard}
-                className="px-3 py-1.5 rounded-xl bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-900 text-xs font-bold flex items-center gap-1.5 hover:bg-brand-100 transition-colors shadow-2xs cursor-pointer active:scale-95"
+                className="px-3 py-1.5 rounded-lg bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-900/60 text-xs font-semibold flex items-center gap-1.5 hover:bg-brand-100 dark:hover:bg-brand-500/20 transition-colors cursor-pointer active:scale-95"
               >
                 <Clipboard className="w-3.5 h-3.5" />
                 <span>Paste from Clipboard</span>
@@ -832,7 +833,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
               <button
                 type="button"
                 onClick={handleInsertSampleData}
-                className="px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 hover:bg-gray-200 transition-colors shadow-2xs cursor-pointer active:scale-95"
+                className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors cursor-pointer active:scale-95"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 <span>Sample Data</span>
@@ -842,7 +843,8 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                 <button
                   type="button"
                   onClick={handleClearPastedData}
-                  className="p-1.5 rounded-xl text-gray-400 hover:text-rose-600 transition-colors cursor-pointer"
+                  aria-label="Clear pasted text"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
                   title="Clear Text"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -859,7 +861,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
               onPaste={handleTextAreaPaste}
               onChange={handleTextAreaChange}
               placeholder={`Click here and press Ctrl+V to paste your Google Sheets or Excel data...\n\nSupported formats:\n1. Excel / Google Sheets Ctrl+A copy (Tabs separated columns):\n   Name\tPhone\tEmail\tCity\n   Tanvir\t01711223344\ttanvir@gmail.com\tDhaka\n\n2. Pure phone numbers list (1 number per line):\n   01711000001\n   01812000002\n   01913000003`}
-              className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-slate-800/70 border border-gray-200 dark:border-slate-700 font-mono text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-y leading-relaxed shadow-inner"
+              className="w-full p-4 rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-200 dark:border-white/10 font-mono text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-y leading-relaxed"
             />
           </div>
 
@@ -867,7 +869,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
             <div className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">
               {pasteSummary ? (
-                <span className="inline-flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-900/60">
+                <span className="inline-flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-900/60">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                   <span>
                     {pasteSummary.lineCount.toLocaleString()} rows detected ({pasteSummary.byteSize}) &bull; Ready to Review
@@ -882,7 +884,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
               type="button"
               onClick={handleProcessPastedText}
               disabled={!pasteSummary || isParsingPasted}
-              className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-brand-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+              className="px-6 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold text-xs shadow-card flex items-center justify-center gap-2 transition-colors active:scale-95 cursor-pointer"
             >
               {isParsingPasted ? (
                 <>
@@ -902,19 +904,19 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
 
       {/* Error Alert */}
       {error && (
-        <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-center gap-3 text-rose-700 dark:text-rose-300 text-xs font-medium">
-          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+        <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-500/5 border border-rose-200 dark:border-rose-900/50 flex items-center gap-3 text-rose-700 dark:text-rose-300 text-xs font-medium">
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Selected / Parsed File Card & Analysis (Common for both File and Pasted Data) */}
       {selectedFile && (
-        <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 shadow-card space-y-5 animate-in fade-in">
+        <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 shadow-card space-y-5 animate-in fade-in">
           {/* File Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-100 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-100 dark:border-white/10">
             <div className="flex items-center space-x-3.5">
-              <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 border border-emerald-200 dark:border-emerald-900 shrink-0">
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 shrink-0">
                 <FileSpreadsheet className="w-6 h-6" />
               </div>
               <div>
@@ -940,14 +942,14 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
 
           {/* 1. SMART FILE STRUCTURE DETECTION BANNER */}
           {selectedFile.analysis.fileType === 'single_column_phone' && (
-            <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 shrink-0">
+            <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-900/50 flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 shrink-0">
                 <Phone className="w-4 h-4" />
               </div>
               <div className="space-y-0.5 text-xs">
                 <h5 className="font-bold text-blue-900 dark:text-blue-100 flex items-center gap-1.5">
                   Pure Phone Number List Detected
-                  <span className="px-2 py-0.5 rounded-full bg-blue-200/70 dark:bg-blue-800 text-blue-800 dark:text-blue-200 font-semibold text-[10px]">
+                  <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-200 font-semibold text-[10px]">
                     1 Column File
                   </span>
                 </h5>
@@ -961,7 +963,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
           {/* 2. SMART SCOPE / YES-NO FILTER SELECTOR */}
           {selectedFile.analysis.statusColumnName &&
             selectedFile.analysis.statusOptions.length > 1 && (
-              <div className="p-5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/60 space-y-3.5">
+              <div className="p-5 rounded-xl bg-amber-50/60 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-900/50 space-y-3.5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                   <div>
                     <h5 className="text-xs font-bold text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
@@ -976,7 +978,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                     </p>
                   </div>
 
-                  <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-900/60 self-start sm:self-center">
+                  <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-500/10 self-start sm:self-center">
                     Importing: {finalRowsToUpload.length.toLocaleString()} of{' '}
                     {selectedFile.rows.length.toLocaleString()} rows
                   </span>
@@ -986,35 +988,38 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                 <div className="flex flex-wrap gap-2 pt-1">
                   {selectedFile.analysis.statusOptions.map((opt) => {
                     const isSelected = selectedFilterOption.toLowerCase() === opt.value.toLowerCase();
+                    const dotColor =
+                      opt.variant === 'positive'
+                        ? 'bg-emerald-400'
+                        : opt.variant === 'negative'
+                        ? 'bg-rose-400'
+                        : opt.variant === 'all'
+                        ? 'bg-brand-300'
+                        : 'bg-gray-400';
                     return (
                       <button
                         key={opt.value}
                         type="button"
                         onClick={() => setSelectedFilterOption(opt.value)}
-                        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${
+                        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors ${
                           isSelected
                             ? opt.variant === 'positive'
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20 ring-2 ring-emerald-500/20'
+                              ? 'bg-emerald-600 text-white border-emerald-600'
                               : opt.variant === 'negative'
-                              ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20 ring-2 ring-rose-500/20'
-                              : 'bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-600/20 ring-2 ring-brand-500/20'
-                            : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-amber-400 hover:bg-amber-50/50 dark:hover:bg-slate-750'
+                              ? 'bg-rose-600 text-white border-rose-600'
+                              : 'bg-brand-600 text-white border-brand-600'
+                            : 'bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10 hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-white/10'
                         }`}
                       >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? 'bg-white/70' : dotColor}`} />
                         <span>
-                          {opt.value === 'ALL'
-                            ? '⚡ All Records'
-                            : opt.variant === 'positive'
-                            ? `🟢 Only '${opt.displayLabel}'`
-                            : opt.variant === 'negative'
-                            ? `🔴 Only '${opt.displayLabel}'`
-                            : `🏷️ ${opt.displayLabel}`}
+                          {opt.value === 'ALL' ? 'All Records' : opt.displayLabel}
                         </span>
                         <span
                           className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
                             isSelected
                               ? 'bg-white/20 text-white'
-                              : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'
+                              : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300'
                           }`}
                         >
                           {opt.count.toLocaleString()}
@@ -1040,7 +1045,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
           )}
 
           {/* 4. MULTI-TAG & BATCH LABEL MANAGER */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-brand-50/60 to-accent-50/40 dark:from-brand-950/30 dark:to-accent-950/20 border border-brand-200/80 dark:border-brand-900/60 space-y-4">
+          <div className="p-5 rounded-xl bg-brand-50/50 dark:bg-brand-500/5 border border-brand-200 dark:border-brand-900/50 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <label className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
@@ -1066,7 +1071,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
 
             {/* Active Tags */}
             {selectedTags.length > 0 && (
-              <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-brand-200/60 dark:border-brand-900/40 space-y-1.5">
+              <div className="p-3 rounded-lg bg-white/80 dark:bg-white/5 border border-brand-200/70 dark:border-brand-900/40 space-y-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 block">
                   Active Selected Tags ({selectedTags.length}):
                 </span>
@@ -1074,12 +1079,13 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                   {selectedTags.map((tag) => (
                     <span
                       key={tag}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-brand-600 text-white shadow-sm shadow-brand-600/20 animate-in fade-in zoom-in-95"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-brand-600 text-white animate-in fade-in zoom-in-95"
                     >
                       <span>{tag}</span>
                       <button
                         type="button"
                         onClick={() => handleRemoveTag(tag)}
+                        aria-label={`Remove tag ${tag}`}
                         className="p-0.5 hover:bg-white/20 rounded-md transition-colors"
                         title={`Remove ${tag}`}
                       >
@@ -1091,20 +1097,20 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
               </div>
             )}
 
-            {/* 🌟 4.1 DEEPSEEK AI AUTO-DETECTED SMART TAGS */}
+            {/* 4.1 AI AUTO-DETECTED SMART TAGS */}
             {discoveredSmartTags.length > 0 && (
-              <div className="p-4 rounded-2xl bg-white/90 dark:bg-slate-850/90 border border-purple-200/80 dark:border-purple-900/60 shadow-xs space-y-3">
+              <div className="p-4 rounded-xl bg-white dark:bg-white/[0.03] border border-violet-200 dark:border-violet-900/50 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-950/80 text-purple-600 dark:text-purple-400">
+                    <div className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400">
                       <Sparkles className="w-3.5 h-3.5" />
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-bold text-gray-900 dark:text-white">
-                          ✨ AI Auto-Detected Smart Tags
+                          AI Auto-Detected Smart Tags
                         </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-900/50">
                           {discoveredSmartTags.length} Discovered
                         </span>
                       </div>
@@ -1118,17 +1124,17 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                     <button
                       type="button"
                       onClick={handleApplyAllAiTags}
-                      className="px-2.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold shadow-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-semibold flex items-center gap-1 transition-colors active:scale-95 cursor-pointer"
                     >
                       <Zap className="w-3 h-3" />
-                      <span>⚡ Apply All AI Tags</span>
+                      <span>Apply All AI Tags</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={handleDeepSeekScanTags}
                       disabled={isAiTagsLoading}
-                      className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                      className="px-2.5 py-1.5 rounded-lg bg-violet-50 dark:bg-violet-500/10 hover:bg-violet-100 dark:hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-900/50 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
                       title="Run AI Deep Scan"
                     >
                       <RefreshCw className={`w-3 h-3 ${isAiTagsLoading ? 'animate-spin' : ''}`} />
@@ -1144,10 +1150,10 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                     return (
                       <div
                         key={st.id || st.tag}
-                        className={`p-3 rounded-2xl border transition-all flex flex-col justify-between gap-2.5 ${
+                        className={`p-3 rounded-xl border transition-colors flex flex-col justify-between gap-2.5 ${
                           isSelected
-                            ? 'bg-purple-50/95 dark:bg-purple-950/40 border-purple-400 dark:border-purple-700 ring-2 ring-purple-500/20 shadow-xs'
-                            : 'bg-white dark:bg-slate-800/90 border-gray-200/90 dark:border-slate-700/90 hover:border-purple-300 hover:bg-purple-50/30 shadow-xs'
+                            ? 'bg-violet-50 dark:bg-violet-500/10 border-violet-300 dark:border-violet-800'
+                            : 'bg-white dark:bg-white/[0.03] border-gray-200 dark:border-white/10 hover:border-violet-300 hover:bg-violet-50/40 dark:hover:bg-violet-500/5'
                         }`}
                       >
                         {/* Card Header: Label & Select Toggle */}
@@ -1158,10 +1164,11 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                           <button
                             type="button"
                             onClick={() => handleTogglePresetTag(st.tag)}
+                            aria-label={isSelected ? `Remove tag ${st.label}` : `Add tag ${st.label}`}
                             className={`p-1.5 rounded-lg text-xs font-bold transition-all active:scale-90 cursor-pointer ${
                               isSelected
-                                ? 'bg-purple-600 text-white shadow-xs'
-                                : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-purple-100 hover:text-purple-700'
+                                ? 'bg-violet-600 text-white'
+                                : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-violet-100 hover:text-violet-700'
                             }`}
                             title={isSelected ? 'Remove tag' : 'Select tag for batch'}
                           >
@@ -1171,11 +1178,11 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
 
                         {/* Middle: Count & Detection Criteria */}
                         <div className="flex items-center justify-between gap-2 text-xs">
-                          <span className="font-bold text-purple-700 dark:text-purple-300 font-mono text-[11px] shrink-0">
+                          <span className="font-bold text-violet-700 dark:text-violet-300 font-mono text-[11px] shrink-0">
                             {st.count.toLocaleString()} rows ({st.percentage}%)
                           </span>
                           <span
-                            className="px-2 py-0.5 rounded-md text-[10px] font-mono font-medium bg-purple-100/70 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 truncate max-w-[140px]"
+                            className="px-2 py-0.5 rounded-md text-[10px] font-mono font-medium bg-violet-50 dark:bg-violet-500/10 text-violet-800 dark:text-violet-200 truncate max-w-[140px]"
                             title={st.detectionRule || st.reason}
                           >
                             {st.detectionRule || 'AI Logic'}
@@ -1183,17 +1190,17 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                         </div>
 
                         {/* Bottom: View AI Logic & Samples Button */}
-                        <div className="pt-2 border-t border-gray-100 dark:border-slate-700/50 flex items-center justify-between">
+                        <div className="pt-2 border-t border-gray-100 dark:border-white/5 flex items-center justify-between">
                           <button
                             type="button"
                             onClick={() => {
                               setActiveDetailTag(st);
                               setIsDetailModalOpen(true);
                             }}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 transition-colors cursor-pointer group"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 transition-colors cursor-pointer group"
                           >
-                            <Sparkles className="w-3 h-3 group-hover:rotate-12 transition-transform text-purple-500" />
-                            <span>🔍 AI Logic & Samples</span>
+                            <Search className="w-3 h-3" />
+                            <span>AI Logic & Samples</span>
                           </button>
 
                           {isSelected ? (
@@ -1210,8 +1217,8 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                 </div>
 
                 {/* Explanatory Precision Footer */}
-                <div className="p-2.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 flex items-center gap-2 text-[11px] text-purple-800 dark:text-purple-300">
-                  <ShieldCheck className="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400" />
+                <div className="p-2.5 rounded-lg bg-violet-50/60 dark:bg-violet-500/5 border border-violet-100 dark:border-violet-900/40 flex items-center gap-2 text-[11px] text-violet-800 dark:text-violet-300">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-violet-600 dark:text-violet-400" />
                   <span>
                     <strong>Smart Row-Level Precision:</strong> Only matching individual rows receive conditional tags (e.g. only records with active WhatsApp receive <em>'WhatsApp Active'</em>, spenders ≥ ৳10k receive <em>'VIP Client'</em>).
                   </span>
@@ -1221,7 +1228,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
 
             {/* Quick Presets */}
             <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+              <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-brand-500" /> Quick Presets (Click to select/unselect):
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -1232,17 +1239,17 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                       key={preset.value}
                       type="button"
                       onClick={() => handleTogglePresetTag(preset.value)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                         isSelected
-                          ? 'bg-brand-600 text-white border-brand-600 shadow-sm shadow-brand-600/25 ring-2 ring-brand-500/20'
-                          : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-brand-300 hover:bg-gray-50 dark:hover:bg-slate-750'
+                          ? 'bg-brand-600 text-white border-brand-600'
+                          : 'bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10 hover:border-brand-300 hover:bg-gray-50 dark:hover:bg-white/10'
                       }`}
                     >
                       <span>{preset.label}</span>
                       {isSelected ? (
                         <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                       ) : (
-                        <Plus className="w-3.5 h-3.5 text-gray-400 group-hover:text-brand-600" />
+                        <Plus className="w-3.5 h-3.5 text-gray-400" />
                       )}
                     </button>
                   );
@@ -1269,7 +1276,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                       }
                     }}
                     placeholder="Type a custom tag name (e.g. 'Campaign Nov 2026') and press Enter..."
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-900/80 rounded-xl text-xs font-medium text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm"
+                    className="w-full pl-9 pr-3.5 py-2.5 bg-white dark:bg-white/5 border border-brand-200 dark:border-brand-900/60 rounded-lg text-xs font-medium text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
 
@@ -1277,7 +1284,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                   type="button"
                   onClick={handleAddCustomTag}
                   disabled={!newTagInput.trim()}
-                  className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition-all shrink-0 active:scale-95"
+                  className="px-4 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-semibold shadow-card flex items-center gap-1.5 transition-colors shrink-0 active:scale-95"
                   title="Add Tag"
                 >
                   <Plus className="w-4 h-4" />
@@ -1301,7 +1308,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                 handleClearPastedData();
                 if (inputRef.current) inputRef.current.value = '';
               }}
-              className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-lg border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
               Cancel / Input Different Data
             </button>
@@ -1309,7 +1316,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
             <button
               onClick={handleUploadTrigger}
               disabled={isProcessing || finalRowsToUpload.length === 0}
-              className="px-7 py-3 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-lg shadow-brand-600/25 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-60 cursor-pointer"
+              className="px-7 py-3 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-card flex items-center gap-2 transition-colors active:scale-95 disabled:opacity-60 cursor-pointer"
             >
               {isProcessing ? (
                 <>
@@ -1330,7 +1337,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
         </div>
       )}
 
-      {/* DeepSeek AI Smart Tag Detail & Sample Records Inspector Modal */}
+      {/* AI Smart Tag Detail & Sample Records Inspector Modal */}
       <AISmartTagDetailModal
         tag={activeDetailTag}
         isOpen={isDetailModalOpen}

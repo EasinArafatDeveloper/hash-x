@@ -181,9 +181,9 @@ export default function UploadDataPage() {
     setCurrentChunk(0);
 
     // Initial Telemetry Logs
-    addLog('info', `🚀 Starting High-Speed Stream Ingestion for "${filename}"`, `Size: ${fileSize} | Rows: ${rows.length.toLocaleString()}`);
-    addLog('info', `📋 Schema analyzed: ${Object.keys(rows[0] || {}).length} detected columns`, `DeepSeek AI verified custom mapping`);
-    addLog('info', `🛰️ Initializing session with MongoDB Atlas (/api/data/upload/init)...`);
+    addLog('info', `Starting High-Speed Stream Ingestion for "${filename}"`, `Size: ${fileSize} | Rows: ${rows.length.toLocaleString()}`);
+    addLog('info', `Schema analyzed: ${Object.keys(rows[0] || {}).length} detected columns`, `DeepSeek AI verified custom mapping`);
+    addLog('info', `Initializing session with MongoDB Atlas (/api/data/upload/init)...`);
 
     try {
       // 1. Initialize Dataset Session
@@ -201,20 +201,20 @@ export default function UploadDataPage() {
 
       if (!initRes.ok) {
         const errMsg = await parseSafeError(initRes, 'Failed to initialize dataset upload session');
-        addLog('error', `❌ Initialization failed: ${errMsg}`);
+        addLog('error', `Initialization failed: ${errMsg}`);
         throw new Error(errMsg);
       }
 
       const initData = await initRes.json();
       const datasetId = initData.datasetId;
 
-      addLog('success', `🔗 Session connected to MongoDB Atlas`, `Dataset ID: ${datasetId.slice(-8)}`);
-      addLog('info', `📦 Ingestion Pipeline Strategy`, `${totalCalculatedChunks} micro-batches of ${CHUNK_SIZE.toLocaleString()} rows each`);
+      addLog('success', `Session connected to MongoDB Atlas`, `Dataset ID: ${datasetId.slice(-8)}`);
+      addLog('info', `Ingestion Pipeline Strategy`, `${totalCalculatedChunks} micro-batches of ${CHUNK_SIZE.toLocaleString()} rows each`);
 
       setCurrentStep(2); // Stage 2: Schema validation
-      addLog('info', `🔍 Validating data types and phone index integrity...`);
+      addLog('info', `Validating data types and phone index integrity...`);
       await sleep(150);
-      addLog('success', `✅ Schema validated. Zero blocking anomalies.`);
+      addLog('success', `Schema validated. Zero blocking anomalies.`);
 
       setCurrentStep(3); // Stage 3: Streaming micro-batches
 
@@ -228,7 +228,7 @@ export default function UploadDataPage() {
       const PARALLEL_WORKERS = 3;
       const activeWorkerCount = Math.min(PARALLEL_WORKERS, totalCalculatedChunks);
 
-      addLog('info', `⚡ Spawning ${activeWorkerCount} parallel ingestion workers for turbo throughput...`);
+      addLog('info', `Spawning ${activeWorkerCount} parallel ingestion workers for turbo throughput...`);
 
       // 2. Stream Chunks with Multi-Worker Parallel Pipeline
       const runWorker = async (workerId: number) => {
@@ -280,7 +280,7 @@ export default function UploadDataPage() {
 
               addLog(
                 'batch',
-                `⚡ Batch ${i + 1}/${totalCalculatedChunks} (${chunkRows.length.toLocaleString()} rows) completed in ${chunkDuration}ms`,
+                `Batch ${i + 1}/${totalCalculatedChunks} (${chunkRows.length.toLocaleString()} rows) completed in ${chunkDuration}ms`,
                 `+${chunkData.newCount || 0} new, ${chunkData.updatedCount || 0} merged [${chunkSpeed.toLocaleString()} rows/s | Worker #${workerId}]`
               );
 
@@ -288,7 +288,7 @@ export default function UploadDataPage() {
               break;
             } catch (err: any) {
               lastErr = err;
-              addLog('warn', `⚠️ Batch ${i + 1} attempt ${attempt} delayed. Retrying...`, err?.message || 'Network delay');
+              addLog('warn', `Batch ${i + 1} attempt ${attempt} delayed. Retrying...`, err?.message || 'Network delay');
               console.warn(`Chunk ${i + 1} attempt ${attempt} failed:`, err);
               if (attempt < 3) {
                 await sleep(attempt * 500);
@@ -297,7 +297,7 @@ export default function UploadDataPage() {
           }
 
           if (!success) {
-            addLog('error', `❌ Batch ${i + 1} failed after 3 attempts`, lastErr?.message);
+            addLog('error', `Batch ${i + 1} failed after 3 attempts`, lastErr?.message);
             throw new Error(lastErr?.message || `Failed to stream batch ${i + 1} of ${totalCalculatedChunks}`);
           }
         }
@@ -308,7 +308,7 @@ export default function UploadDataPage() {
 
       // 3. Finalize Dataset Session
       setCurrentStep(4); // Stage 4: Fast Mongo finalize & indexing
-      addLog('info', `🗄️ Rebuilding database indexes & optimizing search filters...`);
+      addLog('info', `Rebuilding database indexes & optimizing search filters...`);
       const finalizeRes = await fetch('/api/data/upload/finalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -317,7 +317,7 @@ export default function UploadDataPage() {
 
       if (!finalizeRes.ok) {
         const errMsg = await parseSafeError(finalizeRes, 'Failed to finalize uploaded dataset');
-        addLog('error', `❌ Finalize error: ${errMsg}`);
+        addLog('error', `Finalize error: ${errMsg}`);
         throw new Error(errMsg);
       }
 
@@ -325,7 +325,7 @@ export default function UploadDataPage() {
 
       setCurrentStep(5); // Stage 5: Ready
       const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      addLog('success', `🎉 Ingestion pipeline completed in ${totalElapsed}s!`, `Total ${rows.length.toLocaleString()} rows indexed successfully.`);
+      addLog('success', `Ingestion pipeline completed in ${totalElapsed}s!`, `Total ${rows.length.toLocaleString()} rows indexed successfully.`);
       await sleep(400);
 
       setUploadResult({
@@ -345,7 +345,7 @@ export default function UploadDataPage() {
       toast.success(summaryMsg);
     } catch (err: any) {
       console.error('Streaming upload error:', err);
-      addLog('error', `❌ Pipeline halted with error`, err?.message);
+      addLog('error', `Pipeline halted with error`, err?.message);
       setUploadStage('error');
       setErrorMessage(err.message || 'Failed to process file');
       toast.error(err.message || 'Upload failed. Please try again.');
@@ -378,13 +378,13 @@ export default function UploadDataPage() {
           />
 
           {/* Smart Merge Feature Highlight */}
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-brand-50/80 to-accent-50/60 dark:from-brand-950/40 dark:to-accent-950/30 border border-brand-200/80 dark:border-brand-900/60 shadow-sm flex items-start gap-3.5">
-            <div className="p-2.5 rounded-xl bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 shrink-0">
+          <div className="p-5 rounded-xl bg-brand-50/60 dark:bg-brand-500/5 border border-brand-200 dark:border-brand-900/50 flex items-start gap-3.5">
+            <div className="p-2.5 rounded-lg bg-brand-100 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400 shrink-0">
               <RefreshCw className="w-4 h-4" />
             </div>
             <div className="space-y-0.5 text-xs">
-              <h4 className="font-bold text-gray-900 dark:text-white">
-                ⚡ High-Speed Micro-Batch Stream Ingestion (Supports 30MB+ & 1M+ Records)
+              <h4 className="font-semibold text-gray-900 dark:text-white">
+                High-Speed Micro-Batch Stream Ingestion (Supports 30MB+ & 1M+ Records)
               </h4>
               <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
                 Large CSV or Excel files are streamed in optimized micro-batches with automatic deduplication, incremental merging, and zero server timeouts. Existing records are updated with missing fields, and new contacts are inserted seamlessly.
@@ -393,43 +393,43 @@ export default function UploadDataPage() {
           </div>
 
           {/* File Format Tips */}
-          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-sm space-y-3">
-            <h4 className="text-xs font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
-              <FileText className="w-3.5 h-3.5 text-brand-600" /> Supported Column Headers & Formats
+          <div className="p-6 rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 shadow-card space-y-3">
+            <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" /> Supported Column Headers & Formats
             </h4>
             <p className="text-xs text-gray-500">
               Your CSV or Excel file can have any column structure. The system automatically detects:
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-1 text-xs">
-              <div className="p-3 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700/60">
-                <span className="font-bold text-gray-800 dark:text-gray-200 block mb-0.5">👤 Name / Nickname</span>
+              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+                <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Name / Nickname</span>
                 <span className="text-gray-500 text-[11px]">name, nickname, full name</span>
               </div>
-              <div className="p-3 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700/60">
-                <span className="font-bold text-gray-800 dark:text-gray-200 block mb-0.5">📞 Phone / Number</span>
+              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+                <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Phone / Number</span>
                 <span className="text-gray-500 text-[11px]">phone, mobile, number, contact</span>
               </div>
-              <div className="p-3 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700/60">
-                <span className="font-bold text-gray-800 dark:text-gray-200 block mb-0.5">✉️ Email Address</span>
+              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+                <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Email Address</span>
                 <span className="text-gray-500 text-[11px]">email, mail (fills missing email)</span>
               </div>
-              <div className="p-3 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700/60">
-                <span className="font-bold text-gray-800 dark:text-gray-200 block mb-0.5">🖼️ Avatar Photo</span>
+              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+                <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Avatar Photo</span>
                 <span className="text-gray-500 text-[11px]">avatar, photo, image URL</span>
               </div>
-              <div className="p-3 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700/60">
-                <span className="font-bold text-gray-800 dark:text-gray-200 block mb-0.5">🎂 Age & Gender</span>
+              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+                <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Age & Gender</span>
                 <span className="text-gray-500 text-[11px]">age, gender, sex</span>
               </div>
-              <div className="p-3 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700/60">
-                <span className="font-bold text-gray-800 dark:text-gray-200 block mb-0.5">📍 Location & Activity</span>
+              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+                <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Location & Activity</span>
                 <span className="text-gray-500 text-[11px]">location, last online, active days</span>
               </div>
             </div>
           </div>
 
           {/* Upload History & Managed Files Section */}
-          <div className="pt-4 border-t border-gray-200/80 dark:border-slate-800">
+          <div className="pt-4 border-t border-gray-200 dark:border-white/10">
             <UploadHistory refreshKey={historyRefreshKey} />
           </div>
         </>
@@ -454,8 +454,8 @@ export default function UploadDataPage() {
 
       {/* Error State */}
       {uploadStage === 'error' && (
-        <div className="text-center py-16 space-y-5 bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 p-8 shadow-card">
-          <div className="mx-auto w-16 h-16 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center">
+        <div className="text-center py-16 space-y-5 bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/10 p-8 shadow-card">
+          <div className="mx-auto w-16 h-16 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
             <AlertCircle className="w-8 h-8" />
           </div>
           <div className="max-w-md mx-auto">
@@ -467,7 +467,7 @@ export default function UploadDataPage() {
           <button
             type="button"
             onClick={handleReset}
-            className="px-6 py-2.5 rounded-xl bg-brand-600 text-white text-xs font-bold hover:bg-brand-700 transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-md"
+            className="px-6 py-2.5 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-card"
           >
             <RefreshCw className="w-4 h-4" /> Try Again
           </button>

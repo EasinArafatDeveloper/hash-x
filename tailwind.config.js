@@ -59,10 +59,13 @@ module.exports = {
         sans: ['Inter', 'Plus Jakarta Sans', 'sans-serif'],
       },
       boxShadow: {
-        card: '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03)',
-        cardHover: '0 10px 25px -5px rgba(var(--brand-glow-rgb, 79, 70, 229), 0.12), 0 8px 10px -6px rgba(var(--brand-glow-rgb, 79, 70, 229), 0.06)',
-        glow: '0 0 25px -3px rgba(var(--brand-glow-rgb, 79, 70, 229), 0.45)',
-        brand: '0 4px 14px 0 rgba(var(--brand-glow-rgb, 79, 70, 229), 0.35)',
+        // Soft, neutral elevation — no colored "glow" shadows. A clean SaaS
+        // surface separates from the page with shadow + a hairline border,
+        // not a brand-colored halo.
+        card: '0 1px 2px 0 rgba(16, 24, 40, 0.04)',
+        cardHover: '0 4px 10px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.05)',
+        glow: '0 1px 2px 0 rgba(16, 24, 40, 0.04)',
+        brand: '0 1px 2px 0 rgba(var(--brand-glow-rgb, 79, 70, 229), 0.20)',
       },
     },
   },

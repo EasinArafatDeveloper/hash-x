@@ -438,12 +438,12 @@ function DataExplorerContent() {
       {/* Top Header Row with Results Count, View Toggle & Save Preset */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-brand-50 dark:bg-brand-950/50 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-900">
+          <div className="p-2.5 rounded-xl bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-900/60">
             <Database className="w-5 h-5" />
           </div>
           <div>
             {isLoading && !data ? (
-              <div className="h-5 bg-gray-200 dark:bg-slate-800 rounded w-48 animate-pulse" />
+              <div className="h-5 bg-gray-100 dark:bg-white/5 rounded w-48 animate-pulse" />
             ) : (
               <h3 className="text-sm font-bold text-gray-900 dark:text-white">
                 <span className="text-brand-600 dark:text-brand-400">
@@ -462,22 +462,26 @@ function DataExplorerContent() {
 
         <div className="flex items-center space-x-2">
           {/* Card / Table View Toggle */}
-          <div className="flex items-center space-x-1 p-1 bg-gray-100 dark:bg-slate-800 rounded-xl">
+          <div className="flex items-center space-x-1 p-1 bg-gray-100 dark:bg-white/5 rounded-lg" role="tablist" aria-label="View mode">
             <button
+              role="tab"
+              aria-selected={viewMode === 'cards'}
               onClick={() => setViewMode('cards')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 viewMode === 'cards'
-                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-sm'
+                  ? 'bg-white dark:bg-[#111113] text-brand-600 dark:text-brand-400 shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" /> Cards
             </button>
             <button
+              role="tab"
+              aria-selected={viewMode === 'table'}
               onClick={() => setViewMode('table')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 viewMode === 'table'
-                  ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-sm'
+                  ? 'bg-white dark:bg-[#111113] text-brand-600 dark:text-brand-400 shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
               }`}
             >
@@ -487,7 +491,7 @@ function DataExplorerContent() {
 
           <button
             onClick={() => setShowSaveModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800 text-xs font-semibold shadow-sm transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-[#111113] text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 text-xs font-semibold transition-colors"
           >
             <Bookmark className="w-4 h-4 text-brand-600 dark:text-brand-400" />
             <span className="hidden sm:inline">Save Preset</span>
@@ -518,7 +522,7 @@ function DataExplorerContent() {
       {/* Empty State */}
       {!isLoading && records.length === 0 && (
         <div className="text-center py-20 space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-gray-100 dark:bg-slate-800 flex items-center justify-center">
+          <div className="mx-auto w-16 h-16 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
             <Database className="w-8 h-8 text-gray-400" />
           </div>
           <div>
@@ -529,7 +533,7 @@ function DataExplorerContent() {
           </div>
           <button
             onClick={handleResetFilters}
-            className="px-5 py-2.5 rounded-xl bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 transition-colors shadow-md shadow-brand-500/20"
+            className="px-5 py-2.5 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 transition-colors shadow-card"
           >
             Reset All Filters
           </button>
@@ -610,9 +614,9 @@ function DataExplorerContent() {
               transition={{ type: 'spring', stiffness: 340, damping: 28 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200/60 dark:border-slate-700/60 p-6 pointer-events-auto space-y-4">
+              <div className="relative w-full max-w-sm bg-white dark:bg-[#111113] rounded-xl shadow-xl border border-gray-200 dark:border-white/10 p-6 pointer-events-auto space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/50 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center shrink-0">
                     <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
                   </div>
                   <div>
@@ -620,7 +624,7 @@ function DataExplorerContent() {
                     <p className="text-[11px] text-gray-500 dark:text-gray-400">এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।</p>
                   </div>
                 </div>
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50">
+                <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-500/5 border border-rose-200 dark:border-rose-900/50">
                   <p className="text-xs font-bold text-rose-800 dark:text-rose-300">{deletingRecord.name}</p>
                   <p className="text-[11px] text-rose-600 dark:text-rose-400 font-mono">{deletingRecord.phone}</p>
                 </div>
@@ -629,7 +633,7 @@ function DataExplorerContent() {
                     type="button"
                     onClick={() => setDeletingRecord(null)}
                     disabled={isDeleting}
-                    className="flex-1 py-2 text-sm font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-slate-800 rounded-xl hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    className="flex-1 py-2 text-sm font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-white/5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
                   >
                     বাতিল
                   </button>
@@ -637,7 +641,7 @@ function DataExplorerContent() {
                     type="button"
                     onClick={handleDeleteConfirm}
                     disabled={isDeleting}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors disabled:opacity-60 active:scale-95"
+                    className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors disabled:opacity-60"
                   >
                     {isDeleting ? (
                       <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
@@ -674,7 +678,7 @@ function DataExplorerContent() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative z-10 w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 shadow-2xl space-y-5"
+              className="relative z-10 w-full max-w-sm bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/10 p-6 shadow-xl space-y-5"
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold text-gray-900 dark:text-white">Save Filter Preset</h3>
@@ -692,19 +696,19 @@ function DataExplorerContent() {
                 value={filterName}
                 onChange={(e) => setFilterName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSaveFilter()}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowSaveModal(false)}
-                  className="w-1/2 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 text-xs font-semibold text-gray-700 dark:text-gray-300"
+                  className="w-1/2 py-2.5 rounded-lg border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveFilter}
                   disabled={isSavingFilter}
-                  className="w-1/2 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-md shadow-brand-600/20 disabled:opacity-60"
+                  className="w-1/2 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-card disabled:opacity-60"
                 >
                   {isSavingFilter ? 'Saving...' : 'Save Preset'}
                 </button>
@@ -723,7 +727,7 @@ export default function DataExplorerPage() {
       fallback={
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 rounded-full border-3 border-purple-600 border-t-transparent animate-spin" />
+            <div className="w-8 h-8 rounded-full border-3 border-brand-600 border-t-transparent animate-spin" />
             <span className="text-xs font-semibold text-gray-500">Loading Data Explorer...</span>
           </div>
         </div>

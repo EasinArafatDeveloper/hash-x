@@ -9,23 +9,18 @@ import {
   X,
   RefreshCw,
   ArrowRight,
-  TrendingUp,
-  DollarSign,
-  Users,
-  ShieldCheck,
   Maximize2,
   Minimize2,
   Trash2,
   Lightbulb,
-  ExternalLink,
-  ChevronRight,
-  MessageSquare,
   Download,
   SlidersHorizontal,
-  Table,
-  CheckCircle2,
-  Copy,
-  Zap,
+  Crown,
+  TrendingUp,
+  MapPin,
+  MessageSquare,
+  Store,
+  Smartphone,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -47,34 +42,34 @@ interface Message {
 
 const STARTER_PROMPTS = [
   {
-    icon: '👑',
+    icon: Crown,
     title: 'টপ ৫ VIP কাস্টমার',
     prompt: 'টপ ৫ জন সর্বোচ্চ স্পেন্ড করা VIP কাস্টমার কারা এবং তাদের অর্ডার হিস্ট্রি কী?',
   },
   {
-    icon: '📊',
+    icon: TrendingUp,
     title: 'জেন্ডার ও স্পেন্ড সামারি',
     prompt: 'আমাদের ডাটার জেন্ডার ব্রেকডাউন এবং মোট লাইফটাইম খরচের সামারি বলো',
   },
   {
-    icon: '📍',
-    title: 'এরিয়া ও ডিস্ট্রিক্ট সেলস',
-    prompt: 'কোন কোন ডিস্ট্রিক্ট ও এরিয়া থেকে সবচেয়ে বেশি কাস্টমার ও অর্ডার এসেছে?',
+    icon: MapPin,
+    title: 'এরিয়া ও ডিস্ট্রিক্ট সেলস',
+    prompt: 'কোন কোন ডিস্ট্রিক্ট ও এরিয়া থেকে সবচেয়ে বেশি কাস্টমার ও অর্ডার এসেছে?',
   },
   {
-    icon: '💬',
-    title: 'হোয়াটসঅ্যাপ অ্যাক্টিভ ইউজার',
-    prompt: 'হোয়াটসঅ্যাপে সক্রিয় কাস্টমার কতজন এবং তাদের মধ্যে VIP ক্রেতার হার কেমন?',
+    icon: MessageSquare,
+    title: 'হোয়াটসঅ্যাপ অ্যাক্টিভ ইউজার',
+    prompt: 'হোয়াটসঅ্যাপে সক্রিয় কাস্টমার কতজন এবং তাদের মধ্যে VIP ক্রেতার হার কেমন?',
   },
   {
-    icon: '🏪',
+    icon: Store,
     title: 'মার্চেন্ট সেলস র‍্যাংকিং',
     prompt: 'BeautyBaaz সহ অন্যান্য মার্চেন্টদের অর্ডারের সংখ্যা ও সেলস কেমন?',
   },
   {
-    icon: '📱',
-    title: 'টেলিকম অপারেটর শেয়ার',
-    prompt: 'Grameenphone, Robi ও Banglalink অপারেটরদের মার্কেট শেয়ার কেমন?',
+    icon: Smartphone,
+    title: 'টেলিকম অপারেটর শেয়ার',
+    prompt: 'Grameenphone, Robi ও Banglalink অপারেটরদের মার্কেট শেয়ার কেমন?',
   },
 ];
 
@@ -139,7 +134,7 @@ export function AIAnalyticsCopilot({
     {
       id: 'welcome-msg',
       role: 'assistant',
-      content: `👋 **হ্যালো! আমি Morpheus AI Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${(liveTotalRecords || initialTotalRecords || 0).toLocaleString()} টি রিয়েল-টাইম কাস্টমার রেকর্ড** লাইভ সংযুক্ত আছে।\n\nযেকোনো ফিল্টার, কাস্টমার অ্যানালাইসিস বা সেলস রিপোর্ট জানতে বাংলায় বা ইংরেজিতে লিখুন!`,
+      content: `**হ্যালো! আমি আপনার AI Copilot।**\n\nআপনার ডাটাবেজের **${(liveTotalRecords || initialTotalRecords || 0).toLocaleString()} টি রিয়েল-টাইম কাস্টমার রেকর্ড** লাইভ সংযুক্ত আছে।\n\nযেকোনো ফিল্টার, কাস্টমার অ্যানালাইসিস বা সেলস রিপোর্ট জানতে বাংলায় বা ইংরেজিতে লিখুন!`,
       isStreaming: false,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
@@ -153,7 +148,7 @@ export function AIAnalyticsCopilot({
           return [
             {
               ...prev[0],
-              content: `👋 **হ্যালো! আমি Morpheus AI Copilot (GPT-4o).**\n\nআপনার ডাটাবেজের **${liveTotalRecords.toLocaleString()} টি রিয়েল-টাইম কাস্টমার রেকর্ড** লাইভ সংযুক্ত আছে।\n\nযেকোনো ফিল্টার, কাস্টমার অ্যানালাইসিস বা সেলস রিপোর্ট জানতে বাংলায় বা ইংরেজিতে লিখুন!`,
+              content: `**হ্যালো! আমি আপনার AI Copilot।**\n\nআপনার ডাটাবেজের **${liveTotalRecords.toLocaleString()} টি রিয়েল-টাইম কাস্টমার রেকর্ড** লাইভ সংযুক্ত আছে।\n\nযেকোনো ফিল্টার, কাস্টমার অ্যানালাইসিস বা সেলস রিপোর্ট জানতে বাংলায় বা ইংরেজিতে লিখুন!`,
             },
           ];
         }
@@ -227,7 +222,7 @@ export function AIAnalyticsCopilot({
         {
           id: `err-${Date.now()}`,
           role: 'assistant',
-          content: '⚠️ দুঃখিত, রিকোয়েস্ট প্রসেস করতে সামান্য সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
+          content: 'দুঃখিত, রিকোয়েস্ট প্রসেস করতে সামান্য সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
           isStreaming: false,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
@@ -275,7 +270,7 @@ export function AIAnalyticsCopilot({
       {
         id: 'reset-msg',
         role: 'assistant',
-        content: '🧹 চ্যাট হিস্ট্রি ক্লিয়ার করা হয়েছে। নতুন কোনো অ্যানালিটিক্স বা ডেটা সম্পর্কে জানতে লিখুন!',
+        content: 'চ্যাট হিস্ট্রি ক্লিয়ার করা হয়েছে। নতুন কোনো অ্যানালিটিক্স বা ডেটা সম্পর্কে জানতে লিখুন!',
         isStreaming: false,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
@@ -289,21 +284,22 @@ export function AIAnalyticsCopilot({
       <AnimatePresence>
         {!isOpen && (
           <motion.button
-            initial={{ scale: 0.8, opacity: 0, y: 20 }}
+            initial={{ scale: 0.9, opacity: 0, y: 12 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.8, opacity: 0, y: 20 }}
+            exit={{ scale: 0.9, opacity: 0, y: 12 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-40 flex items-center gap-3 px-5 py-3.5 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-brand-600 hover:from-purple-700 hover:to-brand-700 text-white shadow-2xl shadow-purple-600/40 border border-white/20 transition-all hover:scale-105 active:scale-95 group cursor-pointer"
+            aria-label="Open AI Copilot"
+            className="fixed bottom-6 right-6 z-40 flex items-center gap-3 px-5 py-3.5 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-card border border-white/10 transition-colors active:scale-95 group cursor-pointer"
           >
             <div className="relative">
-              <Sparkles className="w-5 h-5 animate-pulse" />
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-purple-600 animate-ping" />
+              <Sparkles className="w-5 h-5" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-brand-600" />
             </div>
             <div className="text-left hidden sm:block">
-              <span className="block text-xs font-black tracking-wide uppercase leading-tight">
+              <span className="block text-xs font-bold tracking-wide uppercase leading-tight">
                 AI Data Copilot
               </span>
-              <span className="block text-[10px] text-purple-200 font-medium leading-none">
+              <span className="block text-[10px] text-white/70 font-medium leading-none">
                 Ask anything about dataset
               </span>
             </div>
@@ -321,37 +317,37 @@ export function AIAnalyticsCopilot({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs pointer-events-auto sm:hidden"
+              className="fixed inset-0 bg-gray-900/50 dark:bg-black/60 backdrop-blur-sm pointer-events-auto sm:hidden"
             />
 
             {/* Chatbot Window Container */}
             <motion.div
-              initial={{ opacity: 0, y: 50, scale: 0.96 }}
+              initial={{ opacity: 0, y: 30, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 50, scale: 0.96 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 280 }}
-              className={`pointer-events-auto w-full sm:rounded-3xl bg-white dark:bg-slate-900 border border-purple-200/80 dark:border-purple-900/60 shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ${
+              exit={{ opacity: 0, y: 30, scale: 0.98 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+              className={`pointer-events-auto w-full sm:rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 shadow-xl flex flex-col overflow-hidden transition-all duration-300 ${
                 isExpanded
                   ? 'sm:w-[780px] h-[95vh] sm:h-[88vh]'
                   : 'sm:w-[520px] h-[88vh] sm:h-[700px]'
               }`}
             >
               {/* Header */}
-              <div className="px-5 py-4 bg-gradient-to-r from-purple-700 via-indigo-700 to-brand-700 text-white flex items-center justify-between shadow-md shrink-0">
+              <div className="px-5 py-4 bg-brand-600 text-white flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner">
-                    <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
+                  <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center border border-white/10">
+                    <Sparkles className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold tracking-tight">Morpheus AI Copilot</h3>
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-white/20 text-white border border-white/30 uppercase tracking-wide">
-                        GPT-4o Live
+                      <h3 className="text-sm font-bold tracking-tight">AI Copilot</h3>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/15 text-white border border-white/20 uppercase tracking-wide">
+                        Live
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-[11px] text-purple-100 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span className="text-[11px] text-white/80 font-medium">
                         {liveTotalRecords > 0 ? `${liveTotalRecords.toLocaleString()} records synced` : 'Connecting database...'}
                       </span>
                     </div>
@@ -362,8 +358,9 @@ export function AIAnalyticsCopilot({
                   <button
                     type="button"
                     onClick={handleClearHistory}
+                    aria-label="Clear chat history"
                     title="Clear history"
-                    className="p-1.5 rounded-lg hover:bg-white/15 text-purple-100 hover:text-white transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg hover:bg-white/15 text-white/80 hover:text-white transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -371,8 +368,9 @@ export function AIAnalyticsCopilot({
                   <button
                     type="button"
                     onClick={() => setIsExpanded(!isExpanded)}
+                    aria-label={isExpanded ? 'Collapse' : 'Expand'}
                     title={isExpanded ? 'Collapse' : 'Expand'}
-                    className="p-1.5 rounded-lg hover:bg-white/15 text-purple-100 hover:text-white transition-colors cursor-pointer hidden sm:block"
+                    className="p-1.5 rounded-lg hover:bg-white/15 text-white/80 hover:text-white transition-colors cursor-pointer hidden sm:block"
                   >
                     {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                   </button>
@@ -380,7 +378,8 @@ export function AIAnalyticsCopilot({
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}
-                    className="p-1.5 rounded-lg hover:bg-white/15 text-purple-100 hover:text-white transition-colors cursor-pointer ml-1"
+                    aria-label="Close AI Copilot"
+                    className="p-1.5 rounded-lg hover:bg-white/15 text-white/80 hover:text-white transition-colors cursor-pointer ml-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -388,27 +387,27 @@ export function AIAnalyticsCopilot({
               </div>
 
               {/* Chat Message Scroll Area */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-slate-50/50 dark:bg-slate-950/40">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-gray-50/50 dark:bg-white/[0.02]">
                 {messages.map((msg) => (
                   <motion.div
                     key={msg.id}
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     {msg.role === 'assistant' && (
-                      <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-1">
+                      <div className="w-7 h-7 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0 mt-1">
                         <Bot className="w-4 h-4" />
                       </div>
                     )}
 
-                    <div className={`space-y-3 max-w-[92%] ${msg.role === 'user' ? 'items-end' : 'w-full'}`}>
+                    <div className={`space-y-2 max-w-[92%] ${msg.role === 'user' ? 'items-end' : 'w-full'}`}>
                       {/* Message Bubble with Streaming Typewriter and Markdown Rendering */}
                       <div
-                        className={`p-4 rounded-2xl text-xs sm:text-[13px] leading-relaxed shadow-xs ${
+                        className={`p-4 rounded-xl text-xs sm:text-[13px] leading-relaxed ${
                           msg.role === 'user'
-                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium rounded-tr-xs'
-                            : 'bg-white dark:bg-slate-850 text-gray-800 dark:text-gray-100 border border-gray-200/80 dark:border-slate-800 rounded-tl-xs space-y-3'
+                            ? 'bg-brand-600 text-white font-medium'
+                            : 'bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-white/10 space-y-3'
                         }`}
                       >
                         {msg.role === 'user' ? (
@@ -424,7 +423,7 @@ export function AIAnalyticsCopilot({
                         )}
                       </div>
 
-                      {/* 2 Clean & Compact Action Buttons: Download CSV & Data Explorer View */}
+                      {/* Action Buttons: Download CSV & Data Explorer View */}
                       {msg.role === 'assistant' && !msg.isStreaming && (msg.exportPayload || msg.explorerPath) && (
                         <motion.div
                           initial={{ opacity: 0, y: 4 }}
@@ -435,7 +434,7 @@ export function AIAnalyticsCopilot({
                             <button
                               type="button"
                               onClick={() => handleDownloadCSV(msg.exportPayload, msg.exportLabel)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold transition-colors cursor-pointer"
                             >
                               <Download className="w-3.5 h-3.5" />
                               <span>Download CSV</span>
@@ -449,7 +448,7 @@ export function AIAnalyticsCopilot({
                                 setIsOpen(false);
                                 router.push(msg.explorerPath || '/data/explorer');
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold transition-colors cursor-pointer"
                             >
                               <SlidersHorizontal className="w-3.5 h-3.5" />
                               <span>Data Explorer</span>
@@ -466,7 +465,7 @@ export function AIAnalyticsCopilot({
                     </div>
 
                     {msg.role === 'user' && (
-                      <div className="w-7 h-7 rounded-xl bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-200 flex items-center justify-center shrink-0 shadow-sm mt-1">
+                      <div className="w-7 h-7 rounded-lg bg-gray-200 dark:bg-white/10 text-gray-700 dark:text-gray-200 flex items-center justify-center shrink-0 mt-1">
                         <User className="w-4 h-4" />
                       </div>
                     )}
@@ -478,7 +477,7 @@ export function AIAnalyticsCopilot({
                   <motion.div
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 p-3 rounded-2xl bg-white dark:bg-slate-850 border border-purple-200 dark:border-purple-900/40 w-fit shadow-xs"
+                    className="flex items-center gap-2 text-xs text-brand-600 dark:text-brand-400 p-3 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 w-fit"
                   >
                     <RefreshCw className="w-4 h-4 animate-spin" />
                     <span className="font-semibold">AI অ্যানালিটিক্স ও ফাইল তৈরি করছে...</span>
@@ -490,9 +489,9 @@ export function AIAnalyticsCopilot({
 
               {/* Quick Starter Prompts Ticker */}
               {messages.length <= 2 && (
-                <div className="px-4 py-2 border-t border-purple-100 dark:border-purple-900/40 bg-white/70 dark:bg-slate-900/70 overflow-x-auto scrollbar-none shrink-0">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
-                    💡 দ্রুত জানতে ক্লিক করুন:
+                <div className="px-4 py-2 border-t border-gray-100 dark:border-white/10 bg-white/70 dark:bg-white/[0.02] overflow-x-auto scrollbar-none shrink-0">
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                    <Lightbulb className="w-3 h-3" /> দ্রুত জানতে ক্লিক করুন:
                   </span>
                   <div className="flex gap-1.5">
                     {STARTER_PROMPTS.map((item, idx) => (
@@ -500,9 +499,9 @@ export function AIAnalyticsCopilot({
                         key={idx}
                         type="button"
                         onClick={() => handleSendMessage(item.prompt)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/60 dark:border-purple-800/60 text-purple-900 dark:text-purple-200 text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-brand-50 dark:bg-brand-500/10 hover:bg-brand-100 dark:hover:bg-brand-500/20 border border-brand-200/70 dark:border-brand-900/60 text-brand-800 dark:text-brand-300 text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer"
                       >
-                        <span>{item.icon}</span>
+                        <item.icon className="w-3.5 h-3.5" />
                         <span>{item.title}</span>
                       </button>
                     ))}
@@ -511,7 +510,7 @@ export function AIAnalyticsCopilot({
               )}
 
               {/* Chat Input Bar */}
-              <div className="p-3 sm:p-4 bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 shrink-0">
+              <div className="p-3 sm:p-4 bg-white dark:bg-[#111113] border-t border-gray-200 dark:border-white/10 shrink-0">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -523,14 +522,15 @@ export function AIAnalyticsCopilot({
                     type="text"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="✨ Ask AI: e.g. 'টপ ৫ জন কাস্টমার', 'কেরানীগঞ্জের মোট সেলস'..."
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Ask AI: e.g. 'টপ ৫ জন কাস্টমার', 'কেরানীগঞ্জের মোট সেলস'..."
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
 
                   <button
                     type="submit"
                     disabled={isLoading || !inputMessage.trim()}
-                    className="p-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white transition-all shadow-md shadow-purple-600/30 disabled:opacity-50 cursor-pointer active:scale-95 shrink-0"
+                    aria-label="Send message"
+                    className="p-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white transition-colors disabled:opacity-50 cursor-pointer active:scale-95 shrink-0"
                   >
                     {isLoading ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />
@@ -604,7 +604,7 @@ function StreamingTypewriter({
     <div onClick={handleSkip} className="cursor-pointer select-text">
       <FormattedMarkdownContent content={displayedText} />
       {!isCompleted && (
-        <span className="inline-block w-2 h-4 bg-purple-600 dark:bg-purple-400 animate-pulse ml-0.5 align-middle rounded-xs" />
+        <span className="inline-block w-2 h-4 bg-brand-600 dark:bg-brand-400 animate-pulse ml-0.5 align-middle rounded-sm" />
       )}
     </div>
   );
@@ -648,7 +648,7 @@ function FormattedMarkdownContent({ content }: { content: string }) {
     // Headings
     if (trimmed.startsWith('### ')) {
       renderedElements.push(
-        <h4 key={idx} className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider pt-2">
+        <h4 key={idx} className="text-xs font-bold text-brand-700 dark:text-brand-400 uppercase tracking-wider pt-2">
           {formatInlineMarkdown(trimmed.replace('### ', ''))}
         </h4>
       );
@@ -657,7 +657,7 @@ function FormattedMarkdownContent({ content }: { content: string }) {
 
     if (trimmed.startsWith('## ')) {
       renderedElements.push(
-        <h3 key={idx} className="text-sm font-black text-gray-900 dark:text-white pt-2 border-b border-gray-100 dark:border-slate-800 pb-1">
+        <h3 key={idx} className="text-sm font-bold text-gray-900 dark:text-white pt-2 border-b border-gray-100 dark:border-white/10 pb-1">
           {formatInlineMarkdown(trimmed.replace('## ', ''))}
         </h3>
       );
@@ -668,7 +668,7 @@ function FormattedMarkdownContent({ content }: { content: string }) {
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       renderedElements.push(
         <div key={idx} className="flex items-start gap-2 pl-1 py-0.5">
-          <span className="text-purple-500 font-bold">•</span>
+          <span className="text-brand-500 font-bold">•</span>
           <span className="text-gray-800 dark:text-gray-200">
             {formatInlineMarkdown(trimmed.replace(/^[-*]\s+/, ''))}
           </span>
@@ -679,14 +679,14 @@ function FormattedMarkdownContent({ content }: { content: string }) {
 
     // Dividers
     if (trimmed === '---') {
-      renderedElements.push(<hr key={idx} className="border-gray-200 dark:border-slate-800 my-2" />);
+      renderedElements.push(<hr key={idx} className="border-gray-200 dark:border-white/10 my-2" />);
       return;
     }
 
     // Blockquotes
     if (trimmed.startsWith('> ')) {
       renderedElements.push(
-        <div key={idx} className="p-2.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border-l-3 border-purple-500 text-xs text-purple-900 dark:text-purple-200 italic my-1">
+        <div key={idx} className="p-2.5 rounded-lg bg-brand-50/60 dark:bg-brand-500/5 border-l-2 border-brand-500 text-xs text-brand-900 dark:text-brand-200 italic my-1">
           {formatInlineMarkdown(trimmed.replace('> ', ''))}
         </div>
       );
@@ -726,7 +726,7 @@ function formatInlineMarkdown(text: string): React.ReactNode {
       return (
         <strong
           key={i}
-          className={isAmount ? 'font-black text-emerald-600 dark:text-emerald-400' : 'font-bold text-gray-900 dark:text-white'}
+          className={isAmount ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'font-bold text-gray-900 dark:text-white'}
         >
           {boldText}
         </strong>
@@ -758,20 +758,20 @@ function MarkdownTable({ tableLines }: { tableLines: string[] }) {
   );
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-purple-200/80 dark:border-slate-700 my-2.5 shadow-2xs">
-      <table className="w-full text-left text-[11px] border-collapse bg-white dark:bg-slate-900">
+    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-white/10 my-2.5">
+      <table className="w-full text-left text-[11px] border-collapse bg-white dark:bg-[#111113]">
         <thead>
-          <tr className="bg-purple-100/70 dark:bg-purple-950/60 border-b border-purple-200 dark:border-slate-700">
+          <tr className="bg-gray-50 dark:bg-white/5 border-b border-gray-200 dark:border-white/10">
             {headerCells.map((h, hIdx) => (
-              <th key={hIdx} className="px-3 py-2 font-black text-purple-950 dark:text-purple-200 uppercase tracking-wider whitespace-nowrap">
+              <th key={hIdx} className="px-3 py-2 font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wider whitespace-nowrap">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+        <tbody className="divide-y divide-gray-100 dark:divide-white/5">
           {bodyRows.map((row, rIdx) => (
-            <tr key={rIdx} className="hover:bg-purple-50/50 dark:hover:bg-slate-800/60 transition-colors">
+            <tr key={rIdx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
               {row.map((cell, cIdx) => (
                 <td key={cIdx} className="px-3 py-2 text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">
                   {formatInlineMarkdown(cell)}

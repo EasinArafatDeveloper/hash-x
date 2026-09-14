@@ -24,10 +24,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Global Keyboard Shortcut: Ctrl + J or Cmd + J to toggle AI Executive Copilot
+  // Global Keyboard Shortcut: Ctrl + K or Cmd + K to toggle AI Executive Copilot
+  // (Ctrl+J is reserved by Chrome for the Downloads panel — avoid overriding
+  // browser/system shortcuts.)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'j' || e.key === 'J')) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         setIsAiCopilotOpen((prev) => !prev);
       }

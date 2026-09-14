@@ -24,22 +24,21 @@ export function Pagination({
   const endItem = Math.min(page * limit, total);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-sm text-xs">
-      {/* Showing count text */}
-      <div className="text-gray-500 dark:text-gray-400 font-medium">
-        Showing <span className="font-bold text-gray-900 dark:text-white">{startItem}</span> to{' '}
-        <span className="font-bold text-gray-900 dark:text-white">{endItem}</span> of{' '}
-        <span className="font-bold text-gray-900 dark:text-white">{total.toLocaleString()}</span> records
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 shadow-card text-xs">
+      <div className="text-gray-500 dark:text-gray-400">
+        Showing <span className="font-semibold text-gray-900 dark:text-white">{startItem}</span> to{' '}
+        <span className="font-semibold text-gray-900 dark:text-white">{endItem}</span> of{' '}
+        <span className="font-semibold text-gray-900 dark:text-white">{total.toLocaleString()}</span> records
       </div>
 
-      {/* Center & Right: Page controls and per-page select */}
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-1.5">
-          <span className="text-gray-500">Per page:</span>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1.5">
+          <label htmlFor="page-size" className="text-gray-500 dark:text-gray-400">Per page:</label>
           <select
+            id="page-size"
             value={limit}
             onChange={(e) => onLimitChange(Number(e.target.value))}
-            className="px-2 py-1 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg font-semibold text-gray-800 dark:text-gray-200 focus:outline-none"
+            className="px-2 py-1 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-md font-medium text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
@@ -48,24 +47,25 @@ export function Pagination({
           </select>
         </div>
 
-        {/* Page navigation buttons */}
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => onPageChange(page - 1)}
             disabled={page <= 1}
-            className="p-1.5 rounded-lg border border-gray-200 dark:border-slate-800 hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-600 dark:text-gray-300 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+            aria-label="Previous page"
+            className="p-1.5 rounded-md border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 text-gray-600 dark:text-gray-300 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <span className="px-3 py-1 font-semibold text-gray-900 dark:text-white">
-            Page {page} of {totalPages}
+          <span className="px-3 py-1 font-medium text-gray-900 dark:text-white">
+            Page {page} of {totalPages || 1}
           </span>
 
           <button
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages}
-            className="p-1.5 rounded-lg border border-gray-200 dark:border-slate-800 hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-600 dark:text-gray-300 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+            aria-label="Next page"
+            className="p-1.5 rounded-md border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 text-gray-600 dark:text-gray-300 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
           >
             <ChevronRight className="w-4 h-4" />
           </button>

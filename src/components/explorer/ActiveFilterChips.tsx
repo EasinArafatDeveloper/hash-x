@@ -18,14 +18,11 @@ export function ActiveFilterChips({ filters, onRemoveFilter, onClearAll }: Activ
   }
 
   if (filters.datasetId && filters.datasetId !== 'All') {
-    activeChips.push({
-      key: 'datasetId',
-      label: `📁 File: ${filters.filename || 'Selected File'}`,
-    });
+    activeChips.push({ key: 'datasetId', label: `File: ${filters.filename || 'Selected file'}` });
   }
 
   if (filters.tag && filters.tag !== 'All') {
-    activeChips.push({ key: 'tag', label: `🏷️ Tag: ${filters.tag}` });
+    activeChips.push({ key: 'tag', label: `Tag: ${filters.tag}` });
   }
 
   if (filters.gender && filters.gender !== 'All') {
@@ -43,7 +40,7 @@ export function ActiveFilterChips({ filters, onRemoveFilter, onClearAll }: Activ
   }
 
   if (filters.merchant && filters.merchant !== 'All') {
-    activeChips.push({ key: 'merchant', label: `🏪 Merchant: ${filters.merchant}` });
+    activeChips.push({ key: 'merchant', label: `Merchant: ${filters.merchant}` });
   }
 
   if (filters.minOrderAmount || filters.maxOrderAmount) {
@@ -76,23 +73,24 @@ export function ActiveFilterChips({ filters, onRemoveFilter, onClearAll }: Activ
   if (activeChips.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 pt-1 animate-in fade-in duration-200">
-      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mr-1">
-        Active Filters ({activeChips.length}):
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">
+        Active filters ({activeChips.length}):
       </span>
 
       {activeChips.map((chip) => (
         <span
           key={chip.key}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-900 shadow-sm"
+          className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400"
         >
           {chip.label}
           <button
             type="button"
             onClick={() => onRemoveFilter(chip.key)}
-            className="hover:text-brand-900 dark:hover:text-white p-0.5 rounded-full hover:bg-brand-200/60 transition-colors"
+            aria-label={`Remove filter: ${chip.label}`}
+            className="p-0.5 rounded-full hover:bg-brand-200/60 dark:hover:bg-brand-500/20 transition-colors"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3 h-3" />
           </button>
         </span>
       ))}
@@ -100,9 +98,9 @@ export function ActiveFilterChips({ filters, onRemoveFilter, onClearAll }: Activ
       <button
         type="button"
         onClick={onClearAll}
-        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors"
+        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-md transition-colors"
       >
-        <RotateCcw className="w-3 h-3" /> Clear All
+        <RotateCcw className="w-3 h-3" /> Clear all
       </button>
     </div>
   );

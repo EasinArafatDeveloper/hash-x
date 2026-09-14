@@ -19,7 +19,7 @@ const STATUS_OPTIONS = ['Active', 'Inactive', 'Pending', 'Suspended'];
 function Field({ label, icon: Icon, children }: { label: string; icon?: React.ElementType; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
         {Icon && <Icon className="w-3 h-3" />}
         {label}
       </label>
@@ -29,7 +29,7 @@ function Field({ label, icon: Icon, children }: { label: string; icon?: React.El
 }
 
 const inputCls =
-  'w-full px-3 py-2 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-400 transition-all';
+  'w-full px-3 py-2 text-sm bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-shadow';
 
 export function EditRecordModal({ record, isOpen, onClose, onSaved }: EditRecordModalProps) {
   const [form, setForm] = useState({
@@ -129,25 +129,25 @@ export function EditRecordModal({ record, isOpen, onClose, onSaved }: EditRecord
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-gray-900/50 dark:bg-black/60 backdrop-blur-sm"
           />
 
           {/* Modal */}
           <motion.div
             key="modal"
-            initial={{ opacity: 0, scale: 0.96, y: 20 }}
+            initial={{ opacity: 0, scale: 0.97, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 20 }}
+            exit={{ opacity: 0, scale: 0.97, y: 16 }}
             transition={{ type: 'spring', stiffness: 340, damping: 28 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200/60 dark:border-slate-700/60 pointer-events-auto max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="relative w-full max-w-lg bg-white dark:bg-[#111113] rounded-xl shadow-xl border border-gray-200 dark:border-white/10 pointer-events-auto max-h-[90vh] flex flex-col overflow-hidden">
 
               {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-slate-800 shrink-0 bg-gradient-to-r from-brand-50 to-purple-50 dark:from-brand-950/30 dark:to-purple-950/20">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-white/10 shrink-0">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-600 to-accent-500 flex items-center justify-center">
-                    <User className="w-4 h-4 text-white" />
+                  <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center">
+                    <User className="w-4 h-4 text-brand-600 dark:text-brand-400" />
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-gray-900 dark:text-white">রেকর্ড এডিট করুন</h2>
@@ -157,7 +157,8 @@ export function EditRecordModal({ record, isOpen, onClose, onSaved }: EditRecord
                 <button
                   type="button"
                   onClick={onClose}
-                  className="p-1.5 rounded-xl text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                  aria-label="Close"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -282,7 +283,7 @@ export function EditRecordModal({ record, isOpen, onClose, onSaved }: EditRecord
                 </Field>
 
                 {/* Info note */}
-                <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-900/50">
                   <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <p className="text-[10px] text-amber-700 dark:text-amber-400 leading-relaxed">
                     Custom fields (merchant, address details) এখানে edit করা যাবে না। এগুলো আপলোড করা ফাইলের মূল ডাটা।
@@ -291,12 +292,12 @@ export function EditRecordModal({ record, isOpen, onClose, onSaved }: EditRecord
               </div>
 
               {/* Footer Actions */}
-              <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 shrink-0">
+              <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/[0.02] shrink-0">
                 <button
                   type="button"
                   onClick={onClose}
                   disabled={isSaving}
-                  className="px-4 py-2 text-sm font-semibold text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-semibold text-gray-600 dark:text-gray-300 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
                 >
                   বাতিল
                 </button>
@@ -304,7 +305,7 @@ export function EditRecordModal({ record, isOpen, onClose, onSaved }: EditRecord
                   type="button"
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-gradient-to-r from-brand-600 to-accent-500 hover:from-brand-700 hover:to-accent-600 rounded-xl shadow-md shadow-brand-500/25 transition-all disabled:opacity-60 active:scale-95"
+                  className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-card transition-colors disabled:opacity-60"
                 >
                   {isSaving ? (
                     <>

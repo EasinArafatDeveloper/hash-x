@@ -276,13 +276,12 @@
   }
 
   body {
+    /* Clean, flat surface — no ambient glow blobs. Product content should be
+       the loudest thing on screen, not the background. */
     background-color: var(--bg-main);
-    background-image: 
-      radial-gradient(circle at 15% 15%, var(--bg-ambient-1) 0%, transparent 50%),
-      radial-gradient(circle at 85% 85%, var(--bg-ambient-2) 0%, transparent 50%);
-    background-attachment: fixed;
     color: var(--text-primary);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

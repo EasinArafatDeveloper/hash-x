@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { IRecord } from '@/types';
-import { Phone, MapPin, Calendar, ArrowRight, Tag, Pencil, Trash2 } from 'lucide-react';
+import { Phone, MapPin, Calendar, ArrowRight, Tag, Pencil, Trash2, Store } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface CardViewProps {
@@ -13,25 +13,21 @@ interface CardViewProps {
   isLoading?: boolean;
 }
 
-const STATUS_BADGES: Record<string, { bg: string; text: string; dot: string }> = {
+const STATUS_BADGES: Record<string, { bg: string; dot: string }> = {
   Active: {
-    bg: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900',
-    text: 'Active',
+    bg: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/60',
     dot: 'bg-emerald-500',
   },
   Inactive: {
-    bg: 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-gray-400 border-gray-200 dark:border-slate-700',
-    text: 'Inactive',
+    bg: 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-400 border-gray-200 dark:border-white/10',
     dot: 'bg-gray-400',
   },
   Pending: {
-    bg: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border-amber-200 dark:border-amber-900',
-    text: 'Pending',
+    bg: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border-amber-200 dark:border-amber-900/60',
     dot: 'bg-amber-500',
   },
   Suspended: {
-    bg: 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border-rose-200 dark:border-rose-900',
-    text: 'Suspended',
+    bg: 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border-rose-200 dark:border-rose-900/60',
     dot: 'bg-rose-500',
   },
 };
@@ -74,7 +70,7 @@ function UserAvatar({ record }: { record: IRecord }) {
 
   if (avatarUrl && !imgError) {
     return (
-      <div className="relative w-11 h-11 rounded-xl overflow-hidden shrink-0 ring-2 ring-brand-500/20 bg-gray-100 dark:bg-slate-800">
+      <div className="relative w-11 h-11 rounded-xl overflow-hidden shrink-0 ring-1 ring-gray-200 dark:ring-white/10 bg-gray-100 dark:bg-white/5">
         <img
           src={avatarUrl}
           alt={record.name}
@@ -88,7 +84,7 @@ function UserAvatar({ record }: { record: IRecord }) {
   }
 
   return (
-    <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-500 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-brand-500/20 shrink-0">
+    <div className="w-11 h-11 rounded-xl bg-brand-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
       {initials}
     </div>
   );
@@ -101,18 +97,18 @@ function CardViewComponent({ records, onSelectRecord, onEditRecord, onDeleteReco
         {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={i}
-            className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 animate-pulse space-y-4"
+            className="p-5 rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 animate-pulse space-y-4"
           >
             <div className="flex items-center space-x-3">
-              <div className="w-11 h-11 rounded-xl bg-gray-200 dark:bg-slate-800" />
+              <div className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-white/5" />
               <div className="space-y-1.5 flex-1">
-                <div className="h-4 bg-gray-200 dark:bg-slate-800 rounded w-3/4" />
-                <div className="h-3 bg-gray-200 dark:bg-slate-800 rounded w-1/2" />
+                <div className="h-4 bg-gray-100 dark:bg-white/5 rounded w-3/4" />
+                <div className="h-3 bg-gray-100 dark:bg-white/5 rounded w-1/2" />
               </div>
             </div>
             <div className="space-y-2 pt-2">
-              <div className="h-3 bg-gray-200 dark:bg-slate-800 rounded" />
-              <div className="h-3 bg-gray-200 dark:bg-slate-800 rounded" />
+              <div className="h-3 bg-gray-100 dark:bg-white/5 rounded" />
+              <div className="h-3 bg-gray-100 dark:bg-white/5 rounded" />
             </div>
           </div>
         ))}
@@ -147,10 +143,10 @@ function CardViewComponent({ records, onSelectRecord, onEditRecord, onDeleteReco
         return (
           <motion.div
             key={record._id}
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2, delay: (idx % 12) * 0.03 }}
-            className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800/80 shadow-card hover:shadow-cardHover transition-all duration-200 flex flex-col justify-between group hover:border-purple-300 dark:hover:border-purple-800"
+            transition={{ duration: 0.2, delay: (idx % 12) * 0.02 }}
+            className="p-5 rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 shadow-card hover:shadow-cardHover hover:border-brand-300 dark:hover:border-brand-800/60 transition-all duration-200 flex flex-col justify-between group"
           >
             <div>
               {/* Card Top Row: Avatar Image & Status Badge */}
@@ -158,7 +154,7 @@ function CardViewComponent({ records, onSelectRecord, onEditRecord, onDeleteReco
                 <div className="flex items-center space-x-3 min-w-0">
                   <UserAvatar record={record} />
                   <div className="min-w-0 flex-1">
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                       {record.name}
                     </h4>
                     <p className="text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1 font-mono">
@@ -175,21 +171,21 @@ function CardViewComponent({ records, onSelectRecord, onEditRecord, onDeleteReco
 
               {/* Commercial Metrics Banner (Spend & Orders) */}
               {(spend > 0 || orders > 0 || merchant) && (
-                <div className="mt-3 p-2.5 rounded-2xl bg-gradient-to-r from-emerald-50/90 to-teal-50/60 dark:from-emerald-950/30 dark:to-teal-950/20 border border-emerald-200/70 dark:border-emerald-900/50 flex items-center justify-between gap-2 text-xs">
+                <div className="mt-3 p-2.5 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-200 dark:border-white/10 flex items-center justify-between gap-2 text-xs">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 block tracking-wider">
+                    <span className="text-[10px] uppercase font-semibold text-gray-500 dark:text-gray-400 block tracking-wider">
                       Lifetime Spend
                     </span>
-                    <span className="font-extrabold text-emerald-800 dark:text-emerald-200 font-mono text-xs">
+                    <span className="font-bold text-gray-900 dark:text-gray-100 font-mono text-xs">
                       {spend > 0 ? `৳${spend.toLocaleString()} BDT` : 'N/A'}
                     </span>
                   </div>
 
                   <div className="text-right">
-                    <span className="text-[10px] uppercase font-bold text-teal-700 dark:text-teal-400 block tracking-wider">
+                    <span className="text-[10px] uppercase font-semibold text-gray-500 dark:text-gray-400 block tracking-wider">
                       Orders Placed
                     </span>
-                    <span className="font-bold text-teal-800 dark:text-teal-200 text-xs">
+                    <span className="font-bold text-gray-900 dark:text-gray-100 text-xs">
                       {orders > 0 ? `${orders} orders` : '1 order'}
                     </span>
                   </div>
@@ -209,16 +205,16 @@ function CardViewComponent({ records, onSelectRecord, onEditRecord, onDeleteReco
                       return (
                         <span
                           key={tIdx}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
                             isVip
-                              ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                              ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300 border-amber-200 dark:border-amber-900/60'
                               : isWa
-                              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/60'
                               : isHot
-                              ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                              ? 'bg-rose-50 text-rose-800 dark:bg-rose-500/10 dark:text-rose-300 border-rose-200 dark:border-rose-900/60'
                               : isGeo
-                              ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                              : 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200/80 dark:border-purple-900/60'
+                              ? 'bg-blue-50 text-blue-800 dark:bg-blue-500/10 dark:text-blue-300 border-blue-200 dark:border-blue-900/60'
+                              : 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300 border-brand-200/80 dark:border-brand-900/60'
                           }`}
                         >
                           <Tag className="w-2.5 h-2.5 opacity-75" />
@@ -227,22 +223,22 @@ function CardViewComponent({ records, onSelectRecord, onEditRecord, onDeleteReco
                       );
                     })
                   ) : record.category ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/80 dark:border-purple-900/60">
-                      <Tag className="w-2.5 h-2.5 text-purple-500" />
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300 border border-brand-200/80 dark:border-brand-900/60">
+                      <Tag className="w-2.5 h-2.5" />
                       {record.category}
                     </span>
                   ) : null}
 
                   {merchant && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                      🏪 {merchant}
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/60">
+                      <Store className="w-2.5 h-2.5" /> {merchant}
                     </span>
                   )}
                 </div>
               )}
 
               {/* Data Grid Section */}
-              <div className="mt-3.5 pt-3 border-t border-gray-100 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
+              <div className="mt-3.5 pt-3 border-t border-gray-100 dark:border-white/5 grid grid-cols-2 gap-2 text-xs">
                 <div>
                   <span className="text-gray-400 dark:text-gray-500 font-medium text-[11px]">Gender</span>
                   <p className="font-semibold text-gray-800 dark:text-gray-200">{record.gender || 'Other'}</p>
@@ -266,7 +262,7 @@ function CardViewComponent({ records, onSelectRecord, onEditRecord, onDeleteReco
             </div>
 
             {/* Bottom Card Action */}
-            <div className="mt-4 pt-3 flex items-center justify-between text-xs border-t border-gray-50 dark:border-slate-800/50">
+            <div className="mt-4 pt-3 flex items-center justify-between text-xs border-t border-gray-100 dark:border-white/5">
               <span className="text-[11px] text-gray-400 flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-gray-400" />
                 {record.createdAt ? new Date(record.createdAt).toLocaleDateString() : 'Recent'}
@@ -276,7 +272,8 @@ function CardViewComponent({ records, onSelectRecord, onEditRecord, onDeleteReco
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onEditRecord(record); }}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors"
+                    aria-label={`Edit ${record.name}`}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors"
                     title="Edit"
                   >
                     <Pencil className="w-3.5 h-3.5" />
@@ -286,7 +283,8 @@ function CardViewComponent({ records, onSelectRecord, onEditRecord, onDeleteReco
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onDeleteRecord(record); }}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                    aria-label={`Delete ${record.name}`}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                     title="Delete"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -295,7 +293,7 @@ function CardViewComponent({ records, onSelectRecord, onEditRecord, onDeleteReco
                 <button
                   type="button"
                   onClick={() => onSelectRecord(record)}
-                  className="inline-flex items-center gap-1 font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors cursor-pointer ml-1"
+                  className="inline-flex items-center gap-1 font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors cursor-pointer ml-1"
                 >
                   View <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </button>
