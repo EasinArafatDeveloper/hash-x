@@ -57,6 +57,10 @@ export default function TrashPage() {
   }, [fetchTrash]);
 
   const handleRestoreBatch = async (batch: TrashBatch) => {
+    if (!batch.batchId) {
+      toast.error('This batch is missing an id — click Refresh and try again.');
+      return;
+    }
     setBusyBatchId(batch.batchId);
     try {
       const res = await fetch(`/api/data/trash/batch/${batch.batchId}/restore`, { method: 'POST' });
@@ -73,6 +77,10 @@ export default function TrashPage() {
   };
 
   const handlePurgeBatch = async (batch: TrashBatch) => {
+    if (!batch.batchId) {
+      toast.error('This batch is missing an id — click Refresh and try again.');
+      return;
+    }
     if (!confirm(`Permanently delete all ${batch.count.toLocaleString()} record(s) in "${batch.label || 'this batch'}"? This cannot be undone.`)) {
       return;
     }
@@ -239,6 +247,10 @@ function BatchRecordList({
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!batch.batchId) {
+      setIsLoading(false);
+      return;
+    }
     let cancelled = false;
     setIsLoading(true);
     fetch(`/api/data/trash/batch/${batch.batchId}?limit=100`)

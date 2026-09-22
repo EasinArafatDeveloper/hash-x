@@ -17,6 +17,22 @@ export async function GET(request: NextRequest) {
 
     await connectToDatabase();
 
+    // Self-heal: records soft-deleted before batch tracking existed (or by
+    // any future write path that forgets to set it) have deletionBatchId:
+    // null, which Mongo groups together into one unmanageable bucket. Give
+    // each such record a real batch id — its own datasetId when it has one
+    // (so a whole legacy dataset purge groups back together correctly),
+    // otherwise its own _id (so it stands alone). Idempotent and cheap once
+    // everything is migrated, since it only ever matches null batch ids.
+    await RecordModel.updateMany({ deletedAt: { $ne: null }, deletionBatchId: null }, [
+      {
+        $set: {
+          deletionBatchId: { $ifNull: ['$datasetId', { $toString: '$_id' }] },
+          deletionLabel: { $ifNull: [{ $cond: [{ $eq: ['$deletionLabel', ''] }, null, '$deletionLabel'] }, 'Deleted records'] },
+        },
+      },
+    ]);
+
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10) || 50));
