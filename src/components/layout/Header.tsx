@@ -42,6 +42,10 @@ const PAGE_META: Record<string, { title: string; subtitle: string }> = {
     title: 'Settings',
     subtitle: 'Configure your data preferences and system options.',
   },
+  '/trash': {
+    title: 'Recycle Bin',
+    subtitle: 'Deleted records stay here for 30 days before being permanently purged.',
+  },
 };
 
 const SYSTEM_NOTIFICATIONS = [

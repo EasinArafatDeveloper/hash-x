@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       request.headers.get('x-real-ip') ||
       'anonymous';
 
-    const rl = checkRateLimit(`ai-query:${ip}`, 30, 60000);
+    const rl = await checkRateLimit(`ai-query:${ip}`, 30, 60000);
     if (!rl.allowed) {
       return NextResponse.json(
         { error: 'Too many requests. Please wait a moment before querying AI again.' },

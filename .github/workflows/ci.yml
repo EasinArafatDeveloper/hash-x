@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # Placeholder values only — enough for `next build` to complete
+          # without throwing on a missing required env var. Real secrets
+          # are configured on the actual deployment platform, never here.
+          AUTH_SECRET: ci-build-placeholder-secret-not-for-production
+          MONGODB_URI: mongodb://localhost:27017/ci-build-placeholder
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD: ci-build-placeholder-password

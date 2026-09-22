@@ -265,7 +265,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Error fetching records:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch data records', message: error.message },
+      { error: 'Failed to fetch data records' },
       { status: 500 }
     );
   }
@@ -293,6 +293,7 @@ export async function DELETE() {
       message: 'All datasets, activity, and history cleared successfully. App is 100% fresh.',
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Error resetting database:', error);
+    return NextResponse.json({ error: 'Failed to reset database' }, { status: 500 });
   }
 }

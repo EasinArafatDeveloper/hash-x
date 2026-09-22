@@ -81,22 +81,17 @@ export async function DELETE(request: NextRequest) {
 
     const userName = session?.name || 'Administrator';
 
-    // Delete all records belonging to this dataset
-    const deleteRecordsResult = await RecordModel.deleteMany({
-      $or: [{ datasetId: id }, { datasetId: dataset._id.toString() }],
-    });
+    // Soft delete all records belonging to this dataset — recoverable from
+    // the recycle bin for 30 days instead of destroyed immediately.
+    const deleteRecordsResult = await RecordModel.updateMany(
+      { $or: [{ datasetId: id }, { datasetId: dataset._id.toString() }] },
+      { $set: { deletedAt: new Date() } }
+    );
 
-    const deletedCount = deleteRecordsResult.deletedCount || 0;
+    const deletedCount = deleteRecordsResult.modifiedCount || 0;
 
-    // Delete the dataset entry
+    // Delete the dataset entry (metadata only, not customer data)
     await DatasetModel.findByIdAndDelete(id);
-
-    // If no datasets remain or records were previously un-tagged, ensure state consistency
-    const remainingDatasetsCount = await DatasetModel.countDocuments({});
-    if (remainingDatasetsCount === 0) {
-      // Clear any orphaned records if this was the only dataset
-      const orphanCleanup = await RecordModel.deleteMany({});
-    }
 
     const totalRemainingRecords = await RecordModel.countDocuments({});
 

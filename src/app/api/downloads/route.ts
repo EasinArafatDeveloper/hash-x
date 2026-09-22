@@ -10,6 +10,7 @@ export async function GET() {
     const history = await DownloadHistoryModel.find({}).sort({ createdAt: -1 }).limit(50).lean();
     return NextResponse.json(history);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Downloads history error:', error);
+    return NextResponse.json({ error: 'Failed to fetch download history' }, { status: 500 });
   }
 }

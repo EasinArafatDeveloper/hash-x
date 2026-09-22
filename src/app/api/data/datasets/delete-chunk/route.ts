@@ -28,10 +28,12 @@ export async function POST(request: NextRequest) {
 
     const dataset = await DatasetModel.findById(datasetId);
     if (!dataset) {
-      // Dataset document already gone, ensure no dangling records remain
-      await RecordModel.deleteMany({
-        $or: [{ datasetId: datasetId }, { datasetId: datasetId.toString() }],
-      });
+      // Dataset document already gone, soft-delete any dangling records so
+      // they're still recoverable from the recycle bin.
+      await RecordModel.updateMany(
+        { $or: [{ datasetId: datasetId }, { datasetId: datasetId.toString() }] },
+        { $set: { deletedAt: new Date() } }
+      );
       return NextResponse.json({
         success: true,
         deletedInBatch: 0,
@@ -57,8 +59,10 @@ export async function POST(request: NextRequest) {
 
     if (recordsBatch.length > 0) {
       const ids = recordsBatch.map((r: any) => r._id);
-      const delRes = await RecordModel.deleteMany({ _id: { $in: ids } });
-      deletedInBatch = delRes.deletedCount || ids.length;
+      // Soft delete — moves records to the recycle bin (restorable for 30
+      // days) instead of destroying them immediately.
+      const delRes = await RecordModel.updateMany({ _id: { $in: ids } }, { $set: { deletedAt: new Date() } });
+      deletedInBatch = delRes.modifiedCount || ids.length;
     }
 
     // 2. Count remaining records for this dataset
@@ -72,12 +76,6 @@ export async function POST(request: NextRequest) {
 
       const session = await getSessionUser();
       const userName = session?.name || 'Administrator';
-
-      // Clean up orphaned records if total datasets is 0
-      const totalDatasetsLeft = await DatasetModel.countDocuments({});
-      if (totalDatasetsLeft === 0) {
-        await RecordModel.deleteMany({});
-      }
 
       await ActivityLogModel.create({
         action: 'Dataset Purged',

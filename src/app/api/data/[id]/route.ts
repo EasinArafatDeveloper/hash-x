@@ -79,9 +79,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     }
 
     await connectToDatabase();
-    const record = await RecordModel.findByIdAndDelete(params.id);
+    // Soft delete — moves the record to the recycle bin (restorable for 30
+    // days) instead of destroying it immediately.
+    const record = await RecordModel.findByIdAndUpdate(params.id, { $set: { deletedAt: new Date() } });
     if (!record) return NextResponse.json({ error: 'Record not found' }, { status: 404 });
-    return NextResponse.json({ success: true, message: 'Record deleted' });
+    return NextResponse.json({ success: true, message: 'Record moved to recycle bin' });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

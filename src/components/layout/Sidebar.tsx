@@ -13,10 +13,12 @@ import {
   Settings,
   X,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { UserProfileDropdown } from './UserProfileDropdown';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MorpheusLogo } from '@/components/brand/MorpheusLogo';
+import { useAuth } from '@/components/auth/AuthContext';
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -26,28 +28,31 @@ interface SidebarProps {
   onOpenAiCopilot?: () => void;
 }
 
-const NAV_SECTIONS = [
-  {
-    title: 'Main',
-    items: [
-      { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Data Explorer', href: '/data/explorer', icon: Database },
-      { label: 'Upload Data', href: '/data/upload', icon: UploadCloud },
-    ],
-  },
-  {
-    title: 'Management',
-    items: [
-      { label: 'Saved Filters', href: '/saved-filters', icon: Bookmark },
-      { label: 'Downloads', href: '/downloads', icon: Download },
-      { label: 'Activity', href: '/activity', icon: Activity },
-    ],
-  },
-  {
-    title: 'System',
-    items: [{ label: 'Settings', href: '/settings', icon: Settings }],
-  },
-];
+function getNavSections(isAdmin: boolean) {
+  return [
+    {
+      title: 'Main',
+      items: [
+        { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
+        { label: 'Data Explorer', href: '/data/explorer', icon: Database },
+        { label: 'Upload Data', href: '/data/upload', icon: UploadCloud },
+      ],
+    },
+    {
+      title: 'Management',
+      items: [
+        { label: 'Saved Filters', href: '/saved-filters', icon: Bookmark },
+        { label: 'Downloads', href: '/downloads', icon: Download },
+        { label: 'Activity', href: '/activity', icon: Activity },
+        ...(isAdmin ? [{ label: 'Recycle Bin', href: '/trash', icon: Trash2 }] : []),
+      ],
+    },
+    {
+      title: 'System',
+      items: [{ label: 'Settings', href: '/settings', icon: Settings }],
+    },
+  ];
+}
 
 export function Sidebar({
   mobileOpen = false,
@@ -57,6 +62,8 @@ export function Sidebar({
   onOpenAiCopilot,
 }: SidebarProps) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const navSections = getNavSections(user?.role === 'admin');
 
   const renderContent = (collapsed: boolean) => (
     <div
@@ -96,7 +103,7 @@ export function Sidebar({
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-5 no-scrollbar" aria-label="Primary">
-        {NAV_SECTIONS.map((section) => (
+        {navSections.map((section) => (
           <div key={section.title}>
             {!collapsed && (
               <div className="px-2.5 mb-1.5">

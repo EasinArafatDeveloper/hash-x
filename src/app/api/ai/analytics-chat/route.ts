@@ -385,7 +385,7 @@ async function executeTool(name: string, args: any, sessionUser: UserSession): P
       const matched = await RecordModel.find(query).limit(MAX_MUTATION_MATCH).select('_id name phone').lean();
       if (matched.length === 0) return { matchedCount: 0, filtersUsed: filters };
 
-      const token = createPendingAction(
+      const token = await createPendingAction(
         'update',
         { recordIds: matched.map((m: any) => String(m._id)), fields: setFields },
         sessionUser.id
@@ -411,7 +411,7 @@ async function executeTool(name: string, args: any, sessionUser: UserSession): P
       const matched = await RecordModel.find(query).limit(MAX_MUTATION_MATCH).select('_id name phone').lean();
       if (matched.length === 0) return { matchedCount: 0, filtersUsed: filters };
 
-      const token = createPendingAction(
+      const token = await createPendingAction(
         'tag',
         { recordIds: matched.map((m: any) => String(m._id)), tag, action },
         sessionUser.id
@@ -439,7 +439,7 @@ async function executeTool(name: string, args: any, sessionUser: UserSession): P
       const matched = await RecordModel.find(query).limit(MAX_MUTATION_MATCH).select(`_id name phone ${field}`).lean();
       if (matched.length === 0) return { matchedCount: 0, filtersUsed: filters };
 
-      const token = createPendingAction(
+      const token = await createPendingAction(
         'edit_text',
         { recordIds: matched.map((m: any) => String(m._id)), field, text, mode },
         sessionUser.id
@@ -468,7 +468,7 @@ async function executeTool(name: string, args: any, sessionUser: UserSession): P
       const matched = await RecordModel.find(query).limit(MAX_MUTATION_MATCH).select('_id name phone orderCount orderAmount').lean();
       if (matched.length === 0) return { matchedCount: 0, filtersUsed: filters };
 
-      const token = createPendingAction('delete', { recordIds: matched.map((m: any) => String(m._id)) }, sessionUser.id);
+      const token = await createPendingAction('delete', { recordIds: matched.map((m: any) => String(m._id)) }, sessionUser.id);
       return {
         status: 'confirmation_required',
         token,
@@ -480,7 +480,7 @@ async function executeTool(name: string, args: any, sessionUser: UserSession): P
 
     case 'confirm_pending_action': {
       const token = String(args?.token || '');
-      const staged = consumePendingAction(token, sessionUser.id);
+      const staged = await consumePendingAction(token, sessionUser.id);
       if (!staged) {
         return { error: 'invalid_or_expired_token', message: 'This confirmation has expired or was already used — ask the user to repeat the request.' };
       }
@@ -521,9 +521,11 @@ async function executeTool(name: string, args: any, sessionUser: UserSession): P
         }
         case 'delete': {
           const { recordIds } = staged.payload;
-          const result = await RecordModel.deleteMany({ _id: { $in: recordIds } });
+          // Soft delete — moves records to the recycle bin (restorable by
+          // an admin for 30 days) instead of destroying them immediately.
+          const result = await RecordModel.updateMany({ _id: { $in: recordIds } }, { $set: { deletedAt: new Date() } });
           const totalRemaining = await RecordModel.countDocuments({});
-          return { executed: 'delete', deletedCount: result.deletedCount || 0, totalRemaining };
+          return { executed: 'delete', deletedCount: result.modifiedCount || 0, totalRemaining };
         }
         default:
           return { error: 'unknown_pending_action_type' };
@@ -551,7 +553,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const rl = checkRateLimit(`ai-chat:${sessionUser.id || ip}`, 30, 60000);
+    const rl = await checkRateLimit(`ai-chat:${sessionUser.id || ip}`, 30, 60000);
     if (!rl.allowed) {
       return NextResponse.json(
         { error: 'Too many requests. Please wait a moment before querying AI Copilot again.' },

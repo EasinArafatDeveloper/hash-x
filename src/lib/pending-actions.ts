@@ -1,9 +1,13 @@
 import crypto from 'crypto';
+import connectToDatabase from './db';
+import PendingActionModel from './models/PendingAction';
 
 /**
- * Short-lived server-side store for any dangerous/data-changing action
+ * Short-lived, MongoDB-backed store for any dangerous/data-changing action
  * (delete, update fields, tag changes, text edits) that the AI copilot has
- * only *previewed* so far. The AI model decides *when* to ask for
+ * only *previewed* so far. Backed by the database (rather than an
+ * in-process Map) so a confirmation staged on one server instance can be
+ * confirmed by another. The AI model decides *when* to ask for
  * confirmation and *when* the user has confirmed, but the actual write only
  * ever runs against the exact payload captured at preview time, under the
  * token issued here — the model's own judgement (or a hallucinated value)
@@ -11,48 +15,45 @@ import crypto from 'crypto';
  */
 export type PendingActionType = 'delete' | 'update' | 'tag' | 'edit_text';
 
-interface PendingAction {
-  type: PendingActionType;
-  payload: any;
-  createdBy: string;
-  expiresAt: number;
-}
-
-const store = new Map<string, PendingAction>();
-
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [token, action] of store.entries()) {
-      if (action.expiresAt < now) store.delete(token);
-    }
-  }, 60 * 1000);
-}
-
-export function createPendingAction(type: PendingActionType, payload: any, createdBy: string): string {
+export async function createPendingAction(
+  type: PendingActionType,
+  payload: any,
+  createdBy: string
+): Promise<string> {
+  await connectToDatabase();
   const token = crypto.randomBytes(12).toString('hex');
-  store.set(token, { type, payload, createdBy, expiresAt: Date.now() + TTL_MS });
+  await PendingActionModel.create({
+    token,
+    type,
+    payload,
+    createdBy,
+    expiresAt: new Date(Date.now() + TTL_MS),
+  });
   return token;
 }
 
 /**
- * Validates and burns a pending action token. Returns the staged action, or
- * null if the token is missing, expired, or belongs to a different user
- * than the one confirming it.
+ * Validates and atomically consumes (deletes) a pending action token.
+ * Returns the staged action, or null if the token is missing, expired, or
+ * belongs to a different user than the one confirming it. Using
+ * findOneAndDelete makes this safe against a token being confirmed twice
+ * concurrently — only one caller can ever win the delete.
  */
-export function consumePendingAction(
+export async function consumePendingAction(
   token: string,
   confirmingUser: string
-): { type: PendingActionType; payload: any } | null {
-  const action = store.get(token);
-  if (!action) return null;
-  if (action.expiresAt < Date.now()) {
-    store.delete(token);
-    return null;
-  }
-  if (action.createdBy !== confirmingUser) return null;
-  store.delete(token);
-  return { type: action.type, payload: action.payload };
+): Promise<{ type: PendingActionType; payload: any } | null> {
+  if (!token) return null;
+  await connectToDatabase();
+
+  const doc = await PendingActionModel.findOneAndDelete({
+    token,
+    createdBy: confirmingUser,
+    expiresAt: { $gt: new Date() },
+  }).lean();
+
+  if (!doc) return null;
+  return { type: (doc as any).type, payload: (doc as any).payload };
 }

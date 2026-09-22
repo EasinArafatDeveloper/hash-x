@@ -241,7 +241,7 @@ export async function GET() {
   } catch (error: any) {
     console.error('Stats error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch dataset statistics', message: error.message },
+      { error: 'Failed to fetch dataset statistics' },
       { status: 500 }
     );
   }
