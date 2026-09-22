@@ -30,8 +30,9 @@ export function UserProfileDropdown({ isCollapsed = false }: UserProfileDropdown
   };
 
   const avatar = (
-    <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-semibold text-xs shrink-0">
+    <div className="relative w-8 h-8 rounded-lg bg-gradient-brand shadow-brand flex items-center justify-center text-white font-semibold text-xs shrink-0">
       {initials}
+      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-white dark:ring-[#0A0A0B]" aria-hidden="true" />
     </div>
   );
 

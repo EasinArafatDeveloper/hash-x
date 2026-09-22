@@ -26,7 +26,7 @@ export function MorpheusLogo({
   return (
     <div className={`flex items-center select-none ${className}`}>
       {/* Clean flat brand mark — icon only, no wordmark */}
-      <div className={`relative ${iconSizes[size]} shrink-0 flex items-center justify-center rounded-xl bg-brand-600`}>
+      <div className={`relative ${iconSizes[size]} shrink-0 flex items-center justify-center rounded-xl bg-gradient-brand shadow-brand`}>
         <svg
           viewBox="0 0 40 40"
           fill="none"

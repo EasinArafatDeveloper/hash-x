@@ -12,7 +12,7 @@ import {
   Activity,
   Settings,
   X,
-  Bot,
+  Sparkles,
 } from 'lucide-react';
 import { UserProfileDropdown } from './UserProfileDropdown';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -63,12 +63,13 @@ export function Sidebar({
       className={`flex flex-col h-full
         bg-white dark:bg-[#0A0A0B]
         border-r border-gray-200 dark:border-white/10
+        shadow-card
         transition-all duration-200 ease-in-out
         ${collapsed ? 'w-[68px]' : 'w-[248px]'}`}
     >
       {/* Brand header */}
       <div
-        className={`h-14 flex items-center shrink-0 border-b border-gray-100 dark:border-white/[0.06]
+        className={`h-14 flex items-center shrink-0 border-b border-gray-100 dark:border-white/[0.06] bg-gradient-brand-subtle dark:bg-gradient-brand-subtle-dark
         ${collapsed ? 'justify-center px-2' : 'px-4'}`}
       >
         <Link
@@ -99,7 +100,7 @@ export function Sidebar({
           <div key={section.title}>
             {!collapsed && (
               <div className="px-2.5 mb-1.5">
-                <span className="text-[11px] font-semibold text-gray-400 dark:text-white/35 uppercase tracking-wide">
+                <span className="text-[10.5px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-wider">
                   {section.title}
                 </span>
               </div>
@@ -120,18 +121,21 @@ export function Sidebar({
                       onClick={onMobileClose}
                       aria-current={isActive ? 'page' : undefined}
                       aria-label={collapsed ? item.label : undefined}
-                      className={`relative flex items-center gap-3 rounded-lg text-[13px] font-medium
-                        transition-colors duration-150 outline-none
+                      className={`relative flex items-center gap-3 rounded-xl text-[13px] font-medium
+                        transition-all duration-150 outline-none
                         focus-visible:ring-2 focus-visible:ring-brand-500
                         ${collapsed ? 'justify-center p-2.5' : 'px-2.5 py-2'}
                         ${
                           isActive
-                            ? 'bg-brand-50 dark:bg-white/[0.08] text-brand-700 dark:text-white'
-                            : 'text-gray-500 dark:text-white/55 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/[0.05]'
+                            ? 'bg-gradient-brand text-white shadow-brand'
+                            : 'text-gray-500 dark:text-white/55 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/[0.05] hover:translate-x-0.5'
                         }`}
                     >
-                      <Icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-brand-600 dark:text-white' : 'text-gray-400 dark:text-white/40'}`} />
+                      <Icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-white' : 'text-gray-400 dark:text-white/40'}`} />
                       {!collapsed && <span className="truncate">{item.label}</span>}
+                      {isActive && !collapsed && (
+                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/80" aria-hidden="true" />
+                      )}
                     </Link>
 
                     {/* Collapsed tooltip — shown on hover AND keyboard focus */}
@@ -164,19 +168,22 @@ export function Sidebar({
           }}
           aria-label="Open AI Copilot (Ctrl+K)"
           title={collapsed ? 'AI Copilot' : undefined}
-          className={`w-full flex items-center rounded-lg transition-colors
-            bg-gray-50 dark:bg-white/[0.05]
-            border border-gray-200 dark:border-white/10
-            hover:bg-gray-100 dark:hover:bg-white/[0.08]
+          className={`group w-full flex items-center rounded-xl transition-all
+            bg-gradient-brand-subtle dark:bg-gradient-brand-subtle-dark
+            border border-brand-200/70 dark:border-brand-800/60
+            hover:shadow-brand hover:border-brand-300 dark:hover:border-brand-700
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
             ${collapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2.5'}`}
         >
-          <Bot className="w-[18px] h-[18px] text-brand-600 dark:text-brand-400 shrink-0" />
+          <span className="relative shrink-0 flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-brand text-white">
+            <Sparkles className="w-[15px] h-[15px]" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-white dark:ring-[#0A0A0B] glow-pulse" aria-hidden="true" />
+          </span>
           {!collapsed && (
             <div className="text-left flex-1 min-w-0">
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[13px] font-medium text-gray-800 dark:text-gray-100">AI Copilot</span>
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-200/80 dark:bg-white/10 text-gray-500 dark:text-gray-400">
+                <span className="text-[13px] font-semibold text-brand-700 dark:text-white">AI Copilot</span>
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/70 dark:bg-white/10 text-brand-600 dark:text-brand-300">
                   Ctrl+K
                 </span>
               </div>

@@ -30,6 +30,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  type?: 'chat' | 'data_query' | 'action_result';
   isStreaming?: boolean;
   exportPayload?: any;
   exportLabel?: string;
@@ -201,6 +202,7 @@ export function AIAnalyticsCopilot({
           id: `ai-${Date.now()}`,
           role: 'assistant',
           content: data.result.reply || 'Here is the analysis based on your live dataset.',
+          type: data.result.type,
           isStreaming: true, // Start typewriter streaming
           exportPayload: data.result.exportPayload,
           exportLabel: data.result.exportLabel,
@@ -289,11 +291,11 @@ export function AIAnalyticsCopilot({
             exit={{ scale: 0.9, opacity: 0, y: 12 }}
             onClick={() => setIsOpen(true)}
             aria-label="Open AI Copilot"
-            className="fixed bottom-6 right-6 z-40 flex items-center gap-3 px-5 py-3.5 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-card border border-white/10 transition-colors active:scale-95 group cursor-pointer"
+            className="fixed bottom-6 right-6 z-40 flex items-center gap-3 px-5 py-3.5 rounded-full bg-gradient-brand hover:shadow-cardHover text-white shadow-brand border border-white/10 transition-all active:scale-95 group cursor-pointer"
           >
             <div className="relative">
               <Sparkles className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-brand-600" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-brand-600 glow-pulse" />
             </div>
             <div className="text-left hidden sm:block">
               <span className="block text-xs font-bold tracking-wide uppercase leading-tight">
@@ -326,17 +328,18 @@ export function AIAnalyticsCopilot({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 30, scale: 0.98 }}
               transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-              className={`pointer-events-auto w-full sm:rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 shadow-xl flex flex-col overflow-hidden transition-all duration-300 ${
+              className={`pointer-events-auto w-full sm:rounded-2xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 shadow-xl flex flex-col overflow-hidden transition-all duration-300 ${
                 isExpanded
                   ? 'sm:w-[780px] h-[95vh] sm:h-[88vh]'
                   : 'sm:w-[520px] h-[88vh] sm:h-[700px]'
               }`}
             >
               {/* Header */}
-              <div className="px-5 py-4 bg-brand-600 text-white flex items-center justify-between shrink-0">
+              <div className="px-5 py-4 bg-gradient-brand text-white flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center border border-white/10">
+                  <div className="relative w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center border border-white/10">
                     <Sparkles className="w-5 h-5" />
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-brand-600 glow-pulse" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
@@ -396,7 +399,7 @@ export function AIAnalyticsCopilot({
                     className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     {msg.role === 'assistant' && (
-                      <div className="w-7 h-7 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0 mt-1">
+                      <div className="w-7 h-7 rounded-lg bg-gradient-brand shadow-brand text-white flex items-center justify-center shrink-0 mt-1">
                         <Bot className="w-4 h-4" />
                       </div>
                     )}
@@ -406,8 +409,10 @@ export function AIAnalyticsCopilot({
                       <div
                         className={`p-4 rounded-xl text-xs sm:text-[13px] leading-relaxed ${
                           msg.role === 'user'
-                            ? 'bg-brand-600 text-white font-medium'
-                            : 'bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-white/10 space-y-3'
+                            ? 'bg-gradient-brand text-white font-medium shadow-brand'
+                            : msg.type === 'action_result'
+                            ? 'bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 border border-emerald-200 dark:border-emerald-900/50 border-l-2 border-l-emerald-500 shadow-card space-y-3'
+                            : 'bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-white/10 shadow-card space-y-3'
                         }`}
                       >
                         {msg.role === 'user' ? (
@@ -480,7 +485,7 @@ export function AIAnalyticsCopilot({
                     className="flex items-center gap-2 text-xs text-brand-600 dark:text-brand-400 p-3 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 w-fit"
                   >
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span className="font-semibold">AI অ্যানালিটিক্স ও ফাইল তৈরি করছে...</span>
+                    <span className="font-semibold">AI ভাবছে...</span>
                   </motion.div>
                 )}
 
@@ -499,7 +504,7 @@ export function AIAnalyticsCopilot({
                         key={idx}
                         type="button"
                         onClick={() => handleSendMessage(item.prompt)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-brand-50 dark:bg-brand-500/10 hover:bg-brand-100 dark:hover:bg-brand-500/20 border border-brand-200/70 dark:border-brand-900/60 text-brand-800 dark:text-brand-300 text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-brand-subtle dark:bg-gradient-brand-subtle-dark hover:shadow-brand border border-brand-200/70 dark:border-brand-900/60 text-brand-800 dark:text-brand-300 text-[11px] font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer"
                       >
                         <item.icon className="w-3.5 h-3.5" />
                         <span>{item.title}</span>
@@ -530,7 +535,7 @@ export function AIAnalyticsCopilot({
                     type="submit"
                     disabled={isLoading || !inputMessage.trim()}
                     aria-label="Send message"
-                    className="p-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white transition-colors disabled:opacity-50 cursor-pointer active:scale-95 shrink-0"
+                    className="p-2.5 rounded-lg bg-gradient-brand shadow-brand text-white transition-all disabled:opacity-50 cursor-pointer active:scale-95 shrink-0"
                   >
                     {isLoading ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />

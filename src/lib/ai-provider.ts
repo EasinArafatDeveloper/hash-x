@@ -39,8 +39,28 @@ export function getActiveAIConfig(preferredModel?: string): AIProviderConfig {
 }
 
 export interface CallAIMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | null;
+  tool_call_id?: string;
+  tool_calls?: AIToolCall[];
+}
+
+export interface AIToolDefinition {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, any>;
+  };
+}
+
+export interface AIToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
 }
 
 export interface CallAIOptions {
@@ -50,6 +70,15 @@ export interface CallAIOptions {
   temperature?: number;
   maxTokens?: number;
   timeoutMs?: number;
+  tools?: AIToolDefinition[];
+  toolChoice?: 'auto' | 'none' | 'required';
+}
+
+export interface CallAIResult {
+  content: string;
+  toolCalls: AIToolCall[];
+  provider: string;
+  model: string;
 }
 
 export async function callAIModel({
@@ -58,8 +87,10 @@ export async function callAIModel({
   jsonMode = true,
   temperature = 0.2,
   maxTokens = 2000,
-  timeoutMs = 15000,
-}: CallAIOptions): Promise<{ content: string; provider: string; model: string }> {
+  timeoutMs = 20000,
+  tools,
+  toolChoice = 'auto',
+}: CallAIOptions): Promise<CallAIResult> {
   const config = getActiveAIConfig(preferredModel);
 
   if (config.provider === 'fallback' || !config.apiKey) {
@@ -77,8 +108,16 @@ export async function callAIModel({
       max_tokens: maxTokens,
     };
 
-    if (jsonMode) {
+    // JSON mode and tool-calling are mutually exclusive on the Chat Completions
+    // API in practice (a tool-calling turn returns tool_calls, not JSON content) —
+    // only force json_object formatting on turns that aren't offering tools.
+    if (jsonMode && !tools?.length) {
       requestBody.response_format = { type: 'json_object' };
+    }
+
+    if (tools && tools.length > 0) {
+      requestBody.tools = tools;
+      requestBody.tool_choice = toolChoice;
     }
 
     const res = await fetch(config.apiUrl, {
@@ -99,10 +138,11 @@ export async function callAIModel({
     }
 
     const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content || '';
+    const message = data?.choices?.[0]?.message || {};
 
     return {
-      content,
+      content: message.content || '',
+      toolCalls: Array.isArray(message.tool_calls) ? message.tool_calls : [],
       provider: 'openai',
       model: config.model,
     };
