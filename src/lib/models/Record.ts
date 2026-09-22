@@ -23,6 +23,8 @@ export interface IRecordDocument extends Document {
   customFields?: Map<string, any>;
   datasetId?: string;
   deletedAt?: Date | null;
+  deletionBatchId?: string | null;
+  deletionLabel?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,6 +56,12 @@ const RecordSchema: Schema = new Schema(
     // is hidden from every normal read path (explorer, export, stats, AI
     // search) but stays recoverable until the TTL index below purges it.
     deletedAt: { type: Date, default: null },
+    // Groups records deleted together in the same operation (a dataset
+    // delete/purge, an AI copilot bulk delete, a single manual delete) so
+    // the recycle bin can offer "restore/purge all N of these at once"
+    // instead of forcing one click per record.
+    deletionBatchId: { type: String, default: null, index: true },
+    deletionLabel: { type: String, default: '' },
   },
   {
     timestamps: true,

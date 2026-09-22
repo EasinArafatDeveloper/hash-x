@@ -6,6 +6,7 @@ import { getSessionUser } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 
 // GET single record
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -80,8 +81,17 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 
     await connectToDatabase();
     // Soft delete — moves the record to the recycle bin (restorable for 30
-    // days) instead of destroying it immediately.
-    const record = await RecordModel.findByIdAndUpdate(params.id, { $set: { deletedAt: new Date() } });
+    // days) instead of destroying it immediately. Each single delete gets
+    // its own batch id so the recycle bin can still group/restore it like
+    // any other deletion.
+    const existing = await RecordModel.findById(params.id).select('name phone').lean();
+    if (!existing) return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+
+    const batchId = crypto.randomBytes(8).toString('hex');
+    const label = `Manual delete: ${(existing as any).name || (existing as any).phone || 'record'}`;
+    const record = await RecordModel.findByIdAndUpdate(params.id, {
+      $set: { deletedAt: new Date(), deletionBatchId: batchId, deletionLabel: label },
+    });
     if (!record) return NextResponse.json({ error: 'Record not found' }, { status: 404 });
     return NextResponse.json({ success: true, message: 'Record moved to recycle bin' });
   } catch (error: any) {

@@ -8,6 +8,7 @@ import { getSessionUser } from '@/lib/auth';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { createPendingAction, consumePendingAction } from '@/lib/pending-actions';
 import type { UserSession } from '@/types';
+import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -523,7 +524,19 @@ async function executeTool(name: string, args: any, sessionUser: UserSession): P
           const { recordIds } = staged.payload;
           // Soft delete — moves records to the recycle bin (restorable by
           // an admin for 30 days) instead of destroying them immediately.
-          const result = await RecordModel.updateMany({ _id: { $in: recordIds } }, { $set: { deletedAt: new Date() } });
+          // All records from this one confirmed action share a batch id so
+          // they can be restored/purged together as a single unit.
+          const batchId = crypto.randomBytes(8).toString('hex');
+          const result = await RecordModel.updateMany(
+            { _id: { $in: recordIds } },
+            {
+              $set: {
+                deletedAt: new Date(),
+                deletionBatchId: batchId,
+                deletionLabel: `AI Copilot delete (${recordIds.length} record${recordIds.length === 1 ? '' : 's'})`,
+              },
+            }
+          );
           const totalRemaining = await RecordModel.countDocuments({});
           return { executed: 'delete', deletedCount: result.modifiedCount || 0, totalRemaining };
         }

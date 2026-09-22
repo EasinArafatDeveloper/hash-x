@@ -23,7 +23,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
     const record = await RecordModel.findOneAndUpdate(
       { _id: params.id, deletedAt: { $ne: null } },
-      { $set: { deletedAt: null } },
+      { $set: { deletedAt: null, deletionBatchId: null, deletionLabel: '' } },
       { new: true }
     ).setOptions({ includeSoftDeleted: true });
 

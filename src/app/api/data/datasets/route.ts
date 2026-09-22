@@ -82,15 +82,19 @@ export async function DELETE(request: NextRequest) {
     const userName = session?.name || 'Administrator';
 
     // Soft delete all records belonging to this dataset — recoverable from
-    // the recycle bin for 30 days instead of destroyed immediately.
+    // the recycle bin for 30 days instead of destroyed immediately. The
+    // dataset's own id is reused as the batch id so the whole file can be
+    // restored/purged together as one unit instead of record-by-record.
+    const batchId = dataset._id.toString();
     const deleteRecordsResult = await RecordModel.updateMany(
-      { $or: [{ datasetId: id }, { datasetId: dataset._id.toString() }] },
-      { $set: { deletedAt: new Date() } }
+      { $or: [{ datasetId: id }, { datasetId: batchId }] },
+      { $set: { deletedAt: new Date(), deletionBatchId: batchId, deletionLabel: dataset.filename } }
     );
 
     const deletedCount = deleteRecordsResult.modifiedCount || 0;
 
-    // Delete the dataset entry (metadata only, not customer data)
+    // Delete the dataset entry (metadata only, not customer data) — it is
+    // recreated automatically if the batch is ever restored from the bin.
     await DatasetModel.findByIdAndDelete(id);
 
     const totalRemainingRecords = await RecordModel.countDocuments({});
@@ -98,7 +102,7 @@ export async function DELETE(request: NextRequest) {
     // Log Activity
     await ActivityLogModel.create({
       action: 'Dataset Deleted',
-      description: `Permanently deleted dataset "${dataset.filename}" and removed ${deletedCount.toLocaleString()} associated records`,
+      description: `Moved dataset "${dataset.filename}" and ${deletedCount.toLocaleString()} associated records to the recycle bin`,
       user: userName,
       type: 'upload',
     });
@@ -108,7 +112,7 @@ export async function DELETE(request: NextRequest) {
       deletedDataset: dataset.filename,
       deletedRecordsCount: deletedCount,
       totalRemainingRecords,
-      message: `File "${dataset.filename}" and ${deletedCount.toLocaleString()} associated records deleted successfully.`,
+      message: `File "${dataset.filename}" and ${deletedCount.toLocaleString()} associated records moved to the recycle bin.`,
     });
   } catch (error: any) {
     console.error('Error deleting dataset:', error);

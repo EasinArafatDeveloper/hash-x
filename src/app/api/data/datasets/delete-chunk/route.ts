@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       // they're still recoverable from the recycle bin.
       await RecordModel.updateMany(
         { $or: [{ datasetId: datasetId }, { datasetId: datasetId.toString() }] },
-        { $set: { deletedAt: new Date() } }
+        { $set: { deletedAt: new Date(), deletionBatchId: String(datasetId), deletionLabel: 'Deleted dataset' } }
       );
       return NextResponse.json({
         success: true,
@@ -60,8 +60,13 @@ export async function POST(request: NextRequest) {
     if (recordsBatch.length > 0) {
       const ids = recordsBatch.map((r: any) => r._id);
       // Soft delete — moves records to the recycle bin (restorable for 30
-      // days) instead of destroying them immediately.
-      const delRes = await RecordModel.updateMany({ _id: { $in: ids } }, { $set: { deletedAt: new Date() } });
+      // days) instead of destroying them immediately. The dataset's own id
+      // is reused as the batch id across every chunk call for this purge,
+      // so the whole file restores/purges together as one unit.
+      const delRes = await RecordModel.updateMany(
+        { _id: { $in: ids } },
+        { $set: { deletedAt: new Date(), deletionBatchId: dataset._id.toString(), deletionLabel: dataset.filename } }
+      );
       deletedInBatch = delRes.modifiedCount || ids.length;
     }
 
@@ -79,7 +84,7 @@ export async function POST(request: NextRequest) {
 
       await ActivityLogModel.create({
         action: 'Dataset Purged',
-        description: `Permanently deleted dataset "${dataset.filename}" and purged all associated records`,
+        description: `Moved dataset "${dataset.filename}" and all its records to the recycle bin`,
         user: userName,
         type: 'upload',
       });
@@ -92,8 +97,8 @@ export async function POST(request: NextRequest) {
       isCompleted,
       filename: dataset.filename,
       message: isCompleted
-        ? `Dataset "${dataset.filename}" and its records were completely purged.`
-        : `Purged batch of ${deletedInBatch.toLocaleString()} records. ${remainingRecords.toLocaleString()} remaining.`,
+        ? `Dataset "${dataset.filename}" and its records were moved to the recycle bin.`
+        : `Moved batch of ${deletedInBatch.toLocaleString()} records to the recycle bin. ${remainingRecords.toLocaleString()} remaining.`,
     });
   } catch (error: any) {
     console.error('Error in delete-chunk:', error);
