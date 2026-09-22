@@ -58,6 +58,14 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const session = await getSessionUser();
+    if (!session || session.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Only administrators can delete a dataset.' },
+        { status: 403 }
+      );
+    }
+
     await connectToDatabase();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -71,7 +79,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Dataset not found' }, { status: 404 });
     }
 
-    const session = await getSessionUser();
     const userName = session?.name || 'Administrator';
 
     // Delete all records belonging to this dataset

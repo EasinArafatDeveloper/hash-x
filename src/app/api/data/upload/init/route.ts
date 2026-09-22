@@ -9,10 +9,24 @@ export async function POST(request: NextRequest) {
   try {
     await connectToDatabase();
 
+    const session = await getSessionUser();
+    if (!session || session.role === 'viewer') {
+      return NextResponse.json(
+        { error: 'You do not have permission to upload datasets.' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { filename, fileSize, totalRows = 0, totalFields = 18 } = body || {};
 
-    const session = await getSessionUser();
+    if (totalRows > 500000) {
+      return NextResponse.json(
+        { error: 'Maximum allowed dataset size is 500,000 rows per file.' },
+        { status: 400 }
+      );
+    }
+
     const uploaderName = session?.name || session?.username || 'Administrator';
 
     const dataset = await DatasetModel.create({

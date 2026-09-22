@@ -5,10 +5,27 @@ import { buildPhonePrefixRegex } from '@/lib/phone';
 
 import { callAIModel } from '@/lib/ai-provider';
 
+import { checkRateLimit } from '@/lib/rate-limit';
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') ||
+      'anonymous';
+
+    const rl = checkRateLimit(`ai-query:${ip}`, 30, 60000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a moment before querying AI again.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil(rl.resetMs / 1000)) },
+        }
+      );
+    }
     const body = await request.json();
     const { prompt = '', messages = [], availableTags = [], availableDatasets = [] } = body || {};
 

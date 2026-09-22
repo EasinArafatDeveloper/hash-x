@@ -70,12 +70,20 @@ export function RecordDetailDrawer({ record, onClose }: RecordDetailDrawerProps)
 
   if (!mounted || !record) return null;
 
-  const avatarUrl =
-    record.avatarBase64 && record.avatarBase64.startsWith('data:image/')
+  const hasAvatarData = Boolean(
+    (record.avatarBase64 && record.avatarBase64.startsWith('data:image/')) ||
+    (record.avatarUrl && (record.avatarUrl.startsWith('http://') || record.avatarUrl.startsWith('https://') || record.avatarUrl.startsWith('data:image/'))) ||
+    (record.avatarType && record.avatarType.startsWith('http')) ||
+    (record.avatarType === 'With Avatar')
+  );
+
+  const avatarUrl = hasAvatarData
+    ? (record.avatarBase64 && record.avatarBase64.startsWith('data:image/'))
       ? record.avatarBase64
       : record._id
       ? `/api/avatar/${record._id}`
-      : record.avatarUrl || (record.avatarType?.startsWith('http') ? record.avatarType : '');
+      : record.avatarUrl || (record.avatarType?.startsWith('http') ? record.avatarType : '')
+    : '';
 
   const initials = record.name
     ? record.name

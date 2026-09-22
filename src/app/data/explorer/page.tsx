@@ -17,6 +17,8 @@ import { EditRecordModal } from '@/components/explorer/EditRecordModal';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { useAuth } from '@/components/auth/AuthContext';
+
 const DEFAULT_FILTERS: FilterQueryState = {
   search: '',
   datasetId: 'All',
@@ -26,6 +28,7 @@ const DEFAULT_FILTERS: FilterQueryState = {
   maxAge: '',
   avatarType: 'All',
   numberStartsWith: '',
+  numberEndsWith: '',
   maxActiveDays: '',
   lastOnlineFrom: '',
   lastOnlineTo: '',
@@ -55,6 +58,10 @@ type ViewMode = 'cards' | 'table';
 
 function DataExplorerContent() {
   const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const isViewer = user?.role === 'viewer';
+  const canDelete = user?.role === 'admin' || user?.role === 'manager';
+
   const [filters, setFilters] = useState<FilterQueryState>(DEFAULT_FILTERS);
   const [data, setData] = useState<PaginationResponse<IRecord> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -547,16 +554,16 @@ function DataExplorerContent() {
             <CardView
               records={records}
               onSelectRecord={setSelectedRecord}
-              onEditRecord={setEditingRecord}
-              onDeleteRecord={setDeletingRecord}
+              onEditRecord={isViewer ? undefined : setEditingRecord}
+              onDeleteRecord={canDelete ? setDeletingRecord : undefined}
               isLoading={isLoading && !data}
             />
           ) : (
             <TableView
               records={records}
               onSelectRecord={setSelectedRecord}
-              onEditRecord={setEditingRecord}
-              onDeleteRecord={setDeletingRecord}
+              onEditRecord={isViewer ? undefined : setEditingRecord}
+              onDeleteRecord={canDelete ? setDeletingRecord : undefined}
               sortBy={filters.sortBy}
               sortOrder={filters.sortOrder}
               onSortChange={handleSortChange}

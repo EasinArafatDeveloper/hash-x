@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import RecordModel from '@/lib/models/Record';
+import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
+
+import mongoose from 'mongoose';
 
 // GET single record
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+      return NextResponse.json({ error: 'Invalid record ID format' }, { status: 400 });
+    }
     await connectToDatabase();
     const record = await RecordModel.findById(params.id).select('-avatarBase64 -__v').lean();
     if (!record) return NextResponse.json({ error: 'Record not found' }, { status: 404 });
@@ -19,6 +25,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 // PATCH — update record fields
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const session = await getSessionUser();
+    if (!session || session.role === 'viewer') {
+      return NextResponse.json({ error: 'You do not have permission to edit records.' }, { status: 403 });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+      return NextResponse.json({ error: 'Invalid record ID format' }, { status: 400 });
+    }
+
     await connectToDatabase();
     const body = await req.json();
 
@@ -51,9 +66,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-// DELETE — remove record
+// DELETE — remove record (managers & admins only)
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const session = await getSessionUser();
+    if (!session || (session.role !== 'admin' && session.role !== 'manager')) {
+      return NextResponse.json({ error: 'Only administrators and managers can delete records.' }, { status: 403 });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+      return NextResponse.json({ error: 'Invalid record ID format' }, { status: 400 });
+    }
+
     await connectToDatabase();
     const record = await RecordModel.findByIdAndDelete(params.id);
     if (!record) return NextResponse.json({ error: 'Record not found' }, { status: 404 });

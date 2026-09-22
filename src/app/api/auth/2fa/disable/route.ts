@@ -45,26 +45,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If code is provided, verify it (either TOTP 6-digit or backup code)
-    if (code && typeof code === 'string' && code.trim()) {
-      const trimmedCode = code.trim();
-      let isCodeValid = false;
+    if (!code || typeof code !== 'string' || !code.trim()) {
+      return NextResponse.json(
+        { error: 'A valid Google Authenticator 6-digit code or emergency backup code is required to disable 2FA.' },
+        { status: 400 }
+      );
+    }
 
-      if (user.twoFactorSecret && verifyTotpCode(user.twoFactorSecret, trimmedCode)) {
+    const trimmedCode = code.trim();
+    let isCodeValid = false;
+
+    if (user.twoFactorSecret && verifyTotpCode(user.twoFactorSecret, trimmedCode)) {
+      isCodeValid = true;
+    } else if (user.twoFactorBackupCodes && user.twoFactorBackupCodes.length > 0) {
+      const backupCheck = verifyBackupCode(trimmedCode, user.twoFactorBackupCodes);
+      if (backupCheck.isValid) {
         isCodeValid = true;
-      } else if (user.twoFactorBackupCodes && user.twoFactorBackupCodes.length > 0) {
-        const backupCheck = verifyBackupCode(trimmedCode, user.twoFactorBackupCodes);
-        if (backupCheck.isValid) {
-          isCodeValid = true;
-        }
+        user.twoFactorBackupCodes = backupCheck.updatedHashedCodes;
       }
+    }
 
-      if (!isCodeValid) {
-        return NextResponse.json(
-          { error: 'Invalid 2FA verification code.' },
-          { status: 400 }
-        );
-      }
+    if (!isCodeValid) {
+      return NextResponse.json(
+        { error: 'Invalid 2FA code or backup code.' },
+        { status: 400 }
+      );
     }
 
     // Disable 2FA

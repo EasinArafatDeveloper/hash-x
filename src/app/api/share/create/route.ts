@@ -296,12 +296,13 @@ export async function POST(request: NextRequest) {
     const calculatedExpiryHours = Math.max(1, Math.min(Number(expiryHours) || 24, 720)); // between 1 hr and 30 days
     const expiresAt = new Date(Date.now() + calculatedExpiryHours * 60 * 60 * 1000);
 
-    // 6. Optional passcode hashing
+    // 6. Optional passcode hashing (HMAC-SHA256 with AUTH_SECRET and token)
     let passcodeHash = '';
     const hasPasscode = Boolean(passcode && String(passcode).trim());
     if (hasPasscode) {
+      const secret = process.env.AUTH_SECRET || 'share-link-salt-fallback';
       passcodeHash = crypto
-        .createHash('sha256')
+        .createHmac('sha256', `${secret}:${token}`)
         .update(String(passcode).trim())
         .digest('hex');
     }

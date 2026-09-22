@@ -122,6 +122,10 @@ export function FilterToolbar({
     filters.avatarType && filters.avatarType !== 'All',
     filters.minAge || filters.maxAge,
     filters.numberStartsWith,
+    filters.numberEndsWith,
+    filters.minOrderAmount || filters.maxOrderAmount,
+    filters.minOrderCount || filters.maxOrderCount,
+    filters.merchant && filters.merchant !== 'All',
     filters.maxActiveDays,
     filters.lastOnlineFrom || filters.lastOnlineTo,
   ].filter(Boolean).length;

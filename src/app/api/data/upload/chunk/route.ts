@@ -4,10 +4,18 @@ import RecordModel from '@/lib/models/Record';
 import DatasetModel from '@/lib/models/Dataset';
 import { parseRowData, computeRecordUpdates, buildNewRecord } from '@/lib/data-ingest';
 
+import mongoose from 'mongoose';
+import { getSessionUser } from '@/lib/auth';
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSessionUser();
+    if (!session || session.role === 'viewer') {
+      return NextResponse.json({ error: 'You do not have permission to upload data.' }, { status: 403 });
+    }
+
     await connectToDatabase();
 
     const body = await request.json();
@@ -22,8 +30,12 @@ export async function POST(request: NextRequest) {
       columnMapping,
     } = body || {};
 
-    if (!datasetId) {
-      return NextResponse.json({ error: 'datasetId is required' }, { status: 400 });
+    if (!datasetId || !mongoose.Types.ObjectId.isValid(datasetId)) {
+      return NextResponse.json({ error: 'Valid datasetId is required' }, { status: 400 });
+    }
+
+    if (rows && Array.isArray(rows) && rows.length > 5000) {
+      return NextResponse.json({ error: 'Chunk size exceeds limit of 5,000 rows per request.' }, { status: 400 });
     }
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {

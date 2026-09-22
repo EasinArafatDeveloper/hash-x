@@ -23,4 +23,5 @@ next-env.d.ts
 
 # Scratch
 scratch/
+.claude/
 

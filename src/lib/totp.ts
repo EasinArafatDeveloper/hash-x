@@ -144,8 +144,25 @@ export function verifyTotpCode(
 }
 
 /**
- * Generates 8 random single-use emergency backup recovery codes
- * e.g., 'A8B2-9F41'
+ * Hashes a backup code with AUTH_SECRET HMAC-SHA256
+ */
+function hashBackupCode(code: string): string {
+  const secret = process.env.AUTH_SECRET || 'fallback-backup-secret-key';
+  const normalized = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return crypto.createHmac('sha256', secret).update(normalized).digest('hex');
+}
+
+/**
+ * Legacy unsalted SHA-256 hash for backward compatibility
+ */
+function legacyHashBackupCode(code: string): string {
+  const normalized = code.trim().toUpperCase().replace(/\s+/g, '');
+  return crypto.createHash('sha256').update(normalized).digest('hex');
+}
+
+/**
+ * Generates 8 random single-use emergency backup recovery codes (64-bit entropy)
+ * e.g., 'A8B2-9F41-C3D4-E5F6'
  */
 export function generateBackupCodes(count: number = 8): {
   plainCodes: string[];
@@ -155,14 +172,12 @@ export function generateBackupCodes(count: number = 8): {
   const hashedCodes: string[] = [];
 
   for (let i = 0; i < count; i++) {
-    const part1 = crypto.randomBytes(2).toString('hex').toUpperCase();
-    const part2 = crypto.randomBytes(2).toString('hex').toUpperCase();
-    const plain = `${part1}-${part2}`;
-    plainCodes.push(plain);
+    const raw = crypto.randomBytes(8).toString('hex').toUpperCase();
+    const formatted = raw.match(/.{1,4}/g)?.join('-') || raw;
+    plainCodes.push(formatted);
 
-    // Hash the backup code using SHA-256 for secure DB storage
-    const hash = crypto.createHash('sha256').update(plain).digest('hex');
-    hashedCodes.push(hash);
+    // Hash the backup code securely for DB storage
+    hashedCodes.push(hashBackupCode(formatted));
   }
 
   return { plainCodes, hashedCodes };
@@ -179,10 +194,12 @@ export function verifyBackupCode(
     return { isValid: false, updatedHashedCodes: hashedBackupCodes || [] };
   }
 
-  const normalized = inputCode.trim().toUpperCase().replace(/\s+/g, '');
-  const inputHash = crypto.createHash('sha256').update(normalized).digest('hex');
+  const hmacHash = hashBackupCode(inputCode);
+  const legacyHash = legacyHashBackupCode(inputCode);
 
-  const matchIdx = hashedBackupCodes.findIndex((storedHash) => storedHash === inputHash);
+  const matchIdx = hashedBackupCodes.findIndex(
+    (storedHash) => storedHash === hmacHash || storedHash === legacyHash
+  );
 
   if (matchIdx !== -1) {
     // Burn this backup code so it cannot be used again
@@ -193,3 +210,4 @@ export function verifyBackupCode(
 
   return { isValid: false, updatedHashedCodes: hashedBackupCodes };
 }
+

@@ -4,11 +4,33 @@ import RecordModel from '@/lib/models/Record';
 import DatasetModel from '@/lib/models/Dataset';
 import { buildPhonePrefixRegex } from '@/lib/phone';
 import { callAIModel } from '@/lib/ai-provider';
+import { getSessionUser } from '@/lib/auth';
+
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') ||
+      'anonymous';
+
+    const sessionUser = await getSessionUser();
+    const rateLimitKey = sessionUser?.id || ip;
+
+    const rl = checkRateLimit(`ai-chat:${rateLimitKey}`, 30, 60000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a moment before querying AI Copilot again.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil(rl.resetMs / 1000)) },
+        }
+      );
+    }
+
     const body = await request.json();
     const { messages = [], question = '' } = body || {};
 
@@ -26,6 +48,25 @@ export async function POST(request: NextRequest) {
     // 2. DIRECT AI DATABASE ACTION EXECUTION (DELETE / UPDATE / APPEND / PREPEND / TAGS / CRUD)
     // ==========================================
     if (parsedIntent.action !== 'query') {
+      if (!sessionUser || sessionUser.role === 'viewer') {
+        return NextResponse.json(
+          { error: 'You do not have permission to modify data through the AI copilot.' },
+          { status: 403 }
+        );
+      }
+      if (parsedIntent.action === 'delete' && sessionUser.role !== 'admin') {
+        return NextResponse.json(
+          { error: 'Only administrators can delete customer records through the AI copilot.' },
+          { status: 403 }
+        );
+      }
+      if (parsedIntent.action !== 'delete' && sessionUser.role !== 'admin' && sessionUser.role !== 'manager') {
+        return NextResponse.json(
+          { error: 'Only administrators and managers can modify records through the AI copilot.' },
+          { status: 403 }
+        );
+      }
+
       let targetQuery: any = null;
       if (parsedIntent.targetPhones && parsedIntent.targetPhones.length > 0) {
         targetQuery = {
@@ -872,11 +913,15 @@ function parseQueryIntent(question: string, history: any[] = []): QueryIntent {
 
   const hasSpecificTarget = targetPhones.length > 0 || Boolean(targetPhone);
 
+  // SECURITY: a delete is only "confirmed" when the immediately preceding assistant
+  // message was actually the delete-confirmation prompt for this target, AND the
+  // current message affirms it. Previously, any single message containing a delete
+  // verb plus a word like "confirm"/"yes" (e.g. "01712345678 delete confirm") deleted
+  // the record in one shot, skipping the intended two-step safeguard entirely.
   const isConfirmedDelete =
-    /\b(?:confirm|confirmed|sure|yes|ha|haan|হাঁ|হ্যাঁ|কনফার্ম|force|force\s*delete|এখনই\s*ডিলিট)\b/i.test(question) ||
-    (history.length > 0 &&
-      /(?:confirm|নিশ্চিত|muche\s*felo|ডিলিট\s*করতে\s*চান|স্থায়ীভাবে\s*মুছে)/i.test(history[history.length - 1]?.content || '') &&
-      /\b(?:ha|haan|yes|ok|koro|dao|felo|হাঁ|হ্যাঁ|করুন|করো|দিন)\b/i.test(q));
+    history.length > 0 &&
+    /(?:confirm|নিশ্চিত|muche\s*felo|ডিলিট\s*করতে\s*চান|স্থায়ীভাবে\s*মুছে)/i.test(history[history.length - 1]?.content || '') &&
+    /\b(?:ha|haan|yes|ok|koro|dao|felo|confirm|confirmed|sure|হাঁ|হ্যাঁ|করুন|করো|দিন|কনফার্ম)\b/i.test(q);
 
   if (isExplicitDeleteVerb && !isConversationalQuestion && hasSpecificTarget) {
     return {

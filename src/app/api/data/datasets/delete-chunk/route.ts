@@ -9,6 +9,14 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const requestingUser = await getSessionUser();
+    if (!requestingUser || requestingUser.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Only administrators can purge dataset records.' },
+        { status: 403 }
+      );
+    }
+
     await connectToDatabase();
 
     const body = await request.json();

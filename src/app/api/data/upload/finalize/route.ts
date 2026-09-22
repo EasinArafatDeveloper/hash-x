@@ -5,17 +5,24 @@ import DatasetModel from '@/lib/models/Dataset';
 import ActivityLogModel from '@/lib/models/ActivityLog';
 import { getSessionUser } from '@/lib/auth';
 
+import mongoose from 'mongoose';
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSessionUser();
+    if (!session || session.role === 'viewer') {
+      return NextResponse.json({ error: 'You do not have permission to finalize uploads.' }, { status: 403 });
+    }
+
     await connectToDatabase();
 
     const body = await request.json();
     const { datasetId } = body || {};
 
-    if (!datasetId) {
-      return NextResponse.json({ error: 'datasetId is required' }, { status: 400 });
+    if (!datasetId || !mongoose.Types.ObjectId.isValid(datasetId)) {
+      return NextResponse.json({ error: 'Valid datasetId is required' }, { status: 400 });
     }
 
     const dataset = await DatasetModel.findById(datasetId);
@@ -26,7 +33,6 @@ export async function POST(request: NextRequest) {
     dataset.status = 'Ready';
     await dataset.save();
 
-    const session = await getSessionUser();
     const uploaderName = session?.name || session?.username || dataset.uploadedBy || 'Administrator';
 
     const newCount = dataset.newRecordsCount || 0;

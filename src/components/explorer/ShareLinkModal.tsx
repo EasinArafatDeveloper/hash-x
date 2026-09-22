@@ -10,6 +10,7 @@ import {
   Clock,
   KeyRound,
   ShieldCheck,
+  Eye,
   EyeOff,
   Sparkles,
   ExternalLink,
@@ -50,6 +51,7 @@ export function ShareLinkModal({
   const [expiryHours, setExpiryHours] = useState(24);
   const [enablePasscode, setEnablePasscode] = useState(false);
   const [passcode, setPasscode] = useState('');
+  const [showPasscode, setShowPasscode] = useState(false);
   const [maskPhoneNumbers, setMaskPhoneNumbers] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<{
@@ -409,13 +411,23 @@ export function ShareLinkModal({
                         animate={{ opacity: 1, height: 'auto' }}
                         className="space-y-1.5 pt-1"
                       >
-                        <input
-                          type="text"
-                          value={passcode}
-                          onChange={(e) => setPasscode(e.target.value)}
-                          placeholder="Enter 4–8 character passcode / PIN..."
-                          className="w-full px-3.5 py-2 bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 rounded-lg text-xs font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                        />
+                        <div className="relative">
+                          <input
+                            type={showPasscode ? 'text' : 'password'}
+                            value={passcode}
+                            onChange={(e) => setPasscode(e.target.value)}
+                            placeholder="Enter 4–8 character passcode / PIN..."
+                            className="w-full pl-3.5 pr-10 py-2 bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 rounded-lg text-xs font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPasscode(!showPasscode)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                            aria-label={showPasscode ? 'Hide passcode' : 'Show passcode'}
+                          >
+                            {showPasscode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                         <p className="text-[10px] text-amber-600 dark:text-amber-400">
                           * The recipient will be required to type this passcode before viewing any contact records.
                         </p>

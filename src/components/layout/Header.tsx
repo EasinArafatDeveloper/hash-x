@@ -75,12 +75,24 @@ export function Header({ onMobileMenuOpen, isCollapsed, onToggleCollapse, onOpen
   const pathname = usePathname();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifRead, setNotifRead] = useState(false);
+  const [liveActivities, setLiveActivities] = useState<any[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
 
   const currentPage = PAGE_META[pathname] || {
     title: 'Morpheus',
     subtitle: 'Enterprise data management dashboard',
   };
+
+  useEffect(() => {
+    fetch('/api/activity-logs?limit=4')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.logs && Array.isArray(data.logs) && data.logs.length > 0) {
+          setLiveActivities(data.logs);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!showNotifications) return;
@@ -200,21 +212,38 @@ export function Header({ onMobileMenuOpen, isCollapsed, onToggleCollapse, onOpen
               </div>
 
               <div className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                {SYSTEM_NOTIFICATIONS.map((n) => {
-                  const Icon = n.icon;
-                  return (
-                    <div key={n.id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
-                      <div className="shrink-0 w-7 h-7 rounded-lg bg-gray-100 dark:bg-white/[0.06] flex items-center justify-center mt-0.5">
-                        <Icon className={`w-3.5 h-3.5 ${n.iconColor}`} />
+                {liveActivities.length > 0 ? (
+                  liveActivities.map((act) => (
+                    <div key={act._id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
+                      <div className="shrink-0 w-7 h-7 rounded-lg bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center mt-0.5">
+                        <Database className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-800 dark:text-gray-200">{n.title}</p>
-                        <p className="text-[11px] text-gray-500 dark:text-gray-500 mt-0.5 leading-relaxed">{n.message}</p>
+                        <p className="text-xs font-medium text-gray-800 dark:text-gray-200">{act.action}</p>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-500 mt-0.5 leading-relaxed truncate">{act.description}</p>
                       </div>
-                      <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-600 mt-0.5">{n.time}</span>
+                      <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-600 mt-0.5">
+                        {new Date(act.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
-                  );
-                })}
+                  ))
+                ) : (
+                  SYSTEM_NOTIFICATIONS.map((n) => {
+                    const Icon = n.icon;
+                    return (
+                      <div key={n.id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
+                        <div className="shrink-0 w-7 h-7 rounded-lg bg-gray-100 dark:bg-white/[0.06] flex items-center justify-center mt-0.5">
+                          <Icon className={`w-3.5 h-3.5 ${n.iconColor}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-800 dark:text-gray-200">{n.title}</p>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-500 mt-0.5 leading-relaxed">{n.message}</p>
+                        </div>
+                        <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-600 mt-0.5">{n.time}</span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
               <div className="px-4 py-2.5 border-t border-gray-100 dark:border-white/[0.06]">

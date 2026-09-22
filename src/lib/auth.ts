@@ -10,7 +10,12 @@ export const SESSION_COOKIE_NAME = 'dataflow_session';
 const SESSION_EXPIRATION_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 const getSecretKey = () => {
-  const secret = process.env.AUTH_SECRET || 'dataflow_super_secret_jwt_key_998877_secure_production_2025';
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error(
+      'AUTH_SECRET environment variable is not set. Refusing to sign/verify session tokens with an insecure default.'
+    );
+  }
   return new TextEncoder().encode(secret);
 };
 
@@ -77,7 +82,7 @@ export async function verifySessionToken(token: string): Promise<UserSession | n
       username: payload.username as string,
       name: payload.name as string,
       email: payload.email as string | undefined,
-      role: (payload.role as 'admin' | 'manager' | 'viewer') || 'admin',
+      role: (payload.role as 'admin' | 'manager' | 'viewer') || 'viewer',
     };
   } catch (err) {
     return null;
@@ -106,7 +111,12 @@ export async function ensureDefaultAdmin() {
   const count = await UserModel.countDocuments();
   if (count === 0) {
     const defaultUsername = (process.env.ADMIN_USERNAME || 'admin').toLowerCase();
-    const defaultPassword = process.env.ADMIN_PASSWORD || 'Admin@Dataflow2025!';
+    const defaultPassword = process.env.ADMIN_PASSWORD;
+    if (!defaultPassword) {
+      throw new Error(
+        'ADMIN_PASSWORD environment variable is not set. Refusing to seed a default admin account with an insecure hardcoded password.'
+      );
+    }
     const hashedPassword = await hashPassword(defaultPassword);
 
     await UserModel.create({

@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/db';
 import RecordModel from '@/lib/models/Record';
 import DatasetModel from '@/lib/models/Dataset';
 import ActivityLogModel from '@/lib/models/ActivityLog';
+import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +38,21 @@ const AVATAR_TYPES = ['With Avatar', 'With Avatar', 'Without Avatar', 'Custom', 
 
 export async function POST() {
   try {
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED !== 'true') {
+      return NextResponse.json(
+        { error: 'Dataset seeding is disabled in production.' },
+        { status: 403 }
+      );
+    }
+
+    const sessionUser = await getSessionUser();
+    if (!sessionUser || sessionUser.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Only administrators can wipe and reseed the dataset.' },
+        { status: 403 }
+      );
+    }
+
     await connectToDatabase();
 
     // Clear existing records

@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import RecordModel from '@/lib/models/Record';
 
+import { getSessionUser } from '@/lib/auth';
+
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  return handleMigration();
-}
-
 export async function POST() {
+  const session = await getSessionUser();
+  if (!session || session.role !== 'admin') {
+    return NextResponse.json({ error: 'Only administrators can run data migrations.' }, { status: 403 });
+  }
   return handleMigration();
 }
 

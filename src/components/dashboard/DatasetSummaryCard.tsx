@@ -7,11 +7,9 @@ import { IDatasetSummary } from '@/types';
 
 interface DatasetSummaryCardProps {
   dataset: IDatasetSummary | null;
-  onSeedDemo: () => void;
-  isSeeding?: boolean;
 }
 
-export function DatasetSummaryCard({ dataset, onSeedDemo, isSeeding }: DatasetSummaryCardProps) {
+export function DatasetSummaryCard({ dataset }: DatasetSummaryCardProps) {
   const [confirmingReplace, setConfirmingReplace] = useState(false);
 
   return (
@@ -33,7 +31,7 @@ export function DatasetSummaryCard({ dataset, onSeedDemo, isSeeding }: DatasetSu
               </span>
             </div>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {(dataset?.totalRecords || 2123).toLocaleString()} records · {dataset?.totalFields || 18} columns · {dataset?.fileSize || '1.4 MB'}
+              {(dataset?.totalRecords || 0).toLocaleString()} records · {dataset?.totalFields || 18} columns · {dataset?.fileSize || '0 KB'}
             </p>
             <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
               Last updated: {dataset?.uploadedAt ? new Date(dataset.uploadedAt).toLocaleString() : 'Today'}
@@ -52,17 +50,9 @@ export function DatasetSummaryCard({ dataset, onSeedDemo, isSeeding }: DatasetSu
           <button
             type="button"
             onClick={() => setConfirmingReplace(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 font-medium text-xs transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 font-medium text-xs transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5 text-gray-400" /> Replace Dataset
-          </button>
-          <button
-            onClick={onSeedDemo}
-            disabled={isSeeding}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 font-medium text-xs transition-colors disabled:opacity-50"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            {isSeeding ? 'Seeding…' : 'Seed Demo (2,123)'}
           </button>
         </div>
       </div>

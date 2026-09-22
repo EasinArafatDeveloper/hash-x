@@ -250,12 +250,19 @@ export async function POST(
           { status: 401 }
         );
       }
-      const hashedInput = crypto
+      const secret = process.env.AUTH_SECRET || 'share-link-salt-fallback';
+      const saltedInput = crypto
+        .createHmac('sha256', `${secret}:${token}`)
+        .update(String(passcode).trim())
+        .digest('hex');
+      const legacyInput = crypto
         .createHash('sha256')
         .update(String(passcode).trim())
         .digest('hex');
 
-      if (hashedInput !== shareLink.passcodeHash) {
+      const isMatch = (shareLink.passcodeHash === saltedInput) || (shareLink.passcodeHash === legacyInput);
+
+      if (!isMatch) {
         const attempts = (shareLink.failedPasscodeAttempts || 0) + 1;
         shareLink.failedPasscodeAttempts = attempts;
         const maxAttempts = shareLink.maxPasscodeAttempts || 3;

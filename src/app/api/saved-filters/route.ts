@@ -18,8 +18,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    await connectToDatabase();
     const session = await getSessionUser();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    await connectToDatabase();
     const currentUser = session?.name || session?.username || 'Administrator';
 
     const body = await request.json();
@@ -32,6 +36,8 @@ export async function POST(request: NextRequest) {
     const savedFilter = await SavedFilterModel.create({
       name,
       filters,
+      userId: session.id,
+      createdBy: currentUser,
       createdAt: new Date(),
     });
 

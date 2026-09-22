@@ -1688,14 +1688,14 @@ export default function SettingsPage() {
 
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-gray-500 uppercase">
-                  Google Authenticator Code (Optional)
+                  Google Authenticator Code or Backup Code
                 </label>
                 <input
                   type="text"
-                  maxLength={6}
+                  required
                   value={disableCode}
-                  onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="6-digit code (if available)"
+                  onChange={(e) => setDisableCode(e.target.value)}
+                  placeholder="6-digit TOTP or emergency recovery code"
                   className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-sm text-gray-900 dark:text-gray-100 focus:outline-none font-mono"
                 />
               </div>

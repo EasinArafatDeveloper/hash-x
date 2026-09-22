@@ -113,8 +113,6 @@ export default function DashboardPage() {
           {/* Dataset Health Summary Card */}
           <DatasetSummaryCard
             dataset={dataset}
-            onSeedDemo={() => {}}
-            isSeeding={false}
           />
 
           {/* Analytics Visualization Section with Multi-Tab Suite */}
