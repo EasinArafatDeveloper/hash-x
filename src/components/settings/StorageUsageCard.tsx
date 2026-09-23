@@ -135,15 +135,21 @@ export function StorageUsageCard({ live = false, pollIntervalMs = 4000, classNam
               </div>
             )}
             <p className="text-[11px] text-gray-400">
-              {stats.database.storageSizeMB.toLocaleString()} MB data + {stats.database.indexSizeMB.toLocaleString()} MB indexes · database &quot;{stats.database.name}&quot;
+              On disk (compressed): {stats.database.storageSizeMB.toLocaleString()} MB data + {stats.database.indexSizeMB.toLocaleString()} MB indexes · database &quot;{stats.database.name}&quot;
+            </p>
+            <p className="text-[11px] text-gray-400">
+              Logical size (uncompressed): {stats.database.dataSizeMB.toLocaleString()} MB — this is what the breakdown below measures.
             </p>
           </div>
 
           {stats.datasets.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Storage by Dataset
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Storage by Dataset
+                </p>
+                <p className="text-[10px] text-gray-400">logical size, not on-disk</p>
+              </div>
               <div className="rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden divide-y divide-gray-100 dark:divide-slate-800 max-h-64 overflow-y-auto">
                 {stats.datasets.map((d) => (
                   <div key={d.datasetId || 'unlinked'} className="flex items-center justify-between px-4 py-2.5 text-xs">
@@ -153,11 +159,16 @@ export function StorageUsageCard({ live = false, pollIntervalMs = 4000, classNam
                     </div>
                     <div className="text-right shrink-0 ml-3">
                       <p className="font-bold text-gray-900 dark:text-white">{d.sizeMB.toLocaleString()} MB</p>
-                      <p className="text-[11px] text-gray-400">{d.percentOfRecords}%</p>
+                      <p className="text-[11px] text-gray-400">{d.percentOfRecords}% of logical data</p>
                     </div>
                   </div>
                 ))}
               </div>
+              <p className="text-[10px] text-gray-400 leading-relaxed">
+                These are raw, uncompressed per-record sizes — they won&apos;t add up to exactly the on-disk number above
+                (MongoDB compresses data on disk, but a large delete-then-restore also temporarily grows on-disk size until
+                the freed space is reclaimed — that&apos;s normal, not lost data).
+              </p>
             </div>
           )}
 
