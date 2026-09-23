@@ -6,15 +6,18 @@ import { UploadProgress, StreamLogEntry } from '@/components/upload/UploadProgre
 import { UploadSummaryModal } from '@/components/upload/UploadSummaryModal';
 import { AIAuditPreviewModal } from '@/components/upload/AIAuditPreviewModal';
 import { UploadHistory } from '@/components/upload/UploadHistory';
+import { StorageUsageCard } from '@/components/settings/StorageUsageCard';
 import { toast } from 'sonner';
 import { FileText, AlertCircle, RefreshCw } from 'lucide-react';
 import { AIAuditSummary } from '@/lib/deepseek';
+import { useAuth } from '@/components/auth/AuthContext';
 
 type UploadStage = 'idle' | 'uploading' | 'done' | 'error';
 
 const CHUNK_SIZE = 2000; // 2,000 rows per micro-batch (~500 KB - 800 KB, safely within Vercel's 4.5 MB limit)
 
 export default function UploadDataPage() {
+  const { user } = useAuth();
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
   const [currentStep, setCurrentStep] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
@@ -428,6 +431,9 @@ export default function UploadDataPage() {
             </div>
           </div>
 
+          {/* Live Database Storage Usage */}
+          {user?.role === 'admin' && <StorageUsageCard />}
+
           {/* Upload History & Managed Files Section */}
           <div className="pt-4 border-t border-gray-200 dark:border-white/10">
             <UploadHistory refreshKey={historyRefreshKey} />
@@ -450,6 +456,11 @@ export default function UploadDataPage() {
           logs={streamLogs}
           onClearLogs={() => setStreamLogs([])}
         />
+      )}
+
+      {/* Storage usage updates live while the upload streams in */}
+      {uploadStage === 'uploading' && user?.role === 'admin' && (
+        <StorageUsageCard live pollIntervalMs={2000} />
       )}
 
       {/* Error State */}
