@@ -26,7 +26,8 @@ function buildBatchFilter(batchId: string) {
 
 // POST — restore every record in one deletion batch at once (e.g. an
 // entire deleted dataset, or a whole AI copilot bulk delete), admin only.
-export async function POST(_req: NextRequest, { params }: { params: { batchId: string } }) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ batchId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getSessionUser();
     if (!session || session.role !== 'admin') {

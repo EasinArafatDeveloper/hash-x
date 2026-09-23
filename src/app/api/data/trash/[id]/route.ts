@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 
 // DELETE — permanently purge a single trashed record immediately, instead
 // of waiting for the 30-day auto-purge. Irreversible. Admin only.
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const session = await getSessionUser();
     if (!session || session.role !== 'admin') {

@@ -24,7 +24,7 @@ const PUBLIC_PATHS = [
   '/api/share',
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host =
     request.headers.get('x-forwarded-host') ||

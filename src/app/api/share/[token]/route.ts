@@ -57,10 +57,8 @@ function sanitizeSnapshotRecords(records: any[], isMasked: boolean) {
   });
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   try {
     await connectToDatabase();
 
@@ -189,10 +187,8 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   try {
     await connectToDatabase();
 

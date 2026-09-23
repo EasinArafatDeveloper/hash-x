@@ -137,7 +137,7 @@ export async function ensureDefaultAdmin() {
  */
 export async function getSessionUser(): Promise<UserSession | null> {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
     if (!token) return null;
     return await verifySessionToken(token);

@@ -8,7 +8,8 @@ import { getSessionUser } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 // POST — restore a soft-deleted record out of the recycle bin, admin only
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const session = await getSessionUser();
     if (!session || session.role !== 'admin') {

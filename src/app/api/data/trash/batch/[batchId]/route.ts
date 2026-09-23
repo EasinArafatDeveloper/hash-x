@@ -25,7 +25,8 @@ function buildBatchFilter(batchId: string) {
 // GET — list the individual records inside one deletion batch (for
 // inspecting/managing a large batch record-by-record instead of restoring
 // or purging the whole thing at once), admin only.
-export async function GET(request: NextRequest, { params }: { params: { batchId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ batchId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getSessionUser();
     if (!session || session.role !== 'admin') {
@@ -62,7 +63,8 @@ export async function GET(request: NextRequest, { params }: { params: { batchId:
 
 // DELETE — permanently purge every record in this batch immediately,
 // instead of waiting for the 30-day auto-purge. Irreversible. Admin only.
-export async function DELETE(_req: NextRequest, { params }: { params: { batchId: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ batchId: string }> }) {
+  const params = await props.params;
   try {
     const session = await getSessionUser();
     if (!session || session.role !== 'admin') {

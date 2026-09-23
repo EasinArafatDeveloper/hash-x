@@ -14,8 +14,6 @@ export default defineConfig({
     // constrained CI/sandbox environments, at the cost of not parallelizing
     // test files — an acceptable tradeoff for a suite this size.
     pool: 'forks',
-    poolOptions: {
-      forks: { singleFork: true },
-    },
+    fileParallelism: false,
   },
 });

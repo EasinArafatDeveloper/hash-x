@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, use } from 'react';
 import {
   Lock,
   Flame,
@@ -103,7 +103,8 @@ function getSafeDisplayName(name?: string, phone?: string): string {
   return rawName;
 }
 
-export default function SecureSharePage({ params }: { params: { token: string } }) {
+export default function SecureSharePage(props: { params: Promise<{ token: string }> }) {
+  const params = use(props.params);
   const { token } = params;
 
   const [isLoading, setIsLoading] = useState(true);
