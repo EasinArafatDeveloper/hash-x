@@ -68,13 +68,11 @@ const RecordSchema: Schema = new Schema(
   }
 );
 
-// Recycle bin: permanently purge soft-deleted records 30 days after deletion.
-// Only documents with an actual Date in deletedAt are affected — active
-// records (deletedAt: null) are never touched by this index.
-RecordSchema.index(
-  { deletedAt: 1 },
-  { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { deletedAt: { $type: 'date' } } }
-);
+// Recycle bin records are kept until an admin explicitly restores or
+// permanently deletes them from the Recycle Bin page — no automatic/
+// timer-based purge. A plain (non-TTL) index still speeds up trash
+// listing/lookups by deletedAt.
+RecordSchema.index({ deletedAt: 1 });
 
 // ------------------------------------------------------------------
 // Soft-delete enforcement — every normal query on this model (explorer,

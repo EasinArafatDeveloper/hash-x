@@ -18,10 +18,6 @@ const ActivityLogSchema: Schema = new Schema(
   { timestamps: true }
 );
 
-// Auto-purge activity log entries after 90 days so this collection doesn't
-// grow forever and quietly eat into the database's storage quota.
-ActivityLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 });
-
 const ActivityLogModel: Model<IActivityLogDocument> =
   mongoose.models.ActivityLog || mongoose.model<IActivityLogDocument>('ActivityLog', ActivityLogSchema);
 
