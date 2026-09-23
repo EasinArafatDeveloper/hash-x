@@ -151,7 +151,8 @@ async function handleExportLogic(body: any) {
 
   // Merchant filter
   if (merchant && merchant !== 'All') {
-    const mRegex = new RegExp(String(merchant).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    // Fully anchored (see data/route.ts) so this can use the index instead of a full scan.
+    const mRegex = new RegExp(`^${String(merchant).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
     query['customFields.primary_merchant'] = mRegex;
   }
 

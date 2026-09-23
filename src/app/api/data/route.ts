@@ -160,7 +160,11 @@ export async function GET(request: NextRequest) {
     // 1.7. Merchant filter
     const merchant = searchParams.get('merchant');
     if (merchant && merchant !== 'All') {
-      const mRegex = new RegExp(merchant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      // Fully anchored: `merchant` is always an exact value picked from the
+      // filter dropdown (populated from distinct DB values), never partial
+      // text — anchoring lets this use the customFields.primary_merchant
+      // index instead of a full collection scan.
+      const mRegex = new RegExp(`^${merchant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
       query['customFields.primary_merchant'] = mRegex;
     }
 

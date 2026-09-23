@@ -74,6 +74,17 @@ const RecordSchema: Schema = new Schema(
 // listing/lookups by deletedAt.
 RecordSchema.index({ deletedAt: 1 });
 
+// customFields is unindexed Mixed storage, so every query against it is a
+// full collection scan by default. Most customFields queries are free-text
+// "contains" regex (name/phone/email style search) which no B-tree index
+// can help with regardless — that class of search needs a real search
+// engine (e.g. MongoDB Atlas Search) once the collection is large. These
+// two paths are the exception: they're always queried with a fully
+// anchored exact-match pattern (merchant filter dropdown, WhatsApp status
+// check), so an index here lets MongoDB seek instead of scan.
+RecordSchema.index({ 'customFields.primary_merchant': 1 });
+RecordSchema.index({ 'customFields.whatsapp_status': 1 });
+
 // ------------------------------------------------------------------
 // Soft-delete enforcement — every normal query on this model (explorer,
 // export, stats, AI search, dedup lookups, etc.) automatically excludes
