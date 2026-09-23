@@ -45,8 +45,8 @@ export async function GET(request: NextRequest) {
         { $match: { deletedAt: { $ne: null } } },
         {
           $group: {
-            _id: '$deletionBatchId',
-            label: { $first: '$deletionLabel' },
+            _id: { $ifNull: ['$deletionBatchId', 'unbatched'] },
+            label: { $first: { $ifNull: ['$deletionLabel', 'Deleted records'] } },
             count: { $sum: 1 },
             deletedAt: { $max: '$deletedAt' },
             sample: { $push: { name: '$name', phone: '$phone' } },
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       ]),
       RecordModel.aggregate([
         { $match: { deletedAt: { $ne: null } } },
-        { $group: { _id: '$deletionBatchId' } },
+        { $group: { _id: { $ifNull: ['$deletionBatchId', 'unbatched'] } } },
         { $count: 'total' },
       ]),
       RecordModel.countDocuments({ deletedAt: { $ne: null } }),

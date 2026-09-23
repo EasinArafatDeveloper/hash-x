@@ -6,6 +6,22 @@ import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+function buildBatchFilter(batchId: string) {
+  if (!batchId || batchId === 'null' || batchId === 'undefined' || batchId === 'unbatched') {
+    return {
+      deletedAt: { $ne: null },
+      $or: [
+        { deletionBatchId: null },
+        { deletionBatchId: '' },
+        { deletionBatchId: 'null' },
+        { deletionBatchId: 'unbatched' },
+        { deletionBatchId: { $exists: false } },
+      ],
+    };
+  }
+  return { deletedAt: { $ne: null }, deletionBatchId: batchId };
+}
+
 // GET — list the individual records inside one deletion batch (for
 // inspecting/managing a large batch record-by-record instead of restoring
 // or purging the whole thing at once), admin only.
@@ -22,7 +38,7 @@ export async function GET(request: NextRequest, { params }: { params: { batchId:
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '100', 10) || 100));
 
-    const filter = { deletedAt: { $ne: null }, deletionBatchId: params.batchId };
+    const filter = buildBatchFilter(params.batchId);
 
     const [total, records] = await Promise.all([
       RecordModel.countDocuments(filter),
@@ -55,7 +71,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { batchId:
 
     await connectToDatabase();
 
-    const filter = { deletedAt: { $ne: null }, deletionBatchId: params.batchId };
+    const filter = buildBatchFilter(params.batchId);
     const count = await RecordModel.countDocuments(filter);
     if (count === 0) {
       return NextResponse.json({ error: 'Batch not found in recycle bin' }, { status: 404 });

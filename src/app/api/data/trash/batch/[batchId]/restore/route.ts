@@ -8,6 +8,22 @@ import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+function buildBatchFilter(batchId: string) {
+  if (!batchId || batchId === 'null' || batchId === 'undefined' || batchId === 'unbatched') {
+    return {
+      deletedAt: { $ne: null },
+      $or: [
+        { deletionBatchId: null },
+        { deletionBatchId: '' },
+        { deletionBatchId: 'null' },
+        { deletionBatchId: 'unbatched' },
+        { deletionBatchId: { $exists: false } },
+      ],
+    };
+  }
+  return { deletedAt: { $ne: null }, deletionBatchId: batchId };
+}
+
 // POST — restore every record in one deletion batch at once (e.g. an
 // entire deleted dataset, or a whole AI copilot bulk delete), admin only.
 export async function POST(_req: NextRequest, { params }: { params: { batchId: string } }) {
@@ -19,7 +35,7 @@ export async function POST(_req: NextRequest, { params }: { params: { batchId: s
 
     await connectToDatabase();
 
-    const filter = { deletedAt: { $ne: null }, deletionBatchId: params.batchId };
+    const filter = buildBatchFilter(params.batchId);
     const sample = await RecordModel.findOne(filter).select('name phone datasetId deletionLabel').lean();
     if (!sample) {
       return NextResponse.json({ error: 'Batch not found in recycle bin' }, { status: 404 });
@@ -36,7 +52,7 @@ export async function POST(_req: NextRequest, { params }: { params: { batchId: s
     // it with the same id so the restored records re-link correctly and
     // reappear as a normal dataset in the UI.
     let datasetRestored = false;
-    if (mongoose.Types.ObjectId.isValid(params.batchId)) {
+    if (params.batchId && mongoose.Types.ObjectId.isValid(params.batchId)) {
       const datasetId = (sample as any).datasetId;
       const isDatasetBatch = datasetId === params.batchId;
       if (isDatasetBatch) {
