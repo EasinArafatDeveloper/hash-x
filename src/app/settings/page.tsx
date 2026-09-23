@@ -33,6 +33,7 @@ import {
   Globe,
   Radio,
   CheckCheck,
+  HardDrive,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from '@/components/theme/ThemeProvider';
@@ -66,6 +67,34 @@ export default function SettingsPage() {
   const [isResetting, setIsResetting] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  // Live MongoDB storage usage
+  const [storageStats, setStorageStats] = useState<{
+    database: { name: string; dataSizeMB: number; storageSizeMB: number; indexSizeMB: number; totalSizeMB: number; limitMB: number | null; usedPercent: number | null };
+    trashRecycleBin: { recordCount: number; sizeMB: number };
+    datasets: Array<{ datasetId: string | null; filename: string; recordCount: number; sizeMB: number; percentOfRecords: number }>;
+  } | null>(null);
+  const [isStorageLoading, setIsStorageLoading] = useState(true);
+
+  const fetchStorageStats = async () => {
+    setIsStorageLoading(true);
+    try {
+      const res = await fetch('/api/system/storage');
+      if (res.ok) {
+        setStorageStats(await res.json());
+      }
+    } catch {
+      // Silently ignore — the card just shows nothing if this fails
+    } finally {
+      setIsStorageLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      fetchStorageStats();
+    }
+  }, [user?.role]);
 
   // Change Password form state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -1199,6 +1228,104 @@ export default function SettingsPage() {
                 <ThemeSelector variant="expanded" />
               </div>
 
+              {/* Live MongoDB Storage Usage */}
+              {user?.role === 'admin' && (
+                <div className="p-7 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-card space-y-5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <HardDrive className="w-4 h-4 text-brand-600" /> Database Storage Usage
+                    </h3>
+                    <button
+                      onClick={fetchStorageStats}
+                      disabled={isStorageLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isStorageLoading ? 'animate-spin' : ''}`} /> Refresh
+                    </button>
+                  </div>
+
+                  {isStorageLoading && !storageStats ? (
+                    <div className="animate-pulse space-y-2">
+                      <div className="h-4 bg-gray-200 dark:bg-slate-800 rounded w-1/3" />
+                      <div className="h-2.5 bg-gray-100 dark:bg-slate-800/60 rounded-full w-full" />
+                    </div>
+                  ) : storageStats ? (
+                    <>
+                      <div className="space-y-2">
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                            {storageStats.database.totalSizeMB.toLocaleString()} MB
+                          </span>
+                          <span className="text-xs text-gray-400 font-medium">
+                            {storageStats.database.limitMB
+                              ? `of ${storageStats.database.limitMB.toLocaleString()} MB (${storageStats.database.usedPercent}%)`
+                              : 'used (no plan limit configured)'}
+                          </span>
+                        </div>
+                        {storageStats.database.limitMB && (
+                          <div className="w-full h-2.5 rounded-full bg-gray-100 dark:bg-slate-800 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                (storageStats.database.usedPercent || 0) > 90
+                                  ? 'bg-rose-500'
+                                  : (storageStats.database.usedPercent || 0) > 70
+                                  ? 'bg-amber-500'
+                                  : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${Math.min(100, storageStats.database.usedPercent || 0)}%` }}
+                            />
+                          </div>
+                        )}
+                        <p className="text-[11px] text-gray-400">
+                          {storageStats.database.storageSizeMB.toLocaleString()} MB data + {storageStats.database.indexSizeMB.toLocaleString()} MB indexes · database &quot;{storageStats.database.name}&quot;
+                        </p>
+                      </div>
+
+                      {storageStats.datasets.length > 0 && (
+                        <div className="space-y-1.5">
+                          <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Storage by Dataset
+                          </p>
+                          <div className="rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden divide-y divide-gray-100 dark:divide-slate-800">
+                            {storageStats.datasets.map((d) => (
+                              <div key={d.datasetId || 'unlinked'} className="flex items-center justify-between px-4 py-2.5 text-xs">
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-semibold text-gray-800 dark:text-gray-200 truncate">{d.filename}</p>
+                                  <p className="text-[11px] text-gray-400">{d.recordCount.toLocaleString()} records</p>
+                                </div>
+                                <div className="text-right shrink-0 ml-3">
+                                  <p className="font-bold text-gray-900 dark:text-white">{d.sizeMB.toLocaleString()} MB</p>
+                                  <p className="text-[11px] text-gray-400">{d.percentOfRecords}%</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {storageStats.trashRecycleBin.recordCount > 0 && (
+                        <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 text-xs">
+                          <span className="text-rose-700 dark:text-rose-400 font-semibold flex items-center gap-1.5">
+                            <Trash2 className="w-3.5 h-3.5" /> Recycle Bin
+                          </span>
+                          <span className="text-rose-600 dark:text-rose-400 font-medium">
+                            {storageStats.trashRecycleBin.recordCount.toLocaleString()} records · {storageStats.trashRecycleBin.sizeMB.toLocaleString()} MB
+                          </span>
+                        </div>
+                      )}
+
+                      {!storageStats.database.limitMB && (
+                        <p className="text-[11px] text-gray-400">
+                          Tip: set <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-slate-800 font-mono">MONGODB_STORAGE_LIMIT_MB</code> in your environment (e.g. 512 for an Atlas M0 cluster) to show a used/limit progress bar.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-400">Failed to load storage usage.</p>
+                  )}
+                </div>
+              )}
+
               {/* System Environment Info */}
               <div className="p-7 rounded-3xl bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 shadow-card space-y-4">
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1208,7 +1335,12 @@ export default function SettingsPage() {
                 <div className="py-3 px-4 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 space-y-2 text-xs">
                   {[
                     { label: 'Application', value: 'MORPHEUS v1.0.0' },
-                    { label: 'Database', value: 'MongoDB Atlas (Connected)' },
+                    {
+                      label: 'Database',
+                      value: storageStats
+                        ? `MongoDB Atlas — "${storageStats.database.name}" (Connected)`
+                        : 'MongoDB Atlas (Connected)',
+                    },
                     { label: 'Security Mode', value: 'Two-Factor Authentication (2FA)' },
                     { label: 'Environment', value: 'Production' },
                   ].map((info) => (
