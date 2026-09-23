@@ -14,7 +14,7 @@ import { useAuth } from '@/components/auth/AuthContext';
 
 type UploadStage = 'idle' | 'uploading' | 'done' | 'error';
 
-const CHUNK_SIZE = 2000; // 2,000 rows per micro-batch (~500 KB - 800 KB, safely within Vercel's 4.5 MB limit)
+const CHUNK_SIZE = 4000; // 4,000 rows per micro-batch (~1-1.5 MB, safely within Vercel's 4.5 MB limit and the server's 5,000-row cap)
 
 export default function UploadDataPage() {
   const { user } = useAuth();
@@ -228,7 +228,7 @@ export default function UploadDataPage() {
       let completedBatches = 0;
       let processedRowCount = 0;
 
-      const PARALLEL_WORKERS = 3;
+      const PARALLEL_WORKERS = 6;
       const activeWorkerCount = Math.min(PARALLEL_WORKERS, totalCalculatedChunks);
 
       addLog('info', `Spawning ${activeWorkerCount} parallel ingestion workers for turbo throughput...`);
@@ -381,8 +381,8 @@ export default function UploadDataPage() {
           />
 
           {/* Smart Merge Feature Highlight */}
-          <div className="p-5 rounded-xl bg-brand-50/60 dark:bg-brand-500/5 border border-brand-200 dark:border-brand-900/50 flex items-start gap-3.5">
-            <div className="p-2.5 rounded-lg bg-brand-100 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400 shrink-0">
+          <div className="p-5 rounded-2xl bg-gradient-brand-subtle dark:bg-gradient-brand-subtle-dark border border-brand-200 dark:border-brand-900/50 flex items-start gap-3.5">
+            <div className="p-2.5 rounded-xl bg-gradient-brand shadow-brand text-white shrink-0">
               <RefreshCw className="w-4 h-4" />
             </div>
             <div className="space-y-0.5 text-xs">
@@ -390,13 +390,13 @@ export default function UploadDataPage() {
                 High-Speed Micro-Batch Stream Ingestion (Supports 30MB+ & 1M+ Records)
               </h4>
               <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                Large CSV or Excel files are streamed in optimized micro-batches with automatic deduplication, incremental merging, and zero server timeouts. Existing records are updated with missing fields, and new contacts are inserted seamlessly.
+                Large files stream in via 6 parallel workers, 4,000 rows per batch, with automatic deduplication, incremental merging, and zero server timeouts. Existing records are updated with missing fields, and new contacts are inserted seamlessly.
               </p>
             </div>
           </div>
 
           {/* File Format Tips */}
-          <div className="p-6 rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 shadow-card space-y-3">
+          <div className="p-6 rounded-3xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/10 shadow-card space-y-3">
             <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" /> Supported Column Headers & Formats
             </h4>
@@ -404,27 +404,27 @@ export default function UploadDataPage() {
               Your CSV or Excel file can have any column structure. The system automatically detects:
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-1 text-xs">
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+              <div className="p-3 rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
                 <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Name / Nickname</span>
                 <span className="text-gray-500 text-[11px]">name, nickname, full name</span>
               </div>
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+              <div className="p-3 rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
                 <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Phone / Number</span>
                 <span className="text-gray-500 text-[11px]">phone, mobile, number, contact</span>
               </div>
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+              <div className="p-3 rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
                 <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Email Address</span>
                 <span className="text-gray-500 text-[11px]">email, mail (fills missing email)</span>
               </div>
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+              <div className="p-3 rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
                 <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Avatar Photo</span>
                 <span className="text-gray-500 text-[11px]">avatar, photo, image URL</span>
               </div>
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+              <div className="p-3 rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
                 <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Age & Gender</span>
                 <span className="text-gray-500 text-[11px]">age, gender, sex</span>
               </div>
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
+              <div className="p-3 rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/10">
                 <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">Location & Activity</span>
                 <span className="text-gray-500 text-[11px]">location, last online, active days</span>
               </div>

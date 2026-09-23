@@ -500,6 +500,9 @@ export function DropZone({ onFileParsed, isProcessing }: DropZoneProps) {
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
+        // Parse in a Web Worker so a large file (hundreds of thousands of
+        // rows) doesn't freeze the UI thread while it's being read.
+        worker: true,
         complete: (results) => {
           if (results.data && results.data.length > 0) {
             applyFileResult(fileName, fileSizeStr, results.data);
@@ -728,16 +731,16 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
       {/* 2-Way Upload Mode Switcher (File Upload vs Direct Copy-Paste) */}
       {!selectedFile && (
         <div className="flex items-center justify-center">
-          <div className="p-1.5 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 flex items-center gap-1.5 w-full max-w-md">
+          <div className="p-1.5 bg-gray-100 dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/10 flex items-center gap-1.5 w-full max-w-md">
             <button
               type="button"
               onClick={() => {
                 setUploadMode('file');
                 setError(null);
               }}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 uploadMode === 'file'
-                  ? 'bg-white dark:bg-[#111113] text-brand-600 dark:text-brand-400 shadow-sm'
+                  ? 'bg-gradient-brand text-white shadow-brand'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
@@ -751,9 +754,9 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
                 setUploadMode('paste');
                 setError(null);
               }}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 uploadMode === 'paste'
-                  ? 'bg-white dark:bg-[#111113] text-brand-600 dark:text-brand-400 shadow-sm'
+                  ? 'bg-gradient-brand text-white shadow-brand'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
@@ -772,9 +775,9 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
           onDragLeave={handleDrag}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
-          className={`relative border-2 border-dashed rounded-xl p-8 sm:p-12 text-center cursor-pointer transition-colors duration-200 ${
+          className={`relative border-2 border-dashed rounded-3xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 ${
             dragActive
-              ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-500/5'
+              ? 'border-brand-500 bg-gradient-brand-subtle dark:bg-gradient-brand-subtle-dark scale-[1.01]'
               : 'border-gray-300 dark:border-white/10 bg-white dark:bg-[#111113] hover:border-brand-400 dark:hover:border-white/20 shadow-card'
           }`}
         >
@@ -786,7 +789,7 @@ Mohammad Ali\t01515000005\tali.m@gmail.com\tKhulna\tVIP Client`;
             className="hidden"
           />
 
-          <div className="mx-auto w-16 h-16 rounded-xl bg-brand-600 text-white flex items-center justify-center mb-4">
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-brand shadow-brand text-white flex items-center justify-center mb-4">
             <UploadCloud className="w-8 h-8" />
           </div>
 
