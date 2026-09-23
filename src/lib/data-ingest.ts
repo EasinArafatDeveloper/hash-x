@@ -108,28 +108,25 @@ export function parseRowData(
       } else if (targetField === 'name') {
         providedFields.name = strVal;
         providedCustomFields['customer_name'] = strVal;
-        providedCustomFields['Customer Name'] = strVal;
       } else if (targetField === 'address') {
         providedFields.address = strVal;
         providedCustomFields['canonical_address'] = strVal;
-        providedCustomFields['Canonical Address'] = strVal;
       } else if (targetField === 'gender') {
         const gStr = strVal.toLowerCase();
         let g = 'Other';
         if (gStr.startsWith('m')) g = 'Male';
         else if (gStr.startsWith('f')) g = 'Female';
         providedFields.gender = g;
-        providedCustomFields['gender'] = g;
-        providedCustomFields['Gender'] = g;
       } else if (targetField === 'whatsapp_status') {
         const cleanStatus = cleanArrayString(strVal) || strVal;
         providedCustomFields['whatsapp_status'] = cleanStatus;
+        // Also stored under this exact key because it's what the search/
+        // filter queries in data/export/ai routes look for.
         providedCustomFields['WhatsApp Status'] = cleanStatus;
       } else if (targetField === 'matched_order_count') {
         const num = parseInt(strVal.replace(/[^0-9.-]+/g, ''), 10);
         if (!isNaN(num)) {
           providedCustomFields['matched_order_count'] = num;
-          providedCustomFields['Matched Order Count'] = num;
           if (providedFields.orderCount === undefined) providedFields.orderCount = num;
         } else {
           providedCustomFields['matched_order_count'] = strVal;
@@ -139,8 +136,6 @@ export function parseRowData(
         if (!isNaN(num)) {
           providedFields.orderCount = num;
           providedCustomFields['lifetime_order_count'] = num;
-          providedCustomFields['Lifetime Order Count'] = num;
-          providedCustomFields['Order Count'] = num;
         } else {
           providedCustomFields['lifetime_order_count'] = strVal;
         }
@@ -148,7 +143,6 @@ export function parseRowData(
         const num = parseFloat(strVal.replace(/[^0-9.-]+/g, ''));
         if (!isNaN(num)) {
           providedCustomFields['matched_net_order_amount_bdt'] = num;
-          providedCustomFields['Matched Order Amount BDT'] = num;
           if (providedFields.orderAmount === undefined) providedFields.orderAmount = num;
         } else {
           providedCustomFields['matched_net_order_amount_bdt'] = strVal;
@@ -158,76 +152,50 @@ export function parseRowData(
         if (!isNaN(num)) {
           providedFields.orderAmount = num;
           providedCustomFields['lifetime_net_order_amount_bdt'] = num;
-          providedCustomFields['Lifetime Order Amount BDT'] = num;
-          providedCustomFields['Order Amount'] = num;
         } else {
           providedCustomFields['lifetime_net_order_amount_bdt'] = strVal;
         }
       } else if (targetField === 'prepaid_order_count') {
         const num = parseInt(strVal.replace(/[^0-9.-]+/g, ''), 10);
-        if (!isNaN(num)) {
-          providedCustomFields['prepaid_order_count'] = num;
-          providedCustomFields['Prepaid Order Count'] = num;
-        } else {
-          providedCustomFields['prepaid_order_count'] = strVal;
-        }
+        providedCustomFields['prepaid_order_count'] = isNaN(num) ? strVal : num;
       } else if (targetField === 'matched_unique_merchant_count') {
         const num = parseInt(strVal.replace(/[^0-9.-]+/g, ''), 10);
-        if (!isNaN(num)) {
-          providedCustomFields['matched_unique_merchant_count'] = num;
-          providedCustomFields['Matched Unique Merchant Count'] = num;
-        } else {
-          providedCustomFields['matched_unique_merchant_count'] = strVal;
-        }
+        providedCustomFields['matched_unique_merchant_count'] = isNaN(num) ? strVal : num;
       } else if (targetField === 'lifetime_unique_merchant_count') {
         const num = parseInt(strVal.replace(/[^0-9.-]+/g, ''), 10);
-        if (!isNaN(num)) {
-          providedCustomFields['lifetime_unique_merchant_count'] = num;
-          providedCustomFields['Lifetime Unique Merchant Count'] = num;
-        } else {
-          providedCustomFields['lifetime_unique_merchant_count'] = strVal;
-        }
+        providedCustomFields['lifetime_unique_merchant_count'] = isNaN(num) ? strVal : num;
       } else if (targetField === 'primary_merchant') {
         const cleanMerchant = cleanArrayString(strVal) || strVal;
+        // Search/filter/AI queries match on this exact snake_case key across
+        // data/export/share/ai routes — keep it as the single source of truth.
         providedCustomFields['primary_merchant'] = cleanMerchant;
-        providedCustomFields['Primary Merchant'] = cleanMerchant;
       } else if (targetField === 'matched_district_filters') {
         const cleanDistrict = cleanArrayString(strVal);
         providedCustomFields['matched_district_filters'] = cleanDistrict;
-        providedCustomFields['Matched District'] = cleanDistrict;
         if (cleanDistrict && !providedFields.location) providedFields.location = cleanDistrict;
       } else if (targetField === 'matched_city_filters') {
         const cleanCity = cleanArrayString(strVal);
         providedCustomFields['matched_city_filters'] = cleanCity;
-        providedCustomFields['Matched City'] = cleanCity;
         if (cleanCity && (!providedFields.location || providedFields.location === '[]')) providedFields.location = cleanCity;
       } else if (targetField === 'matched_area_filters' || targetField === 'area') {
         const cleanArea = cleanArrayString(strVal);
         providedCustomFields['matched_area_filters'] = cleanArea;
-        providedCustomFields['Matched Area'] = cleanArea;
         if (cleanArea) providedFields.area = cleanArea;
       } else if (targetField === 'matched_block_road_filters') {
         const cleanBlock = cleanArrayString(strVal);
         providedCustomFields['matched_block_road_filters'] = cleanBlock;
-        providedCustomFields['Matched Block / Road'] = cleanBlock;
       } else if (targetField === 'inferred_primary_area') {
         const cleanInferred = cleanArrayString(strVal);
         providedCustomFields['inferred_primary_area'] = cleanInferred;
-        providedCustomFields['Inferred Primary Area'] = cleanInferred;
         if (cleanInferred && (!providedFields.area || providedFields.area === '[]')) providedFields.area = cleanInferred;
       } else if (targetField === 'lifetime_frequency_segment') {
-        const cleanFreq = cleanArrayString(strVal) || strVal;
-        providedCustomFields['lifetime_frequency_segment'] = cleanFreq;
-        providedCustomFields['Frequency Segment'] = cleanFreq;
+        providedCustomFields['lifetime_frequency_segment'] = cleanArrayString(strVal) || strVal;
       } else if (targetField === 'lifetime_value_segment') {
-        const cleanVal = cleanArrayString(strVal) || strVal;
-        providedCustomFields['lifetime_value_segment'] = cleanVal;
-        providedCustomFields['Value Segment'] = cleanVal;
+        providedCustomFields['lifetime_value_segment'] = cleanArrayString(strVal) || strVal;
       } else if (targetField === 'lifetime_primary_category') {
         const cleanCat = cleanArrayString(strVal) || strVal;
         providedFields.category = cleanCat;
         providedCustomFields['lifetime_primary_category'] = cleanCat;
-        providedCustomFields['Primary Category'] = cleanCat;
       } else if (targetField === 'email') {
         providedFields.email = strVal;
       } else if (targetField === 'age') {
