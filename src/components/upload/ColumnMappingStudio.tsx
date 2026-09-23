@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { toast } from 'sonner';
 import {
   SlidersHorizontal,
   Phone,
@@ -28,6 +29,7 @@ import {
   BarChart3,
   Tag,
   RefreshCw,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 export interface ColumnMappingItem {
@@ -71,6 +73,11 @@ export const TARGET_SYSTEM_FIELDS = [
   // 6. Generic Fields & Skip
   { value: 'email', label: 'Email', icon: Mail, color: 'text-purple-600 dark:text-purple-400' },
   { value: 'age', label: 'Age', icon: Calendar, color: 'text-orange-600 dark:text-orange-400' },
+  { value: 'location', label: 'General Location (location)', icon: MapPin, color: 'text-teal-600 dark:text-teal-400' },
+  { value: 'avatarUrl', label: 'Avatar Photo URL (avatarUrl)', icon: ImageIcon, color: 'text-sky-600 dark:text-sky-400' },
+  { value: 'tags', label: 'Tags / Labels (tags)', icon: Tag, color: 'text-fuchsia-600 dark:text-fuchsia-400' },
+  { value: 'category', label: 'General Category (category)', icon: Layers, color: 'text-cyan-600 dark:text-cyan-400' },
+  { value: 'status', label: 'Account Status (status)', icon: CheckCircle2, color: 'text-lime-600 dark:text-lime-400' },
   { value: 'skip', label: 'Skip', icon: AlertTriangle, color: 'text-rose-500 dark:text-rose-400' },
 ];
 
@@ -264,7 +271,15 @@ export function ColumnMappingStudio({
     if (current === 'skip') {
       const samples = sampleRows.map((r) => r[columnName]).filter((v) => v !== null && v !== undefined && String(v).trim() !== '');
       const suggested = getAutoSuggestedField(columnName, samples);
-      handleFieldSelect(columnName, suggested === 'skip' ? 'name' : suggested);
+      if (suggested === 'skip') {
+        // We can't confidently classify this column — leave it skipped
+        // rather than guessing. Forcing an unrecognized column onto e.g.
+        // "name" would silently overwrite real customer names with
+        // unrelated data once imported.
+        toast.info(`Couldn't auto-detect a field for "${columnName}" — pick one manually from its dropdown to include it.`);
+        return;
+      }
+      handleFieldSelect(columnName, suggested);
     } else {
       handleFieldSelect(columnName, 'skip');
     }
@@ -283,14 +298,26 @@ export function ColumnMappingStudio({
 
   const handleKeepAll = () => {
     const updated: Record<string, string> = { ...mapping };
+    let unclassifiedCount = 0;
     columnNames.forEach((col) => {
       if (updated[col] === 'skip') {
         const samples = sampleRows.map((r) => r[col]).filter((v) => v !== null && v !== undefined && String(v).trim() !== '');
         const suggested = getAutoSuggestedField(col, samples);
-        updated[col] = suggested === 'skip' ? 'name' : suggested;
+        // Never force an unrecognized column onto a real field like "name" —
+        // that would silently overwrite genuine customer data on import.
+        // Columns we can't classify stay skipped; the user can still map
+        // them manually from their dropdown.
+        if (suggested === 'skip') {
+          unclassifiedCount++;
+        } else {
+          updated[col] = suggested;
+        }
       }
     });
     onMappingChange(updated);
+    if (unclassifiedCount > 0) {
+      toast.info(`${unclassifiedCount} column${unclassifiedCount === 1 ? '' : 's'} couldn't be auto-detected and stayed skipped — map them manually if needed.`);
+    }
   };
 
   const handleResetToAuto = () => {

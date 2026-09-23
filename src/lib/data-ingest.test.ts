@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cleanArrayString, computeRecordUpdates, type ParsedRowData } from './data-ingest';
+import { cleanArrayString, computeRecordUpdates, parseRowData, type ParsedRowData } from './data-ingest';
 
 describe('cleanArrayString', () => {
   it('returns an empty string for null/undefined/empty-array-ish values', () => {
@@ -83,5 +83,43 @@ describe('computeRecordUpdates', () => {
 
     expect(computeRecordUpdates(older, matched).hasChanges).toBe(false);
     expect(computeRecordUpdates(newer, matched).updateFields.lastActive).toBeInstanceOf(Date);
+  });
+});
+
+describe('parseRowData — column mapping correctness', () => {
+  it('respects an explicit "skip" mapping and never pulls that column into phone (regression)', () => {
+    // "Order ID" is explicitly skipped but contains a 10-digit number that
+    // could be mistaken for a phone number. The row's actual mapped phone
+    // column is empty for this row.
+    const row = { Phone: '', 'Order ID': '9988776655', Name: 'Karim' };
+    const mapping = { Phone: 'phone', 'Order ID': 'skip', Name: 'name' };
+
+    const result = parseRowData(row, mapping);
+    expect(result.phone).toBe('');
+    expect(result.providedFields.orderId).toBeUndefined();
+  });
+
+  it('normalizes a mapped phone column to the local 0-prefixed form', () => {
+    const row = { Mobile: '+8801712345678' };
+    const mapping = { Mobile: 'phone' };
+
+    const result = parseRowData(row, mapping);
+    expect(result.phone).toBe('01712345678');
+  });
+
+  it('still auto-detects a phone-shaped column when there is no explicit mapping at all', () => {
+    const row = { Contact: '01712345678', Name: 'Karim' };
+
+    const result = parseRowData(row); // no columnMapping -> heuristic + fallback path
+    expect(result.phone).toBe('01712345678');
+  });
+
+  it('never leaks a skipped column\'s value into providedFields under any target name', () => {
+    const row = { Phone: '01712345678', Notes: 'internal note, ignore me' };
+    const mapping = { Phone: 'phone', Notes: 'skip' };
+
+    const result = parseRowData(row, mapping);
+    expect(Object.values(result.providedFields)).not.toContain('internal note, ignore me');
+    expect(Object.values(result.providedCustomFields)).not.toContain('internal note, ignore me');
   });
 });

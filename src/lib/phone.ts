@@ -38,3 +38,29 @@ export function buildPhonePrefixRegex(prefix: string): string {
   const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return `^(\\+)?(880|0)?${escaped}|^(\\+)?${escaped}`;
 }
+
+/**
+ * Canonicalizes a Bangladeshi mobile number to its local, 0-prefixed,
+ * 11-digit form (e.g. "+8801712345678", "8801712345678" and "1712345678"
+ * all become "01712345678"). This matters because phone is the primary
+ * key used to match an uploaded row against an existing database record —
+ * without a single canonical form, the same real customer uploaded with a
+ * slightly different phone format becomes a duplicate contact instead of
+ * an update to their existing record.
+ *
+ * Anything that isn't confidently a Bangladeshi mobile number (wrong
+ * length, non-mobile operator digit, international/landline number) is
+ * returned unchanged rather than guessed at.
+ */
+export function normalizePhone(raw: string): string {
+  if (!raw) return '';
+  const clean = String(raw).trim().replace(/[\s\-()]/g, '').replace(/^\+/, '');
+
+  if (/^8801[3-9]\d{8}$/.test(clean)) {
+    return '0' + clean.slice(3);
+  }
+  if (/^1[3-9]\d{8}$/.test(clean)) {
+    return '0' + clean;
+  }
+  return clean;
+}

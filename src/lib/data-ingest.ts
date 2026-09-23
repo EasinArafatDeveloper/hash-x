@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { normalizePhone } from './phone';
 
 /**
  * Smart Upsert & Data Ingestion Engine for Morpheus DataFlow
@@ -103,7 +104,7 @@ export function parseRowData(
       const strVal = String(val).trim();
 
       if (targetField === 'phone') {
-        providedFields.phone = strVal;
+        providedFields.phone = normalizePhone(strVal);
       } else if (targetField === 'name') {
         providedFields.name = strVal;
         providedCustomFields['customer_name'] = strVal;
@@ -282,7 +283,7 @@ export function parseRowData(
         lowerKey === 'tel' ||
         lowerKey === 'msisdn'
       ) {
-        providedFields.phone = strVal;
+        providedFields.phone = normalizePhone(strVal);
       } else if (
         lowerKey === 'name' ||
         lowerKey === 'customername' ||
@@ -479,13 +480,21 @@ export function parseRowData(
     });
   }
 
-  // Fallback single column phone detector if phone is not yet determined
-  if (!providedFields.phone) {
+  // Fallback single column phone detector — only when the user has NOT
+  // provided an explicit column mapping. When a custom mapping exists,
+  // the user's choices (including which columns are "skip") are
+  // authoritative: scanning every value in the row — including columns
+  // explicitly marked skip — for anything that merely looks like a phone
+  // number risks pulling in an order ID, amount, or other unrelated digit
+  // string as the primary match key, silently corrupting or misfiling the
+  // record. If a mapped phone column is empty for a given row, that row
+  // genuinely has no phone number.
+  if (!hasCustomMapping && !providedFields.phone) {
     const values = Object.values(row).filter((v) => v !== null && v !== undefined && String(v).trim() !== '');
     for (const v of values) {
       const cleanStr = String(v).replace(/[\s\+\-\(\)]/g, '');
       if (cleanStr.length >= 7 && /^\d+$/.test(cleanStr)) {
-        providedFields.phone = String(v).trim();
+        providedFields.phone = normalizePhone(String(v).trim());
         break;
       }
     }
