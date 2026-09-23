@@ -21,7 +21,20 @@ interface StorageStats {
     sizeMB: number;
     percentOfRecords: number;
   }>;
+  collections: Array<{ name: string; documentCount: number; storageSizeMB: number }>;
 }
+
+const COLLECTION_LABELS: Record<string, string> = {
+  records: 'Customer records (your uploaded data)',
+  datasets: 'Dataset metadata',
+  activitylogs: 'Activity log',
+  downloadhistories: 'Download history',
+  ratelimitbuckets: 'Rate-limit tracking (auto-expires)',
+  pendingactions: 'AI copilot pending confirmations (auto-expires)',
+  users: 'User accounts',
+  sharelinks: 'Share links',
+  savedfilters: 'Saved filters',
+};
 
 interface StorageUsageCardProps {
   /** Auto-refresh on an interval — use while an upload is actively running so the numbers move live. */
@@ -138,9 +151,34 @@ export function StorageUsageCard({ live = false, pollIntervalMs = 4000, classNam
               On disk (compressed): {stats.database.storageSizeMB.toLocaleString()} MB data + {stats.database.indexSizeMB.toLocaleString()} MB indexes · database &quot;{stats.database.name}&quot;
             </p>
             <p className="text-[11px] text-gray-400">
-              Logical size (uncompressed): {stats.database.dataSizeMB.toLocaleString()} MB — this is what the breakdown below measures.
+              Logical size (uncompressed): {stats.database.dataSizeMB.toLocaleString()} MB — this is what the dataset breakdown below measures.
             </p>
           </div>
+
+          {stats.collections.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Storage by Collection (on disk)
+              </p>
+              <p className="text-[10px] text-gray-400 -mt-1">
+                The on-disk total above covers this whole database, not just your uploaded records — this is where
+                every megabyte of it actually is.
+              </p>
+              <div className="rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden divide-y divide-gray-100 dark:divide-slate-800 max-h-56 overflow-y-auto">
+                {stats.collections.map((c) => (
+                  <div key={c.name} className="flex items-center justify-between px-4 py-2.5 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                        {COLLECTION_LABELS[c.name] || c.name}
+                      </p>
+                      <p className="text-[11px] text-gray-400">{c.documentCount.toLocaleString()} documents</p>
+                    </div>
+                    <p className="font-bold text-gray-900 dark:text-white shrink-0 ml-3">{c.storageSizeMB.toLocaleString()} MB</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {stats.datasets.length > 0 && (
             <div className="space-y-1.5">

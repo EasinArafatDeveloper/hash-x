@@ -25,7 +25,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Database connection not ready' }, { status: 503 });
     }
 
-    const [dbStats, datasetSizes, datasets, deletedAgg] = await Promise.all([
+    const [dbStats, datasetSizes, datasets, deletedAgg, collections] = await Promise.all([
       db.stats(),
       RecordModel.aggregate([
         {
@@ -42,7 +42,35 @@ export async function GET() {
         { $match: { deletedAt: { $ne: null } } },
         { $group: { _id: null, count: { $sum: 1 }, bytes: { $sum: { $bsonSize: '$$ROOT' } } } },
       ]),
+      db.listCollections().toArray(),
     ]);
+
+    // db.stats() covers the WHOLE database — every collection, not just
+    // your uploaded records (activity logs, rate-limit buckets, sessions,
+    // etc. all live in the same database and count toward the same Atlas
+    // plan cap). Break it down per collection so "I deleted my data but
+    // the total didn't drop" has a real answer instead of a mystery.
+    const collectionStats = await Promise.all(
+      collections
+        .filter((c: any) => c.type === 'collection')
+        .map(async (c: any) => {
+          try {
+            const [stats] = await db
+              .collection(c.name)
+              .aggregate([{ $collStats: { storageStats: {} } }])
+              .toArray();
+            const storageStats = stats?.storageStats || {};
+            return {
+              name: c.name,
+              documentCount: storageStats.count || 0,
+              storageSizeMB: Math.round(((storageStats.storageSize || 0) / BYTES_PER_MB) * 100) / 100,
+            };
+          } catch {
+            return { name: c.name, documentCount: 0, storageSizeMB: 0 };
+          }
+        })
+    );
+    collectionStats.sort((a, b) => b.storageSizeMB - a.storageSizeMB);
 
     const filenameByDatasetId = new Map<string, string>();
     for (const d of datasets as any[]) filenameByDatasetId.set(String(d._id), d.filename);
@@ -85,6 +113,7 @@ export async function GET() {
         sizeMB: Math.round((trashed.bytes / BYTES_PER_MB) * 100) / 100,
       },
       datasets: datasetBreakdown,
+      collections: collectionStats,
     });
   } catch (error: any) {
     console.error('Error fetching storage stats:', error);
